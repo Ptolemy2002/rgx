@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+      "baseUrl": ".",
+      "module": "commonjs",
+      "target": "es2019",
+      "declaration": true,
+      "outDir": "./dist",
+      "skipLibCheck": true,
+      "maxNodeModuleJsDepth": 0
+    },
+
+    "include": [
+      "**/*.ts"
+    ]
+  }

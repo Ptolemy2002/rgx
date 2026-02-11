@@ -1,0 +1,110 @@
+steps:
+  - read: remote_owner
+    from: git.remote_owner
+    fallback:
+      from: env.TMPLR_GIT_USER
+      
+  - read: project_name
+    prompt: "Project name"
+    choices:
+      - From file:
+          from: filesystem.rootdir
+      - Custom:
+          prompt: "Enter project name:"
+          default:
+            from: filesystem.rootdir
+  
+  - read: package_id
+    prompt: "Package ID"
+    choices:
+      - From file:
+          eval: "{{ filesystem.rootdir | kebab-case }}"
+      - From project name:
+          eval: "{{ project_name | kebab-case }}"
+      - Custom:
+          prompt: "Enter package ID:"
+          default:
+            eval: "{{ project_name | kebab-case }}"
+
+  - read: workspace_name
+    prompt: "Workspace name"
+    choices:
+      - From git username:
+          from: remote_owner
+      - Custom:
+          prompt: "Enter workspace name:"
+          default:
+            from: remote_owner
+      - None: ""
+  
+  - if: workspace_name
+    read: package_identifier
+    eval: "@{{ workspace_name | kebab-case }}/{{ package_id }}"
+    else:
+      read: package_identifier
+      eval: "{{ package_id }}"
+
+  - read: repository_url
+    prompt: "Git URL"
+    choices:
+      - From git:
+          eval: "https://github.com/{{ remote_owner }}/{{ package_id }}"
+      - Custom:
+          steps:
+            - read: custom_remote_owner
+              prompt: "Git Owner"
+              default:
+                from: remote_owner
+            - read: custom_package_id
+              prompt: "Git Repository Name"
+              default:
+                from: package_id
+          eval: "https://github.com/{{ custom_remote_owner }}/{{ custom_package_id }}"
+
+  - prompt: "Has Shared Resources?"
+    choices:
+      - Yes:
+          steps:
+            - degit: Ptolemy2002/npm-bash-scripts/for-shared
+              to:
+                path: "{{ tmpdir.scripts }}/for-shared"
+            - copy:
+                path: "{{ tmpdir.scripts }}/for-shared/**/*.*"
+              to: "scripts"
+      - No:
+          eval: "false"
+
+  - degit: Ptolemy2002/npm-bash-scripts/general
+    to:
+      path: "{{ tmpdir.scripts }}/general"
+  - degit: Ptolemy2002/npm-bash-scripts/for-lib
+    to:
+      path: "{{ tmpdir.scripts }}/for-lib"
+  - degit: Ptolemy2002/npm-bash-scripts/for-example
+    to:
+      path: "{{ tmpdir.scripts }}/for-example"
+
+  - copy:
+      path: "{{ tmpdir.scripts }}/general/**/*.*"
+    to: "lib/scripts"
+  - copy:
+      path: "{{ tmpdir.scripts }}/general/**/*.*"
+    to: "example/scripts"
+  - copy:
+      path: "{{ tmpdir.scripts }}/for-lib/**/*.*"
+    to: "lib/scripts"
+  - copy:
+      path: "{{ tmpdir.scripts }}/for-example/**/*.*"
+    to: "lib/scripts"
+
+  - update: "lib/README.md"
+  - update: "lib/package.json"
+  - update: "example/package.json"
+  - update: "example/**/*.ts"
+  - update: "lib/**/*.ts"
+  
+  - remove: "lib/package-lock.json"
+  - remove: "example/package-lock.json"
+  - remove: "lib/dist"
+  - remove: "lib/node_modules"
+  - remove: "example/node_modules"
