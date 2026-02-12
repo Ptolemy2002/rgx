@@ -116,6 +116,10 @@ describe('Type Guards', () => {
         rgxConvertibleTokenTestMethodTest('an array of strings and numbers', ['foo', 14], true);
         rgxConvertibleTokenTestMethodTest('an array of strings, numbers, and booleans', ['foo', 14, true], true);
 
+        rgxConvertibleTokenTestMethodTest('a RegExp', /foo/, true);
+        rgxConvertibleTokenTestMethodTest('an array of RegExps', [/foo/, /bar/], true);
+        rgxConvertibleTokenTestMethodTest('an array of strings and RegExps', ['foo', /bar/], true);
+
         it('rejects null', () => {
             expect(isRGXConvertibleToken(null)).toBe(false);
         });

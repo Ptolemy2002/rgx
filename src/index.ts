@@ -1,10 +1,11 @@
 import isCallable from "is-callable";
 import { Branded } from "@ptolemy2002/ts-brand-utils";
+import { MaybeArray } from "@ptolemy2002/ts-utils";
 
 export type RGXNoOpToken = null | undefined;
 export type RGXLiteralToken = RegExp;
 export type RGXNativeToken = string | number | boolean | RGXNoOpToken;
-export type RGXConvertibleToken = { toRgx: () => RGXNativeToken | RGXNativeToken[] };
+export type RGXConvertibleToken = { toRgx: () => MaybeArray<RGXNativeToken | RGXLiteralToken> };
 export type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 
 export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | RGXTokenType[];
@@ -39,10 +40,10 @@ export function isRGXConvertibleToken(value: unknown): value is RGXConvertibleTo
             const returnValue = value.toRgx();
 
             if (Array.isArray(returnValue)) {
-                return returnValue.every(isRGXNativeToken);
+                return returnValue.every(value => isRGXNativeToken(value) || isRGXLiteralToken(value));
             }
 
-            return isRGXNativeToken(returnValue);
+            return isRGXNativeToken(returnValue) || isRGXLiteralToken(returnValue);
         }
 
         return false;

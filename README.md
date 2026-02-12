@@ -4,11 +4,12 @@ A library for easy construction and validation of regular expressions in TypeScr
 ## Type Reference
 ```typescript
 import { Branded } from "@ptolemy2002/ts-brand-utils";
+import { MaybeArray } from "@ptolemy2002/ts-utils";
 
 type RGXNoOpToken = null | undefined;
 type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
-type RGXConvertibleToken = { toRgx: () => RGXNativeToken | RGXNativeToken[] };
+type RGXConvertibleToken = { toRgx: () => MaybeArray<RGXNativeToken | RGXLiteralToken> };
 type RGXToken = RGXNativeToken | RGXConvertibleToken | RGXToken[];
 
 const validRegexSymbol = Symbol('ValidRegex');
