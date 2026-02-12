@@ -2,13 +2,15 @@ import isCallable from "is-callable";
 import { Branded } from "@ptolemy2002/ts-brand-utils";
 
 export type RGXNoOpToken = null | undefined;
+export type RGXLiteralToken = RegExp;
 export type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 export type RGXConvertibleToken = { toRgx: () => RGXNativeToken | RGXNativeToken[] };
-export type RGXToken = RGXNativeToken | RGXConvertibleToken | RGXToken[];
+export type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 
-export type RGXTokenType = 'no-op' | 'native' | 'convertible' | RGXTokenType[];
+export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | RGXTokenType[];
 export type RGXTokenFromType<T extends RGXTokenType> =
     T extends 'no-op' ? RGXNoOpToken :
+    T extends 'literal' ? RGXLiteralToken :
     T extends 'native' ? RGXNativeToken :
     T extends 'convertible' ? RGXConvertibleToken :
     T extends RGXTokenType[] ? { [K in keyof T]: T[K] extends RGXTokenType ? RGXTokenFromType<T[K]> : never } :
@@ -23,8 +25,12 @@ export function isRGXNoOpToken(value: unknown): value is RGXNoOpToken {
     return value === null || value === undefined;
 }
 
+export function isRGXLiteralToken(value: unknown): value is RGXLiteralToken {
+    return value instanceof RegExp;
+}
+
 export function isRGXNativeToken(value: unknown): value is RGXNativeToken {
-    return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || isRGXNoOpToken(value);
+    return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'|| isRGXNoOpToken(value);
 }
 
 export function isRGXConvertibleToken(value: unknown): value is RGXConvertibleToken {
@@ -47,6 +53,7 @@ export function isRGXConvertibleToken(value: unknown): value is RGXConvertibleTo
 
 export function rgxTokenType(value: RGXToken): RGXTokenType {
     if (isRGXNoOpToken(value)) return 'no-op';
+    if (isRGXLiteralToken(value)) return 'literal';
     if (isRGXNativeToken(value)) return 'native';
     if (isRGXConvertibleToken(value)) return 'convertible';
     if (Array.isArray(value)) return value.map(rgxTokenType);
@@ -77,6 +84,7 @@ export function escapeRegex(value: string) {
 
 export function resolveRGXToken(token: RGXToken): string {
     if (isRGXNoOpToken(token)) return '';
+    if (isRGXLiteralToken(token)) return '(?:' + token.source + ')';
     if (isRGXNativeToken(token)) return escapeRegex(String(token));
 
     if (isRGXConvertibleToken(token)) {
@@ -97,6 +105,11 @@ export function resolveRGXToken(token: RGXToken): string {
     // Ignoring this line since it should be impossible to reach if the types are correct, but we need it to satisfy the return type
     /* istanbul ignore next */
     throw new TypeError(`Invalid RGX token: ${token}`);
+}
+
+// Wrapper for letting an array of tokens be resolved as a concatenation instead of a union.
+export function rgxConcat(tokens: RGXToken[]): string {
+    return tokens.map(resolveRGXToken).join('');
 }
 
 export default function rgx(strings: TemplateStringsArray, ...tokens: RGXToken[]): RegExp {

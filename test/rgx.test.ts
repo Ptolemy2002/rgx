@@ -1,4 +1,4 @@
-import rgx from 'src/index';
+import rgx, { rgxConcat } from 'src/index';
 
 function expectRegexpEqual(received: RegExp, expected: RegExp | string) {
     const expectedPattern = typeof expected === 'string' ? expected : expected.source;
@@ -26,8 +26,8 @@ describe('rgx', () => {
     it('constructs a RegExp from input with mixed tokens', () => {
         const token1 = { toRgx: () => 'bar' };
         const token2 = { toRgx: () => null };
-        const regex = rgx`foo${null}${token1}quux${undefined}${token2}corge`;
-        expectRegexpEqual(regex, 'foobarquuxcorge');
+        const regex = rgx`foo${null}${token1}quux${undefined}${token2}${/\d/}corge`;
+        expectRegexpEqual(regex, 'foobarquux(?:\\d)corge');
     });
 
     it('constructs a RegExp from input with array tokens interpreted as unions', () => {
@@ -71,5 +71,33 @@ describe('rgx', () => {
     it('handles arrays with a single element without adding unnecessary non-capturing groups', () => {
         const regex = rgx`foo${['bar']}baz`;
         expectRegexpEqual(regex, 'foobarbaz');
+    });
+
+    it('handles deeply nested empty arrays as no-op tokens', () => {
+        const regex = rgx`foo${[[[[[]]]]]}bar`;
+        expectRegexpEqual(regex, 'foobar');
+    });
+
+    it('handles deeply nested arrays with a single element correctly', () => {
+        const regex = rgx`foo${[[[['bar']]]]}baz`;
+        expectRegexpEqual(regex, 'foobarbaz');
+    });
+
+    it('handles deeply nested arrays with multiple elements correctly', () => {
+        const regex = rgx`foo${[[['bar', 'baz']]]}qux`;
+        expectRegexpEqual(regex, 'foo(?:bar|baz)qux');
+    });
+
+    it('handles RegExp objects as literal tokens', () => {
+        const regex = rgx`foo${/\d/}baz`;
+        expectRegexpEqual(regex, 'foo(?:\\d)baz');
+    });
+
+    it('handles arrays wrapped with rgxConcat and unwrapped arrays differently', () => {
+        const regexUnion = rgx`foo${['bar', 'baz']}qux`;
+        const regexConcat = rgx`foo${rgxConcat(['bar', 'baz'])}qux`;
+
+        expectRegexpEqual(regexUnion, 'foo(?:bar|baz)qux');
+        expectRegexpEqual(regexConcat, 'foobarbazqux');
     });
 });

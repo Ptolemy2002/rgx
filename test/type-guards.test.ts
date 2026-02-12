@@ -1,4 +1,4 @@
-import { isRGXConvertibleToken, isRGXNativeToken, isRGXNoOpToken, RGXToken, rgxTokenType } from 'src/index';
+import { isRGXConvertibleToken, isRGXLiteralToken, isRGXNativeToken, isRGXNoOpToken, RGXToken, rgxTokenType } from 'src/index';
 
 function rgxConvertibleTokenTestMethodTest(returnValueDesc: string, returnValue: unknown, expected: boolean) {
     it(`${expected ? 'identifies' : 'rejects'} objects with a toRgx function that returns ${returnValueDesc}`, () => {
@@ -39,6 +39,26 @@ describe('Type Guards', () => {
         it(`rejects objects`, () => {
             expect(isRGXNoOpToken({})).toBe(false);
             expect(isRGXNoOpToken({ toRgx: () => 'foo' })).toBe(false);
+        });
+    });
+
+    describe('isRGXLiteralToken', () => {
+        it(`accepts RegExp objects`, () => {
+            expect(isRGXLiteralToken(/foo/)).toBe(true);
+            expect(isRGXLiteralToken(new RegExp('bar'))).toBe(true);
+        });
+
+        it(`rejects non-RegExp objects`, () => {
+            expect(isRGXLiteralToken({})).toBe(false);
+            expect(isRGXLiteralToken({ toRgx: () => 'foo' })).toBe(false);
+        });
+
+        it(`rejects primitives`, () => {
+            expect(isRGXLiteralToken(null)).toBe(false);
+            expect(isRGXLiteralToken(undefined)).toBe(false);
+            expect(isRGXLiteralToken(false)).toBe(false);
+            expect(isRGXLiteralToken(0)).toBe(false);
+            expect(isRGXLiteralToken('foo')).toBe(false);
         });
     });
 
@@ -114,6 +134,11 @@ describe('Type Guards', () => {
         it('identifies no-op tokens', () => {
             expect(rgxTokenType(null)).toBe('no-op');
             expect(rgxTokenType(undefined)).toBe('no-op');
+        });
+
+        it('identifies literal tokens', () => {
+            expect(rgxTokenType(/foo/)).toBe('literal');
+            expect(rgxTokenType(new RegExp('bar'))).toBe('literal');
         });
 
         it('identifies native tokens', () => {

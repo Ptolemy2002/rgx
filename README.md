@@ -6,6 +6,7 @@ A library for easy construction and validation of regular expressions in TypeScr
 import { Branded } from "@ptolemy2002/ts-brand-utils";
 
 type RGXNoOpToken = null | undefined;
+type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 type RGXConvertibleToken = { toRgx: () => RGXNativeToken | RGXNativeToken[] };
 type RGXToken = RGXNativeToken | RGXConvertibleToken | RGXToken[];
@@ -35,6 +36,19 @@ Checks if the given value is a no-op token (`null` or `undefined`).
 
 #### Returns
 - `boolean`: `true` if the value is a no-op token, otherwise `false`.
+
+### isRGXLiteralToken
+```typescript
+function isRGXLiteralToken(value: unknown): value is RGXLiteralToken
+```
+
+Checks if the given value is a literal token (a `RegExp` object).
+
+#### Parameters
+  - `value` (`unknown`): The value to check.
+
+#### Returns
+- `boolean`: `true` if the value is a literal token, otherwise `false`.
 
 ### isRGXNativeToken
 ```typescript
@@ -132,13 +146,26 @@ Escapes special regex characters in the given string and brands the result as a 
 function resolveRGXToken(token: RGXToken): string
 ```
 
-Resolves an RGX token to a string. No-op tokens resolve to an empty string, native tokens are converted to strings and escaped, convertible tokens are converted using their `toRgx` method and then resolved recursively, and arrays of tokens are resolved as unions of their resolved elements (placed in a non-capturing group).
+Resolves an RGX token to a string. No-op tokens resolve to an empty string, literal tokens are included as-is (wrapped in a non-capturing group), native tokens are converted to strings and escaped, convertible tokens are converted using their `toRgx` method and then resolved recursively, and arrays of tokens are resolved as unions of their resolved elements (placed in a non-capturing group).
 
 #### Parameters
   - `token` (`RGXToken`): The RGX token to resolve.
 
 #### Returns
 - `string`: The resolved string representation of the RGX token.
+
+### rgxConcat
+```typescript
+function rgxConcat(tokens: RGXToken[]): string
+```
+
+A helper function that resolves an array of RGX tokens and concatenates their resolved string representations together. This is useful for cases where you want to concatenate multiple tokens without creating a union between them.
+
+#### Parameters
+  - `tokens` (`RGXToken[]`): The array of RGX tokens to resolve and concatenate.
+
+#### Returns
+- `string`: The concatenated string representation of the resolved RGX tokens.
 
 ### rgx
 ```typescript
