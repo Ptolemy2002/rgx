@@ -143,7 +143,7 @@ Escapes special regex characters in the given string and brands the result as a 
 
 ### resolveRGXToken
 ```typescript
-function resolveRGXToken(token: RGXToken): string
+function resolveRGXToken(token: RGXToken): ValidRegexString
 ```
 
 Resolves an RGX token to a string. No-op tokens resolve to an empty string, literal tokens are included as-is (wrapped in a non-capturing group), native tokens are converted to strings and escaped, convertible tokens are converted using their `toRgx` method and then resolved recursively, and arrays of tokens are resolved as unions of their resolved elements (placed in a non-capturing group).
@@ -152,11 +152,11 @@ Resolves an RGX token to a string. No-op tokens resolve to an empty string, lite
   - `token` (`RGXToken`): The RGX token to resolve.
 
 #### Returns
-- `string`: The resolved string representation of the RGX token.
+- `ValidRegexString`: The resolved string representation of the RGX token. This is guaranteed to be a valid regex string, as convertible tokens are validated to only produce valid regex strings or arrays of valid regex strings.
 
 ### rgxConcat
 ```typescript
-function rgxConcat(tokens: RGXToken[]): string
+function rgxConcat(tokens: RGXToken[]): ValidRegexString
 ```
 
 A helper function that resolves an array of RGX tokens and concatenates their resolved string representations together. This is useful for cases where you want to concatenate multiple tokens without creating a union between them.
@@ -165,7 +165,7 @@ A helper function that resolves an array of RGX tokens and concatenates their re
   - `tokens` (`RGXToken[]`): The array of RGX tokens to resolve and concatenate.
 
 #### Returns
-- `string`: The concatenated string representation of the resolved RGX tokens.
+- `ValidRegexString`: The concatenated string representation of the resolved RGX tokens. This is guaranteed to be a valid regex string, as it is composed of the resolved forms of RGX tokens, which are all valid regex strings.
 
 ### rgx
 ```typescript

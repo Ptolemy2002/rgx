@@ -82,9 +82,9 @@ export function escapeRegex(value: string) {
     return value.replaceAll(/[\-\^\$.*+?^${}()|[\]\\]/g, '\\$&') as ValidRegexString;
 }
 
-export function resolveRGXToken(token: RGXToken): string {
-    if (isRGXNoOpToken(token)) return '';
-    if (isRGXLiteralToken(token)) return '(?:' + token.source + ')';
+export function resolveRGXToken(token: RGXToken): ValidRegexString {
+    if (isRGXNoOpToken(token)) return '' as ValidRegexString;
+    if (isRGXLiteralToken(token)) return '(?:' + token.source + ')' as ValidRegexString;
     if (isRGXNativeToken(token)) return escapeRegex(String(token));
 
     if (isRGXConvertibleToken(token)) {
@@ -93,10 +93,10 @@ export function resolveRGXToken(token: RGXToken): string {
 
     // Interpret arrays as unions
     if (Array.isArray(token)) {
-        if (token.length === 0) return '';
+        if (token.length === 0) return '' as ValidRegexString;
         
         if (token.length > 1) {
-            return '(?:' + token.map(resolveRGXToken).join('|') + ')';
+            return '(?:' + token.map(resolveRGXToken).join('|') + ')' as ValidRegexString;
         }
 
         return resolveRGXToken(token[0]);
@@ -108,8 +108,8 @@ export function resolveRGXToken(token: RGXToken): string {
 }
 
 // Wrapper for letting an array of tokens be resolved as a concatenation instead of a union.
-export function rgxConcat(tokens: RGXToken[]): string {
-    return tokens.map(resolveRGXToken).join('');
+export function rgxConcat(tokens: RGXToken[]): ValidRegexString {
+    return tokens.map(resolveRGXToken).join('') as ValidRegexString;
 }
 
 export default function rgx(strings: TemplateStringsArray, ...tokens: RGXToken[]): RegExp {
@@ -122,5 +122,6 @@ export default function rgx(strings: TemplateStringsArray, ...tokens: RGXToken[]
             pattern += resolvedTokens[i];
         }
     }
+    
     return new RegExp(pattern);
 }
