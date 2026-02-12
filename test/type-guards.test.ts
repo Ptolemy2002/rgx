@@ -1,4 +1,4 @@
-import { isRGXConvertibleToken, isRGXNativeToken, isRGXNoOpToken } from 'src/index';
+import { isRGXConvertibleToken, isRGXNativeToken, isRGXNoOpToken, RGXToken, rgxTokenType } from 'src/index';
 
 function rgxConvertibleTokenTestMethodTest(returnValueDesc: string, returnValue: unknown, expected: boolean) {
     it(`${expected ? 'identifies' : 'rejects'} objects with a toRgx function that returns ${returnValueDesc}`, () => {
@@ -107,6 +107,29 @@ describe('Type Guards', () => {
         it('rejects objects with a non-callable toRgx property', () => {
             const token = { toRgx: 'not a function' };
             expect(isRGXConvertibleToken(token)).toBe(false);
+        });
+    });
+
+    describe('rgxTokenType', () => {
+        it('identifies no-op tokens', () => {
+            expect(rgxTokenType(null)).toBe('no-op');
+            expect(rgxTokenType(undefined)).toBe('no-op');
+        });
+
+        it('identifies native tokens', () => {
+            expect(rgxTokenType('foo')).toBe('native');
+            expect(rgxTokenType(14)).toBe('native');
+            expect(rgxTokenType(true)).toBe('native');
+        });
+
+        it('identifies convertible tokens', () => {
+            const token: RGXToken = { toRgx: () => 'foo' };
+            expect(rgxTokenType(token)).toBe('convertible');
+        });
+
+        it('identifies arrays of tokens', () => {
+            const token: RGXToken = ['foo', { toRgx: () => 14 }, null];
+            expect(rgxTokenType(token)).toEqual(['native', 'convertible', 'no-op']);
         });
     });
 });

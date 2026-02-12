@@ -32,12 +32,12 @@ describe('rgx', () => {
 
     it('constructs a RegExp from input with array tokens interpreted as unions', () => {
         const regex = rgx`foo${['bar', 'baz']}qux`;
-        expectRegexpEqual(regex, 'foo(bar|baz)qux');
+        expectRegexpEqual(regex, 'foo(?:bar|baz)qux');
     });
 
     it('constructs a RegExp from input with nested array tokens interpreted as unions', () => {
         const regex = rgx`foo${[['bar', 'baz'], 'qux']}corge`;
-        expectRegexpEqual(regex, 'foo((bar|baz)|qux)corge');
+        expectRegexpEqual(regex, 'foo(?:(?:bar|baz)|qux)corge');
     });
 
     it('constructs a RegExp from input with no tokens', () => {
@@ -61,5 +61,15 @@ describe('rgx', () => {
     it('constructs an empty RegExp from input with only no-op tokens', () => {
         const regex = rgx`${null}${undefined}`;
         expectRegexpEqual(regex, '(?:)'); // An empty non-capturing group
+    });
+
+    it('considers empty arrays as no-op tokens', () => {
+        const regex = rgx`foo${[]}bar`;
+        expectRegexpEqual(regex, 'foobar');
+    });
+
+    it('handles arrays with a single element without adding unnecessary non-capturing groups', () => {
+        const regex = rgx`foo${['bar']}baz`;
+        expectRegexpEqual(regex, 'foobarbaz');
     });
 });

@@ -1,9 +1,23 @@
 import isCallable from "is-callable";
+import { Branded } from "@ptolemy2002/ts-brand-utils";
 
 export type RGXNoOpToken = null | undefined;
 export type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 export type RGXConvertibleToken = { toRgx: () => RGXNativeToken | RGXNativeToken[] };
 export type RGXToken = RGXNativeToken | RGXConvertibleToken | RGXToken[];
+
+export type RGXTokenType = 'no-op' | 'native' | 'convertible' | RGXTokenType[];
+export type RGXTokenFromType<T extends RGXTokenType> =
+    T extends 'no-op' ? RGXNoOpToken :
+    T extends 'native' ? RGXNativeToken :
+    T extends 'convertible' ? RGXConvertibleToken :
+    T extends RGXTokenType[] ? { [K in keyof T]: T[K] extends RGXTokenType ? RGXTokenFromType<T[K]> : never } :
+    never
+;
+
+export const validRegexSymbol = Symbol('ValidRegex');
+export type ValidRegexBrandSymbol = typeof validRegexSymbol;
+export type ValidRegexString = Branded<string, [ValidRegexBrandSymbol]>;
 
 export function isRGXNoOpToken(value: unknown): value is RGXNoOpToken {
     return value === null || value === undefined;
@@ -31,11 +45,37 @@ export function isRGXConvertibleToken(value: unknown): value is RGXConvertibleTo
     return false;
 }
 
-export function escapeRegex(value: string): string {
-    return value.replaceAll(/[\-\^\$.*+?^${}()|[\]\\]/g, '\\$&');
+export function rgxTokenType(value: RGXToken): RGXTokenType {
+    if (isRGXNoOpToken(value)) return 'no-op';
+    if (isRGXNativeToken(value)) return 'native';
+    if (isRGXConvertibleToken(value)) return 'convertible';
+    if (Array.isArray(value)) return value.map(rgxTokenType);
+
+    // Ignoring this line since it should be impossible to reach if the types are correct, but we need it to satisfy the return type
+    /* istanbul ignore next */
+    throw new TypeError(`Invalid RGX token: ${value}`);
 }
 
-function resolveRGXToken(token: RGXToken): string {
+export function rgxTokenFromType<T extends RGXTokenType>(type: T, value: RGXToken): RGXTokenFromType<T> {
+    // Ignoring this line because the function is entirely a TypeScript utility that doesn't need to be tested at runtime.
+    /* istanbul ignore next */
+    return value as RGXTokenFromType<typeof type>;
+}
+
+export function isValidRegex(value: string): value is ValidRegexString {
+    try {
+        new RegExp(value);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+export function escapeRegex(value: string) {
+    return value.replaceAll(/[\-\^\$.*+?^${}()|[\]\\]/g, '\\$&') as ValidRegexString;
+}
+
+export function resolveRGXToken(token: RGXToken): string {
     if (isRGXNoOpToken(token)) return '';
     if (isRGXNativeToken(token)) return escapeRegex(String(token));
 
@@ -45,9 +85,17 @@ function resolveRGXToken(token: RGXToken): string {
 
     // Interpret arrays as unions
     if (Array.isArray(token)) {
-        return '(' + token.map(resolveRGXToken).join('|') + ')';
+        if (token.length === 0) return '';
+        
+        if (token.length > 1) {
+            return '(?:' + token.map(resolveRGXToken).join('|') + ')';
+        }
+
+        return resolveRGXToken(token[0]);
     }
 
+    // Ignoring this line since it should be impossible to reach if the types are correct, but we need it to satisfy the return type
+    /* istanbul ignore next */
     throw new TypeError(`Invalid RGX token: ${token}`);
 }
 
