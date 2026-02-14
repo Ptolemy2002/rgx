@@ -1,9 +1,18 @@
-import { isRGXConvertibleToken, isRGXLiteralToken, isRGXNativeToken, isRGXNoOpToken, RGXToken, rgxTokenType } from 'src/index';
+import { 
+    isRGXConvertibleToken, isRGXLiteralToken, isRGXNativeToken, isRGXNoOpToken, RGXToken, rgxTokenType,
+    assertRGXConvertibleToken, assertRGXLiteralToken, assertRGXNativeToken, assertRGXNoOpToken,
+    RGXInvalidTokenError
+} from 'src/index';
 
 function rgxConvertibleTokenTestMethodTest(returnValueDesc: string, returnValue: unknown, expected: boolean) {
     it(`${expected ? 'identifies' : 'rejects'} objects with a toRgx function that returns ${returnValueDesc}`, () => {
         const token = { toRgx: () => returnValue };
         expect(isRGXConvertibleToken(token)).toBe(expected);
+        if (expected) {
+            expect(() => assertRGXConvertibleToken(token)).not.toThrow();
+        } else {
+            expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
+        }
     });
 }
 
@@ -11,34 +20,49 @@ describe('Type Guards', () => {
     describe('isRGXNoOpToken', () => {
         it(`accepts null`, () => {
             expect(isRGXNoOpToken(null)).toBe(true);
+            expect(() => assertRGXNoOpToken(null)).not.toThrow();
         });
 
         it(`accepts undefined`, () => {
             expect(isRGXNoOpToken(undefined)).toBe(true);
+            expect(() => assertRGXNoOpToken(undefined)).not.toThrow();
         });
 
         it(`rejects false`, () => {
             expect(isRGXNoOpToken(false)).toBe(false);
+            expect(() => assertRGXNoOpToken(false)).toThrow(RGXInvalidTokenError);
         });
 
         it(`rejects numbers`, () => {
             expect(isRGXNoOpToken(0)).toBe(false);
             expect(isRGXNoOpToken(1)).toBe(false);
+
+            expect(() => assertRGXNoOpToken(0)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXNoOpToken(1)).toThrow(RGXInvalidTokenError);
         });
 
         it(`rejects strings`, () => {
             expect(isRGXNoOpToken('')).toBe(false);
             expect(isRGXNoOpToken('foo')).toBe(false);
+
+            expect(() => assertRGXNoOpToken('')).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXNoOpToken('foo')).toThrow(RGXInvalidTokenError);
         });
 
         it(`rejects arrays`, () => {
             expect(isRGXNoOpToken([])).toBe(false);
             expect(isRGXNoOpToken([null])).toBe(false);
+
+            expect(() => assertRGXNoOpToken([])).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXNoOpToken([null])).toThrow(RGXInvalidTokenError);
         });
 
         it(`rejects objects`, () => {
             expect(isRGXNoOpToken({})).toBe(false);
             expect(isRGXNoOpToken({ toRgx: () => 'foo' })).toBe(false);
+
+            expect(() => assertRGXNoOpToken({})).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXNoOpToken({ toRgx: () => 'foo' })).toThrow(RGXInvalidTokenError);
         });
     });
 
@@ -46,11 +70,17 @@ describe('Type Guards', () => {
         it(`accepts RegExp objects`, () => {
             expect(isRGXLiteralToken(/foo/)).toBe(true);
             expect(isRGXLiteralToken(new RegExp('bar'))).toBe(true);
+
+            expect(() => assertRGXLiteralToken(/foo/)).not.toThrow();
+            expect(() => assertRGXLiteralToken(new RegExp('bar'))).not.toThrow();
         });
 
         it(`rejects non-RegExp objects`, () => {
             expect(isRGXLiteralToken({})).toBe(false);
             expect(isRGXLiteralToken({ toRgx: () => 'foo' })).toBe(false);
+
+            expect(() => assertRGXLiteralToken({})).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXLiteralToken({ toRgx: () => 'foo' })).toThrow(RGXInvalidTokenError);
         });
 
         it(`rejects primitives`, () => {
@@ -59,43 +89,63 @@ describe('Type Guards', () => {
             expect(isRGXLiteralToken(false)).toBe(false);
             expect(isRGXLiteralToken(0)).toBe(false);
             expect(isRGXLiteralToken('foo')).toBe(false);
+
+            expect(() => assertRGXLiteralToken(null)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXLiteralToken(undefined)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXLiteralToken(false)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXLiteralToken(0)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXLiteralToken('foo')).toThrow(RGXInvalidTokenError);
         });
     });
 
     describe('isRGXNativeToken', () => {
         it(`accepts strings`, () => {
             expect(isRGXNativeToken('foo')).toBe(true);
+            expect(() => assertRGXNativeToken('foo')).not.toThrow();
         });
 
         it(`accepts null`, () => {
             expect(isRGXNativeToken(null)).toBe(true);
+            expect(() => assertRGXNativeToken(null)).not.toThrow();
         });
 
         it(`accepts undefined`, () => {
             expect(isRGXNativeToken(undefined)).toBe(true);
+            expect(() => assertRGXNativeToken(undefined)).not.toThrow();
         });
 
         it(`accepts false`, () => {
             expect(isRGXNativeToken(false)).toBe(true);
+            expect(() => assertRGXNativeToken(false)).not.toThrow();
         });
 
         it(`accepts true`, () => {
             expect(isRGXNativeToken(true)).toBe(true);
+            expect(() => assertRGXNativeToken(true)).not.toThrow();
         });
 
         it(`accepts numbers`, () => {
             expect(isRGXNativeToken(0)).toBe(true);
             expect(isRGXNativeToken(1)).toBe(true);
+
+            expect(() => assertRGXNativeToken(0)).not.toThrow();
+            expect(() => assertRGXNativeToken(1)).not.toThrow();
         });
 
         it(`rejects arrays`, () => {
             expect(isRGXNativeToken([])).toBe(false);
             expect(isRGXNativeToken([null])).toBe(false);
+
+            expect(() => assertRGXNativeToken([])).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXNativeToken([null])).toThrow(RGXInvalidTokenError);
         });
 
         it(`rejects objects`, () => {
             expect(isRGXNativeToken({})).toBe(false);
             expect(isRGXNativeToken({ toRgx: () => 'foo' })).toBe(false);
+
+            expect(() => assertRGXNativeToken({})).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXNativeToken({ toRgx: () => 'foo' })).toThrow(RGXInvalidTokenError);
         });
     });
 
@@ -122,15 +172,18 @@ describe('Type Guards', () => {
 
         it('rejects null', () => {
             expect(isRGXConvertibleToken(null)).toBe(false);
+            expect(() => assertRGXConvertibleToken(null)).toThrow(RGXInvalidTokenError);
         });
 
         it('rejects objects without a toRgx method', () => {
             expect(isRGXConvertibleToken({})).toBe(false);
+            expect(() => assertRGXConvertibleToken({})).toThrow(RGXInvalidTokenError);
         });
 
         it('rejects objects with a non-callable toRgx property', () => {
             const token = { toRgx: 'not a function' };
             expect(isRGXConvertibleToken(token)).toBe(false);
+            expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
         });
     });
 

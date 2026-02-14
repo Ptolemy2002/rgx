@@ -10,17 +10,67 @@ type RGXNoOpToken = null | undefined;
 type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 type RGXConvertibleToken = { toRgx: () => MaybeArray<RGXNativeToken | RGXLiteralToken> };
-type RGXToken = RGXNativeToken | RGXConvertibleToken | RGXToken[];
+type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 
-const validRegexSymbol = Symbol('ValidRegex');
+const validRegexSymbol = Symbol('rgx.ValidRegex');
 type ValidRegexBrandSymbol = typeof validRegexSymbol;
 type ValidRegexString = Branded<string, [ValidRegexBrandSymbol]>;
 
-type RGXTokenType = 'no-op' | 'native' | 'convertible' | RGXTokenType[];
+const validVanillaRegexFlagsSymbol = Symbol('rgx.ValidVanillaRegexFlags');
+type ValidVanillaRegexFlagsBrandSymbol = typeof validVanillaRegexFlagsSymbol;
+type ValidVanillaRegexFlags = Branded<string, [ValidVanillaRegexFlagsBrandSymbol]>;
+
+type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | RGXTokenType[];
 type RGXTokenFromType<T extends RGXTokenType> =
     // ... see source for full definition
 ;
+
+type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_VANILLA_REGEX_FLAGS';
 ```
+
+## Classes
+The library exports the following classes:
+
+### RGXError
+A custom error class for RGX-related errors. This can be used to throw specific errors related to RGX token validation or resolution.
+
+#### Constructor
+```typescript
+constructor(message: string, code?: RGXErrorCode)
+```
+- `message` (`string`): The error message.
+- `code` (`RGXErrorCode`, optional): An optional error code that can be used to categorize the error. If not provided, it defaults to 'UNKNOWN'.
+
+### RGXInvalidTokenError extends RGXError
+A specific error class for invalid RGX tokens. This error is thrown when a value fails validation as a specific RGX token type.
+
+#### Constructor
+```typescript
+constructor(message: string, expected: string | null, got: unknown)
+```
+- `message` (`string`): The error message.
+- `expected` (`string` | `null`): A description of the expected token type. If `null`, will use a default message indicating the expected types of any RGX token.
+- `got` (`unknown`): The actual value that was received, which failed validation.
+
+### RGXInvalidRegexStringError extends RGXError
+A specific error class for invalid regex strings. This error is thrown when a string fails validation as a valid regex string.
+
+#### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The actual string that was received, which failed validation.
+
+### RGXInvalidVanillaRegexFlagsError extends RGXError
+A specific error class for invalid vanilla regex flags. This error is thrown when a string fails validation as valid vanilla regex flags.
+
+#### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The actual string that was received, which failed validation.
 
 ## Functions
 The following functions are exported by the library:
@@ -38,6 +88,19 @@ Checks if the given value is a no-op token (`null` or `undefined`).
 #### Returns
 - `boolean`: `true` if the value is a no-op token, otherwise `false`.
 
+### assertRGXNoOpToken
+```typescript
+function assertRGXNoOpToken(value: unknown): asserts value is RGXNoOpToken
+```
+
+Asserts that the given value is a no-op token (`null` or `undefined`). If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Parameters
+  - `value` (`unknown`): The value to assert.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an error if the assertion fails.
+
 ### isRGXLiteralToken
 ```typescript
 function isRGXLiteralToken(value: unknown): value is RGXLiteralToken
@@ -50,6 +113,19 @@ Checks if the given value is a literal token (a `RegExp` object).
 
 #### Returns
 - `boolean`: `true` if the value is a literal token, otherwise `false`.
+
+### assertRGXLiteralToken
+```typescript
+function assertRGXLiteralToken(value: unknown): asserts value is RGXLiteralToken
+```
+
+Asserts that the given value is a literal token (a `RegExp` object). If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Parameters
+  - `value` (`unknown`): The value to assert.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an error if the assertion fails.
 
 ### isRGXNativeToken
 ```typescript
@@ -64,12 +140,25 @@ Checks if the given value is a native token (string, number, boolean, or no-op).
 #### Returns
 - `boolean`: `true` if the value is a native token, otherwise `false`.
 
+### assertRGXNativeToken
+```typescript
+function assertRGXNativeToken(value: unknown): asserts value is RGXNativeToken
+```
+
+Asserts that the given value is a native token (string, number, boolean, or no-op). If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Parameters
+  - `value` (`unknown`): The value to assert.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an error if the assertion fails.
+
 ### isRGXConvertibleToken
 ```typescript
 function isRGXConvertibleToken(value: unknown): value is RGXConvertibleToken
 ```
 
-Checks if the given value is a convertible token (an object with a `toRgx` method). Validates that `toRgx` is callable and returns a valid RGX native token or array of native tokens.
+Checks if the given value is a convertible token (an object with a `toRgx` method). Validates that `toRgx` is callable and returns a valid RGX native or literal token, or an array of native/literal tokens.
 
 #### Parameters
   - `value` (`unknown`): The value to check.
@@ -77,12 +166,24 @@ Checks if the given value is a convertible token (an object with a `toRgx` metho
 #### Returns
 - `boolean`: `true` if the value is a convertible token, otherwise `false`.
 
+### assertRGXConvertibleToken
+```typescript
+function assertRGXConvertibleToken(value: unknown): asserts value is RGXConvertibleToken
+```
+Asserts that the given value is a convertible token (an object with a `toRgx` method). Validates that `toRgx` is callable and returns a valid RGX native or literal token, or an array of native/literal tokens. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Parameters
+  - `value` (`unknown`): The value to assert.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an error if the assertion fails.
+
 ### rgxTokenType
 ```typescript
 function rgxTokenType(value: RGXToken): RGXTokenType
 ```
 
-Determines the type of a given RGX token (`no-op`, `native`, `convertible`, or an array of the former).
+Determines the type of a given RGX token (`no-op`, `literal`, `native`, `convertible`, or an array of the former).
 
 If you narrow the result of this function to something more specific, you can then convert these string or array literals into their corresponding token types using the `RGXTokenFromType` utility type or `rgxTokenFromType` function.
 
@@ -116,9 +217,9 @@ Does nothing at runtime, but performs a type assertion to the correct subset of 
 #### Returns
 - `RGXTokenFromType<T>`: The input value, but with its type asserted to the corresponding token type based on the provided `RGXTokenType`.
 
-### isValidRegex
+### isValidRegexString
 ```typescript
-function isValidRegex(value: string): value is ValidRegexString
+function isValidRegexString(value: string): value is ValidRegexString
 ```
 
 Checks if the given string is a valid regular expression by attempting to create a new `RegExp` object with it. If it succeeds, the string is branded as a `ValidRegexString`.
@@ -128,6 +229,43 @@ Checks if the given string is a valid regular expression by attempting to create
 
 #### Returns
 - `boolean`: `true` if the string is a valid regular expression, otherwise `false`.
+
+### assertValidRegexString
+```typescript
+function assertValidRegexString(value: string): asserts value is ValidRegexString
+```
+Asserts that the given string is a valid regular expression by attempting to create a new `RegExp` object with it. If it succeeds, the string is branded as a `ValidRegexString`. If the assertion fails, an `RGXInvalidRegexStringError` will be thrown.
+
+#### Parameters
+  - `value` (`string`): The string to assert.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an error if the assertion fails.
+
+### isValidVanillaRegexFlags
+```typescript
+function isValidVanillaRegexFlags(value: string): value is ValidVanillaRegexFlags
+```
+
+Checks if the given string is a valid combination of vanilla regex flags (g, i, m, s, u, y). Each flag can only appear once.
+
+#### Parameters
+  - `value` (`string`): The string to check.
+
+#### Returns
+- `boolean`: `true` if the string is a valid combination of vanilla regex flags, otherwise `false`.
+
+### assertValidVanillaRegexFlags
+```typescript
+function assertValidVanillaRegexFlags(value: string): asserts value is ValidVanillaRegexFlags
+```
+Asserts that the given string is a valid combination of vanilla regex flags (g, i, m, s, u, y). Each flag can only appear once. If the assertion fails, an `RGXInvalidVanillaRegexFlagsError` will be thrown.
+
+#### Parameters
+  - `value` (`string`): The string to assert.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an error if the assertion fails.
 
 ### escapeRegex
 ```typescript
@@ -170,30 +308,34 @@ A helper function that resolves an array of RGX tokens and concatenates their re
 
 ### rgx
 ```typescript
-function rgx(strings: TemplateStringsArray, ...tokens: RGXToken[]): RegExp
+function rgx(flags?: string): (strings: TemplateStringsArray, ...tokens: RGXToken[]) =>RegExp
 ```
 
-A template tag function that constructs a `RegExp` object from the provided template literal. The template literal can contain RGX tokens, which will be resolved and concatenated with the literal parts to form the final regex pattern.
+Creates and returns a template tag function that constructs a `RegExp` object from the provided template literal with the provided flags. The template literal can contain RGX tokens, which will be resolved and concatenated with the literal parts to form the final regex pattern.
 
 Example usages:
 ```typescript
 const beginning = /^/;
 const end = /$/;
 const word = /\w+/;
-const pattern = rgx`${beginning}testing ${word}${end}`; // /^testing \w+$/ - matches the string "testing " followed by a word, anchored to the start and end of the string
+const pattern = rgx()`${beginning}testing ${word}${end}`; // /^testing \w+$/ - matches the string "testing " followed by a word, anchored to the start and end of the string
 
 const optionalDigit = /\d?/;
-const pattern2 = rgx`${beginning}optional digit: ${optionalDigit}${end}`; // /^optional digit: \d?$/ - matches the string "optional digit: " followed by an optional digit, anchored to the start and end of the string
+const pattern2 = rgx()`${beginning}optional digit: ${optionalDigit}${end}`; // /^optional digit: \d?$/ - matches the string "optional digit: " followed by an optional digit, anchored to the start and end of the string
 
-const pattern3 = rgx`${beginning}value: ${[word, optionalDigit]}${end}`; // /^value: (?:\w+|\d?)$/ - matches the string "value: " followed by either a word or an optional digit, anchored to the start and end of the string
+const pattern3 = rgx()`${beginning}value: ${[word, optionalDigit]}${end}`; // /^value: (?:\w+|\d?)$/ - matches the string "value: " followed by either a word or an optional digit, anchored to the start and end of the string
 ```
 
 #### Parameters
+**Direct**
+  - `flags` (`string`, optional): The regex flags to apply to the resulting `RegExp` object (e.g., 'g', 'i', 'm', etc.). If not provided, no flags will be applied. If provided and not valid vanilla regex flags, an `RGXError` with code `INVALID_VANILLA_REGEX_FLAGS` will be thrown.
+
+**Template Tag**
   - `strings` (`TemplateStringsArray`): The literal parts of the template string.
   - `tokens` (`RGXToken[]`): The RGX tokens to be resolved and concatenated with the literal parts.
 
 #### Returns
-- `RegExp`: The resulting regular expression object constructed from the template literal.
+- `(strings: TemplateStringsArray, ...tokens: RGXToken[]) => RegExp`: A template tag function that takes a template literal and returns a `RegExp` object constructed from the resolved tokens and literal parts.
 
 ## Peer Dependencies
 - `@ptolemy2002/ts-brand-utils` ^1.0.0
