@@ -40,19 +40,22 @@ export function rgxConcat(tokens: t.RGXToken[]): t.ValidRegexString {
     return tokens.map(resolveRGXToken).join('') as t.ValidRegexString;
 }
 
+export function rgxa(tokens: t.RGXToken[], flags: string = ''): RegExp {
+    tg.assertValidVanillaRegexFlags(flags);
+    const pattern = rgxConcat(tokens);
+    return new RegExp(pattern, flags);
+}
+
 export default function rgx(flags: string = '') {
     tg.assertValidVanillaRegexFlags(flags);
     return (strings: TemplateStringsArray, ...tokens: t.RGXToken[]) => {
-        let pattern = '';
-        const resolvedTokens = tokens.map(resolveRGXToken);
+        const tokenArray: t.RGXToken[] = [];
 
         for (let i = 0; i < strings.length; i++) {
-            pattern += strings[i];
-            if (i < resolvedTokens.length) {
-                pattern += resolvedTokens[i];
-            }
+            if (strings[i]) tokenArray.push(strings[i]);
+            if (i < tokens.length) tokenArray.push(tokens[i]);
         }
-        
-        return new RegExp(pattern, flags);
+
+        return rgxa(tokenArray, flags);
     };
 }

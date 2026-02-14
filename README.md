@@ -42,7 +42,7 @@ constructor(message: string, code?: RGXErrorCode)
 - `code` (`RGXErrorCode`, optional): An optional error code that can be used to categorize the error. If not provided, it defaults to 'UNKNOWN'.
 
 ### RGXInvalidTokenError extends RGXError
-A specific error class for invalid RGX tokens. This error is thrown when a value fails validation as a specific RGX token type.
+A specific error class for invalid RGX tokens. This error is thrown when a value fails validation as a specific RGX token type. The error code is set to `INVALID_RGX_TOKEN` on instantiation.
 
 #### Constructor
 ```typescript
@@ -53,7 +53,7 @@ constructor(message: string, expected: string | null, got: unknown)
 - `got` (`unknown`): The actual value that was received, which failed validation.
 
 ### RGXInvalidRegexStringError extends RGXError
-A specific error class for invalid regex strings. This error is thrown when a string fails validation as a valid regex string.
+A specific error class for invalid regex strings. This error is thrown when a string fails validation as a valid regex string. The error code is set to `INVALID_REGEX_STRING` on instantiation.
 
 #### Constructor
 ```typescript
@@ -63,7 +63,7 @@ constructor(message: string, got: string)
 - `got` (`string`): The actual string that was received, which failed validation.
 
 ### RGXInvalidVanillaRegexFlagsError extends RGXError
-A specific error class for invalid vanilla regex flags. This error is thrown when a string fails validation as valid vanilla regex flags.
+A specific error class for invalid vanilla regex flags. This error is thrown when a string fails validation as valid vanilla regex flags. The error code is set to `INVALID_VANILLA_REGEX_FLAGS` on instantiation.
 
 #### Constructor
 ```typescript
@@ -328,14 +328,27 @@ const pattern3 = rgx()`${beginning}value: ${[word, optionalDigit]}${end}`; // /^
 
 #### Parameters
 **Direct**
-  - `flags` (`string`, optional): The regex flags to apply to the resulting `RegExp` object (e.g., 'g', 'i', 'm', etc.). If not provided, no flags will be applied. If provided and not valid vanilla regex flags, an `RGXError` with code `INVALID_VANILLA_REGEX_FLAGS` will be thrown.
+  - `flags` (`string`, optional): The regex flags to apply to the resulting `RegExp` object (e.g., 'g', 'i', 'm', etc.). If not provided, no flags will be applied. If provided and not valid vanilla regex flags, an `RGXInvalidVanillaRegexFlagsError` will be thrown.
 
 **Template Tag**
   - `strings` (`TemplateStringsArray`): The literal parts of the template string.
   - `tokens` (`RGXToken[]`): The RGX tokens to be resolved and concatenated with the literal parts.
 
 #### Returns
-- `(strings: TemplateStringsArray, ...tokens: RGXToken[]) => RegExp`: A template tag function that takes a template literal and returns a `RegExp` object constructed from the resolved tokens and literal parts.
+- `(strings: TemplateStringsArray, ...tokens: RGXToken[]) => RegExp`: A template tag function that takes a template literal and returns a `RegExp` object constructed from the resolved tokens, literal parts, and the provided flags.
+
+### rgxa
+```typescript
+function rgxa(tokens: RGXToken[], flags?: string): RegExp
+```
+As an alternative to using the `rgx` template tag, you can directly call `rgxa` with an array of RGX tokens and optional flags to get a `RegExp` object. This is useful in cases where you don't want to use a template literal.
+
+#### Parameters
+  - `tokens` (`RGXToken[]`): The RGX tokens to be resolved and concatenated to form the regex pattern.
+  - `flags` (`string`, optional): The regex flags to apply to the resulting `RegExp` object (e.g., 'g', 'i', 'm', etc.). If not provided, no flags will be applied. If provided and not valid vanilla regex flags, an `RGXInvalidVanillaRegexFlagsError` will be thrown.
+
+#### Returns
+- `RegExp`: A `RegExp` object constructed from the resolved tokens and the provided flags.
 
 ## Peer Dependencies
 - `@ptolemy2002/ts-brand-utils` ^1.0.0
