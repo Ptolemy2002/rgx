@@ -8,7 +8,7 @@ export function isRGXNoOpToken(value: unknown): value is t.RGXNoOpToken {
 
 export function assertRGXNoOpToken(value: unknown): asserts value is t.RGXNoOpToken {
     if (!isRGXNoOpToken(value)) {
-        throw new e.RGXInvalidTokenError(`Invalid no-op token`, 'null or undefined', value);
+        throw new e.RGXInvalidTokenError(`Invalid no-op token`, {type: "tokenType", values: ['no-op']}, value);
     }
 }
 
@@ -18,7 +18,7 @@ export function isRGXLiteralToken(value: unknown): value is t.RGXLiteralToken {
 
 export function assertRGXLiteralToken(value: unknown): asserts value is t.RGXLiteralToken {
     if (!isRGXLiteralToken(value)) {
-        throw new e.RGXInvalidTokenError(`Invalid literal token`, 'RegExp', value);
+        throw new e.RGXInvalidTokenError("Invalid literal token", {type: "tokenType", values: ['literal']}, value);
     }
 }
 
@@ -28,7 +28,7 @@ export function isRGXNativeToken(value: unknown): value is t.RGXNativeToken {
 
 export function assertRGXNativeToken(value: unknown): asserts value is t.RGXNativeToken {
     if (!isRGXNativeToken(value)) {
-        throw new e.RGXInvalidTokenError(`Invalid native token`, 'string, number, boolean, null, or undefined', value);
+        throw new e.RGXInvalidTokenError("Invalid native token", {type: "tokenType", values: ['native']}, value);
     }
 }
 
@@ -52,7 +52,7 @@ export function isRGXConvertibleToken(value: unknown): value is t.RGXConvertible
 
 export function assertRGXConvertibleToken(value: unknown): asserts value is t.RGXConvertibleToken {
     if (!isRGXConvertibleToken(value)) {
-        throw new e.RGXInvalidTokenError(`Invalid convertible token`, 'object with a toRgx method that returns a valid token', value);
+        throw new e.RGXInvalidTokenError(`Invalid convertible token`, {type: "tokenType", values: ['convertible']}, value);
     }
 }
 
@@ -65,7 +65,7 @@ export function rgxTokenType(value: t.RGXToken): t.RGXTokenType {
 
     // Ignoring this line since it should be impossible to reach if the types are correct, but we need it to satisfy the return type
     /* istanbul ignore next */
-    throw new e.RGXInvalidTokenError(`Invalid RGX token: ${value}`, null, value);
+    throw new e.RGXInvalidTokenError("Invalid RGX token", null, value);
 }
 
 export function rgxTokenFromType<T extends t.RGXTokenType>(type: T, value: t.RGXToken): t.RGXTokenFromType<T> {
@@ -85,7 +85,7 @@ export function isValidRegexString(value: string): value is t.ValidRegexString {
 
 export function assertValidRegexString(value: string): asserts value is t.ValidRegexString {
     if (!isValidRegexString(value)) {
-        throw new e.RGXInvalidRegexStringError(`Invalid regex string: ${value}`, value);
+        throw new e.RGXInvalidRegexStringError("Invalid regex string", value);
     }
 }
 
@@ -100,6 +100,6 @@ export function isValidVanillaRegexFlags(value: string): value is t.ValidVanilla
 
 export function assertValidVanillaRegexFlags(value: string): asserts value is t.ValidVanillaRegexFlags {
     if (!isValidVanillaRegexFlags(value)) {
-        throw new e.RGXInvalidVanillaRegexFlagsError(`Invalid vanilla regex flags: ${value}`, value);
+        throw new e.RGXInvalidVanillaRegexFlagsError("Invalid vanilla regex flags", value);
     }
 }

@@ -8,6 +8,7 @@ export type RGXConvertibleToken = { toRgx: () => MaybeArray<RGXNativeToken | RGX
 export type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 
 export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | RGXTokenType[];
+export type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
 export type RGXTokenFromType<T extends RGXTokenType> =
     T extends 'no-op' ? RGXNoOpToken :
     T extends 'literal' ? RGXLiteralToken :

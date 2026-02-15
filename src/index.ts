@@ -1,10 +1,10 @@
 import * as e from "./errors";
 import * as t from "./types";
-import * as tg from "./type-guards";
+import * as tg from "./typeGuards";
 
 export * from "./errors";
 export * from "./types";
-export * from "./type-guards";
+export * from "./typeGuards";
 
 export function escapeRegex(value: string) {
     return value.replaceAll(/[\-\^\$.*+?^${}()|[\]\\]/g, '\\$&') as t.ValidRegexString;

@@ -21,11 +21,19 @@ type ValidVanillaRegexFlagsBrandSymbol = typeof validVanillaRegexFlagsSymbol;
 type ValidVanillaRegexFlags = Branded<string, [ValidVanillaRegexFlagsBrandSymbol]>;
 
 type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | RGXTokenType[];
+type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
 type RGXTokenFromType<T extends RGXTokenType> =
     // ... see source for full definition
 ;
 
 type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_VANILLA_REGEX_FLAGS';
+type ExpectedTokenType = {
+    type: "tokenType";
+    values: RGXTokenTypeFlat[];
+} | {
+    type: "custom";
+    values: string[];
+};
 ```
 
 ## Classes
@@ -49,7 +57,7 @@ A specific error class for invalid RGX tokens. This error is thrown when a value
 constructor(message: string, expected: string | null, got: unknown)
 ```
 - `message` (`string`): The error message.
-- `expected` (`string` | `null`): A description of the expected token type. If `null`, will use a default message indicating the expected types of any RGX token.
+- `expected` (`ExpectedTokenType | null`): Either an object describing the expected token type(s) or `null` if all token types are expected. This is used to generate a human-readable description of what was expected.
 - `got` (`unknown`): The actual value that was received, which failed validation.
 
 ### RGXInvalidRegexStringError extends RGXError
