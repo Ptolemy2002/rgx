@@ -5,6 +5,7 @@ import * as tg from "./typeGuards";
 export * from "./errors";
 export * from "./types";
 export * from "./typeGuards";
+export * from "./collection";
 
 export function escapeRegex(value: string) {
     return value.replaceAll(/[\-\^\$.*+?^${}()|[\]\\]/g, '\\$&') as t.ValidRegexString;

@@ -9,7 +9,8 @@ import { MaybeArray } from "@ptolemy2002/ts-utils";
 type RGXNoOpToken = null | undefined;
 type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
-type RGXConvertibleToken = { toRgx: () => MaybeArray<RGXNativeToken | RGXLiteralToken> };
+type RGXConvertibleTokenOutput = MaybeArray<RGXNativeToken | RGXLiteralToken>;
+type RGXConvertibleToken = { toRgx: () => RGXConvertibleTokenOutput };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 
 const validRegexSymbol = Symbol('rgx.ValidRegex');
@@ -34,6 +35,7 @@ type ExpectedTokenType = {
     type: "custom";
     values: string[];
 };
+type RGXTokenCollectionMode = 'union' | 'concat';
 ```
 
 ## Classes
@@ -49,15 +51,22 @@ constructor(message: string, code?: RGXErrorCode)
 - `message` (`string`): The error message.
 - `code` (`RGXErrorCode`, optional): An optional error code that can be used to categorize the error. If not provided, it defaults to 'UNKNOWN'.
 
+#### Properties
+- `code` (`RGXErrorCode`): The error code associated with the error, which can be used to identify the type of error that occurred.
+
 ### RGXInvalidTokenError extends RGXError
 A specific error class for invalid RGX tokens. This error is thrown when a value fails validation as a specific RGX token type. The error code is set to `INVALID_RGX_TOKEN` on instantiation.
 
 #### Constructor
 ```typescript
-constructor(message: string, expected: string | null, got: unknown)
+constructor(message: string, expected: ExpectedTokenType | null, got: unknown)
 ```
 - `message` (`string`): The error message.
 - `expected` (`ExpectedTokenType | null`): Either an object describing the expected token type(s) or `null` if all token types are expected. This is used to generate a human-readable description of what was expected.
+- `got` (`unknown`): The actual value that was received, which failed validation.
+
+#### Properties
+- `expected` (`string`): A human-readable description of the expected token type(s), generated from the `expected` parameter in the constructor. This can be used to provide more informative error messages.
 - `got` (`unknown`): The actual value that was received, which failed validation.
 
 ### RGXInvalidRegexStringError extends RGXError
@@ -70,6 +79,9 @@ constructor(message: string, got: string)
 - `message` (`string`): The error message.
 - `got` (`string`): The actual string that was received, which failed validation.
 
+#### Properties
+- `got` (`string`): The actual string that was received, which failed validation.
+
 ### RGXInvalidVanillaRegexFlagsError extends RGXError
 A specific error class for invalid vanilla regex flags. This error is thrown when a string fails validation as valid vanilla regex flags. The error code is set to `INVALID_VANILLA_REGEX_FLAGS` on instantiation.
 
@@ -79,6 +91,30 @@ constructor(message: string, got: string)
 ```
 - `message` (`string`): The error message.
 - `got` (`string`): The actual string that was received, which failed validation.
+
+#### Properties
+- `got` (`string`): The actual string that was received, which failed validation.
+
+### RGXTokenCollection
+A class representing a collection of RGX tokens. This is not used internally, but may be useful for users who want to easily manage collections of RGX tokens like an array, but with additional metadata about the collection mode (union or concat).
+
+#### Constructor
+```typescript
+constructor(tokens: RGXToken[] = [], mode: RGXTokenCollectionMode = 'concat')
+```
+- `tokens` (`RGXToken[]`, optional): An array of RGX tokens to be managed by the collection. Defaults to an empty array.
+- `mode` (`RGXTokenCollectionMode`, optional): The mode of the collection, either 'union' or 'concat'. Defaults to 'concat'.
+
+#### Properties
+- `tokens` (`RGXToken[]`): The array of RGX tokens managed by the collection. In almost all cases, use `getTokens()` instead of accessing this property directly, as it will be copied to prevent external mutation.
+- `mode` (`RGXTokenCollectionMode`): The mode of the collection, either 'union' or 'concat'. This determines how the tokens in the collection will be resolved when `toRgx()` is called.
+- `toRgx()` (`() => RGXToken`): A method that resolves the collection to a single RGX token based on the collection mode. In both modes, a string is ultimately returned, but in 'union' mode, the tokens are resolved as alternatives (using the `|` operator), while in 'concat' mode, the tokens are resolved as concatenated together.
+- `getTokens()` (`() => RGXToken[]`): A method that returns a copy of the array of RGX tokens managed by the collection. This is used to prevent external mutation of the internal `tokens` array.
+- `clone()` (`() => RGXTokenCollection`): A method that creates and returns a deep clone of the RGXTokenCollection instance. This is useful for creating a new collection with the same tokens and mode without affecting the original collection.
+- `asConcat()` (`() => RGXTokenCollection`): If this collection is in 'union' mode, this method returns a new RGXTokenCollection instance with the same tokens but in 'concat' mode. If the collection is already in 'concat' mode, it simply returns itself.
+- `asUnion()` (`() => RGXTokenCollection`): If this collection is in 'concat' mode, this method returns a new RGXTokenCollection instance with the same tokens but in 'union' mode. If the collection is already in 'union' mode, it simply returns itself.
+
+Standard array properties and methods like `length`, `push`, `pop`, etc. are implemented to work with the internal `tokens` array, but providing collection instances instead of raw arrays when relevant (e.g., `map` has the third parameter typed as `RGXTokenCollection` instead of `RGXToken[]`).
 
 ## Functions
 The following functions are exported by the library:
@@ -359,9 +395,12 @@ As an alternative to using the `rgx` template tag, you can directly call `rgxa` 
 - `RegExp`: A `RegExp` object constructed from the resolved tokens and the provided flags.
 
 ## Peer Dependencies
+- `@ptolemy2002/immutability-utils` ^1.2.1
+- `@ptolemy2002/js-utils` ^3.2.2
 - `@ptolemy2002/ts-brand-utils` ^1.0.0
 - `@ptolemy2002/ts-utils` ^3.4.0
 - `is-callable` ^1.2.7
+- `lodash.clonedeep` ^4.5.0
 
 ## Commands
 The following commands exist in the project:

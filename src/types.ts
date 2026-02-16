@@ -4,7 +4,8 @@ import { MaybeArray } from "@ptolemy2002/ts-utils";
 export type RGXNoOpToken = null | undefined;
 export type RGXLiteralToken = RegExp;
 export type RGXNativeToken = string | number | boolean | RGXNoOpToken;
-export type RGXConvertibleToken = { toRgx: () => MaybeArray<RGXNativeToken | RGXLiteralToken> };
+export type RGXConvertibleTokenOutput = MaybeArray<RGXNativeToken | RGXLiteralToken>;
+export type RGXConvertibleToken = { toRgx: () => RGXConvertibleTokenOutput };
 export type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 
 export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | RGXTokenType[];
