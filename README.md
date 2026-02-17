@@ -395,7 +395,7 @@ As an alternative to using the `rgx` template tag, you can directly call `rgxa` 
 - `RegExp`: A `RegExp` object constructed from the resolved tokens and the provided flags.
 
 ## Peer Dependencies
-- `@ptolemy2002/immutability-utils` ^1.2.1
+- `@ptolemy2002/immutability-utils` ^2.0.0
 - `@ptolemy2002/js-utils` ^3.2.2
 - `@ptolemy2002/ts-brand-utils` ^1.0.0
 - `@ptolemy2002/ts-utils` ^3.4.0

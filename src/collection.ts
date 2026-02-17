@@ -1,7 +1,6 @@
-import deepClone from "lodash.clonedeep";
 import { RGXConvertibleTokenOutput, RGXToken } from "./types";
 import { resolveRGXToken, rgxConcat } from "./index";
-import { immutableMut } from "@ptolemy2002/immutability-utils";
+import { CloneDepth, immutableMut, extClone } from "@ptolemy2002/immutability-utils";
 
 export type RGXTokenCollectionMode = 'union' | 'concat';
 
@@ -10,7 +9,7 @@ export class RGXTokenCollection {
     tokens: RGXToken[] = [];
 
     constructor(tokens: RGXToken[] = [], mode: RGXTokenCollectionMode = 'concat') {
-        this.tokens = deepClone(tokens);
+        this.tokens = tokens;
         this.mode = mode;
     }
 
@@ -23,17 +22,18 @@ export class RGXTokenCollection {
     }
 
     getTokens(): RGXToken[] {
-        return deepClone(this.tokens);
+        return extClone(this.tokens, "max");
     }
 
-    clone(): RGXTokenCollection {
-        return new RGXTokenCollection(this.tokens, this.mode);
+    clone(depth: CloneDepth="max"): RGXTokenCollection {
+        if (depth === 0) return this; // No cloning at depth 0, return the same instance.
+        return new RGXTokenCollection(extClone(this.tokens, typeof depth === "number" ? depth - 1 : depth), this.mode);
     }
 
     asConcat(): RGXTokenCollection {
         if (this.mode === 'concat') return this;
 
-        return immutableMut<RGXTokenCollection>(this, clone => {
+        return immutableMut(this, clone => {
             clone.mode = 'concat';
         });
     }
@@ -41,7 +41,7 @@ export class RGXTokenCollection {
     asUnion(): RGXTokenCollection {
         if (this.mode === 'union') return this;
 
-        return immutableMut<RGXTokenCollection>(this, clone => {
+        return immutableMut(this, clone => {
             clone.mode = 'union';
         });
     }
@@ -84,13 +84,13 @@ export class RGXTokenCollection {
     }
 
     map(callback: (token: RGXToken, index: number, array: RGXToken[]) => RGXToken): RGXTokenCollection {
-        return immutableMut<RGXTokenCollection>(this, clone => {
+        return immutableMut(this, clone => {
             clone.tokens = clone.tokens.map(callback);
         });
     }
 
     filter(predicate: (token: RGXToken, index: number, array: RGXToken[]) => boolean): RGXTokenCollection {
-        return immutableMut<RGXTokenCollection>(this, clone => {
+        return immutableMut(this, clone => {
             clone.tokens = clone.tokens.filter(predicate);
         });
     }
@@ -105,27 +105,27 @@ export class RGXTokenCollection {
     }
 
     flat(depth: number = 1): RGXTokenCollection {
-        return immutableMut<RGXTokenCollection>(this, clone => {
+        return immutableMut(this, clone => {
             // Fixing TypeScript complaining about possible infinite recursion here.
             clone.tokens = clone.tokens.flat(depth as 0);
         });
     }
 
     flatMap(callback: (token: RGXToken, index: number, array: RGXToken[]) => RGXToken | RGXToken[]): RGXTokenCollection {
-        return immutableMut<RGXTokenCollection>(this, clone => {
+        return immutableMut(this, clone => {
             // Fixing TypeScript complaining about possible infinite recursion here.
             clone.tokens = clone.tokens.flatMap(callback);
         });
     }
 
     slice(start?: number, end?: number): RGXTokenCollection {
-        return immutableMut<RGXTokenCollection>(this, clone => {
+        return immutableMut(this, clone => {
             clone.tokens = clone.tokens.slice(start, end);
         });
     }
 
     concat(...others: (RGXToken | RGXTokenCollection)[]): RGXTokenCollection {
-        return immutableMut<RGXTokenCollection>(this, clone => {
+        return immutableMut(this, clone => {
             const arrays = others.map(o => o instanceof RGXTokenCollection ? o.tokens : [o]);
             clone.tokens = clone.tokens.concat(...arrays.flat());
         });
@@ -148,7 +148,7 @@ export class RGXTokenCollection {
     }
 
     splice(start: number, deleteCount?: number, ...items: RGXToken[]): RGXTokenCollection {
-        return immutableMut<RGXTokenCollection>(this, clone => {
+        return immutableMut(this, clone => {
             const removed = deleteCount === undefined
                 ? this.tokens.splice(start)
                 : this.tokens.splice(start, deleteCount, ...items);

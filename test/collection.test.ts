@@ -8,17 +8,6 @@ describe('RGXTokenCollection', () => {
             expect(collection.length).toBe(0);
         });
 
-        it('performs deep clone of tokens on construction', () => {
-            const tokens = ['a', 'b', ['c']];
-            const collection = new RGXTokenCollection(tokens);
-
-            expect(collection.getTokens()).toEqual(tokens);
-            expect(collection.getTokens()).not.toBe(tokens);
-
-            expect(collection.getTokens()[2]).toEqual(['c']);
-            expect(collection.getTokens()[2]).not.toBe(tokens[2]);
-        });
-
         it('defaults to concat mode when no mode is specified', () => {
             const collection = new RGXTokenCollection(['a', 'b']);
             expect(collection.mode).toBe('concat');
@@ -56,6 +45,22 @@ describe('RGXTokenCollection', () => {
             const cloned = collection.clone();
 
             expect(cloned.mode).toBe('union');
+        });
+
+        it('returns the same instance when cloning at depth 0', () => {
+            const collection = new RGXTokenCollection(['a', 'b']);
+            const cloned = collection.clone(0);
+
+            expect(cloned).toBe(collection);
+        });
+
+        it('performs shallow clone when cloning at depth 1', () => {
+            const collection = new RGXTokenCollection(['a', 'b', ['c']]);
+            const tokens = collection.tokens;
+            const cloned = collection.clone(1);
+
+            expect(cloned.getTokens()).toEqual(tokens);
+            expect(cloned.tokens).toBe(tokens);
         });
     });
 
