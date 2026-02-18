@@ -2,6 +2,7 @@ import { RGXToken, ValidRegexString } from "./types";
 import { resolveRGXToken, rgxConcat } from "./index";
 import { CloneDepth, immutableMut, extClone, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { Collection } from "@ptolemy2002/ts-utils";
+import { createConstructFunction } from "./internal";
 
 export type RGXTokenCollectionMode = 'union' | 'concat';
 
@@ -189,3 +190,5 @@ export class RGXTokenCollection implements Collection<RGXToken> {
         return this.tokens.values();
     }
 }
+
+export const rgxTokenCollection = createConstructFunction(RGXTokenCollection);

@@ -1,17 +1,32 @@
-import { RGXTokenCollection, RGXToken } from "src/index";
+import { RGXTokenCollection, rgxTokenCollection, RGXToken } from "src/index";
+import { ConstructFunction } from "src/internal";
+
+function constructionTest(constructor: ConstructFunction<typeof RGXTokenCollection>) {
+    it('defaults to empty tokens when no tokens are specified', () => {
+        const collection = constructor();
+        expect(collection.getTokens()).toEqual([]);
+        expect(collection.length).toBe(0);
+    });
+
+    it('defaults to concat mode when no mode is specified', () => {
+        const collection = constructor(['a', 'b']);
+        expect(collection.mode).toBe('concat');
+    });
+
+    it('accepts tokens and mode', () => {
+        const collection = constructor(['a', 'b'], 'union');
+        expect(collection.getTokens()).toEqual(['a', 'b']);
+        expect(collection.mode).toBe('union');
+    });
+}
 
 describe('RGXTokenCollection', () => {
     describe('constructor', () => {
-        it('defaults to empty tokens when no tokens are specified', () => {
-            const collection = new RGXTokenCollection();
-            expect(collection.getTokens()).toEqual([]);
-            expect(collection.length).toBe(0);
-        });
+        constructionTest((...args) => new RGXTokenCollection(...args));
+    });
 
-        it('defaults to concat mode when no mode is specified', () => {
-            const collection = new RGXTokenCollection(['a', 'b']);
-            expect(collection.mode).toBe('concat');
-        });
+    describe('construct function', () => {
+        constructionTest(rgxTokenCollection);
     });
 
     describe('getTokens', () => {
@@ -373,6 +388,13 @@ describe('RGXTokenCollection', () => {
         it('concatenates individual tokens', () => {
             const collection = new RGXTokenCollection(['a']);
             const result = collection.concat('b', 'c');
+
+            expect(result.getTokens()).toEqual(['a', 'b', 'c']);
+        });
+
+        it('concatenates arrays of tokens', () => {
+            const collection = new RGXTokenCollection(['a']);
+            const result = collection.concat(['b', 'c']);
 
             expect(result.getTokens()).toEqual(['a', 'b', 'c']);
         });

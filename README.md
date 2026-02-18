@@ -98,6 +98,8 @@ constructor(message: string, got: string)
 ### RGXTokenCollection
 A class representing a collection of RGX tokens. This is not used internally, but may be useful for users who want to easily manage collections of RGX tokens like an array, but with additional metadata about the collection mode (union or concat).
 
+A function `rgxTokenCollection` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
+
 #### Constructor
 ```typescript
 constructor(tokens: RGXToken[] = [], mode: RGXTokenCollectionMode = 'concat')
