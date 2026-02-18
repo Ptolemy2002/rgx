@@ -1,10 +1,11 @@
-import { RGXConvertibleTokenOutput, RGXToken } from "./types";
+import { RGXToken, ValidRegexString } from "./types";
 import { resolveRGXToken, rgxConcat } from "./index";
-import { CloneDepth, immutableMut, extClone } from "@ptolemy2002/immutability-utils";
+import { CloneDepth, immutableMut, extClone, depthDecrement } from "@ptolemy2002/immutability-utils";
+import { Collection } from "@ptolemy2002/ts-utils";
 
 export type RGXTokenCollectionMode = 'union' | 'concat';
 
-export class RGXTokenCollection {
+export class RGXTokenCollection implements Collection<RGXToken> {
     mode: RGXTokenCollectionMode;
     tokens: RGXToken[] = [];
 
@@ -13,9 +14,9 @@ export class RGXTokenCollection {
         this.mode = mode;
     }
 
-    toRgx(): RGXConvertibleTokenOutput {
+    toRgx(): ValidRegexString {
         if (this.mode === 'union') {
-            return resolveRGXToken(this.tokens.map(resolveRGXToken));
+            return resolveRGXToken(this.tokens);
         } else {
             return rgxConcat(this.tokens);
         }
@@ -27,7 +28,7 @@ export class RGXTokenCollection {
 
     clone(depth: CloneDepth="max"): RGXTokenCollection {
         if (depth === 0) return this; // No cloning at depth 0, return the same instance.
-        return new RGXTokenCollection(extClone(this.tokens, typeof depth === "number" ? depth - 1 : depth), this.mode);
+        return new RGXTokenCollection(extClone(this.tokens, depthDecrement(depth)), this.mode);
     }
 
     asConcat(): RGXTokenCollection {
@@ -46,7 +47,11 @@ export class RGXTokenCollection {
         });
     }
 
-    // ------------------ Standard array properties and methods ------------------
+    // ------------------ Abstract Impplementations ------------------
+    toArray(): RGXToken[] {
+        return this.getTokens();
+    }
+
     get length(): number {
         return this.tokens.length;
     }
@@ -55,12 +60,12 @@ export class RGXTokenCollection {
         return this.tokens[index];
     }
 
-    find(predicate: (token: RGXToken, index: number, array: RGXToken[]) => boolean): RGXToken | undefined {
-        return this.tokens.find(predicate);
+    find(predicate: (token: RGXToken, index: number, array: RGXTokenCollection) => boolean): RGXToken | undefined {
+        return this.tokens.find((token, index) => predicate(token, index, this));
     }
 
-    findIndex(predicate: (token: RGXToken, index: number, array: RGXToken[]) => boolean): number {
-        return this.tokens.findIndex(predicate);
+    findIndex(predicate: (token: RGXToken, index: number, array: RGXTokenCollection) => boolean): number {
+        return this.tokens.findIndex((token, index) => predicate(token, index, this));
     }
 
     indexOf(token: RGXToken, fromIndex?: number): number {
@@ -71,37 +76,36 @@ export class RGXTokenCollection {
         return this.tokens.includes(token, fromIndex);
     }
 
-    some(predicate: (token: RGXToken, index: number, array: RGXToken[]) => boolean): boolean {
-        return this.tokens.some(predicate);
+    some(predicate: (token: RGXToken, index: number, array: RGXTokenCollection) => boolean): boolean {
+        return this.tokens.some((token, index) => predicate(token, index, this));
     }
 
-    every(predicate: (token: RGXToken, index: number, array: RGXToken[]) => boolean): boolean {
-        return this.tokens.every(predicate);
+    every(predicate: (token: RGXToken, index: number, array: RGXTokenCollection) => boolean): boolean {
+        return this.tokens.every((token, index) => predicate(token, index, this));
     }
 
-    forEach(callback: (token: RGXToken, index: number, array: RGXToken[]) => void): void {
-        this.tokens.forEach(callback);
+    forEach(callback: (token: RGXToken, index: number, array: RGXTokenCollection) => void): void {
+        this.tokens.forEach((token, index) => callback(token, index, this));
     }
 
-    map(callback: (token: RGXToken, index: number, array: RGXToken[]) => RGXToken): RGXTokenCollection {
+    map<T>(callback: (token: RGXToken, index: number, array: RGXTokenCollection) => T): T[] {
+        return this.tokens.map((token, index) => callback(token, index, this));
+    }
+
+    filter(predicate: (token: RGXToken, index: number, array: RGXTokenCollection) => boolean): RGXTokenCollection {
         return immutableMut(this, clone => {
-            clone.tokens = clone.tokens.map(callback);
+            clone.tokens = clone.tokens.filter((token, index) => predicate(token, index, this));
         });
     }
 
-    filter(predicate: (token: RGXToken, index: number, array: RGXToken[]) => boolean): RGXTokenCollection {
-        return immutableMut(this, clone => {
-            clone.tokens = clone.tokens.filter(predicate);
-        });
-    }
-
-    reduce<T>(callback: (accumulator: T, token: RGXToken, index: number, array: RGXToken[]) => T, initialValue: T): T;
-    reduce(callback: (accumulator: RGXToken, token: RGXToken, index: number, array: RGXToken[]) => RGXToken): RGXToken;
-    reduce<T>(callback: (accumulator: T, token: RGXToken, index: number, array: RGXToken[]) => T, ...rest: [T?]): T {
-        if (rest.length > 0) {
-            return this.tokens.reduce(callback, rest[0] as T);
+    reduce<T>(callback: (accumulator: T, token: RGXToken, index: number, array: RGXTokenCollection) => T, initialValue: T): T;
+    reduce(callback: (accumulator: RGXToken, token: RGXToken, index: number, array: RGXTokenCollection) => RGXToken): RGXToken;
+    reduce<T>(callback: (accumulator: T, token: RGXToken, index: number, array: RGXTokenCollection) => T, initialValue?: T): T {
+        if (initialValue !== undefined) {
+            return this.tokens.reduce((accumulator, token, index) => callback(accumulator, token, index, this), initialValue as T);
         }
-        return (this.tokens as T[]).reduce(callback as (accumulator: T, token: T, index: number, array: T[]) => T);
+
+        return (this.tokens as T[]).reduce((accumulator, token, index) => callback(accumulator, token as RGXToken, index, this)) as T;
     }
 
     flat(depth: number = 1): RGXTokenCollection {
@@ -111,11 +115,8 @@ export class RGXTokenCollection {
         });
     }
 
-    flatMap(callback: (token: RGXToken, index: number, array: RGXToken[]) => RGXToken | RGXToken[]): RGXTokenCollection {
-        return immutableMut(this, clone => {
-            // Fixing TypeScript complaining about possible infinite recursion here.
-            clone.tokens = clone.tokens.flatMap(callback);
-        });
+    flatMap<T>(callback: (token: RGXToken, index: number, array: RGXTokenCollection) => T | T[], depth?: number): T[] {
+        return this.tokens.flatMap((token, index) => callback(token, index, this)) as T[];
     }
 
     slice(start?: number, end?: number): RGXTokenCollection {
@@ -124,9 +125,9 @@ export class RGXTokenCollection {
         });
     }
 
-    concat(...others: (RGXToken | RGXTokenCollection)[]): RGXTokenCollection {
+    concat(...others: (RGXToken | RGXToken[] | RGXTokenCollection)[]): RGXTokenCollection {
         return immutableMut(this, clone => {
-            const arrays = others.map(o => o instanceof RGXTokenCollection ? o.tokens : [o]);
+            const arrays = others.map(o => o instanceof RGXTokenCollection ? o.tokens : Array.isArray(o) ? o : [o]);
             clone.tokens = clone.tokens.concat(...arrays.flat());
         });
     }
@@ -157,17 +158,17 @@ export class RGXTokenCollection {
         });
     }
 
-    reverse(): this {
+    reverse(): RGXTokenCollection {
         this.tokens.reverse();
         return this;
     }
 
-    sort(compareFn?: (a: RGXToken, b: RGXToken) => number): this {
+    sort(compareFn?: (a: RGXToken, b: RGXToken) => number): RGXTokenCollection {
         this.tokens.sort(compareFn);
         return this;
     }
 
-    fill(value: RGXToken, start?: number, end?: number): this {
+    fill(value: RGXToken, start?: number, end?: number): RGXTokenCollection {
         this.tokens.fill(value, start, end);
         return this;
     }

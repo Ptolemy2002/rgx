@@ -101,19 +101,17 @@ describe('RGXTokenCollection', () => {
     });
 
     describe('toRgx', () => {
-        it('returns a string from toRgx when in union mode', () => {
+        it('correctly converts when in union mode', () => {
             const collection = new RGXTokenCollection(['a', 'b'], 'union');
             const result = collection.toRgx();
 
-            expect(typeof result).toBe('string');
             expect(result).toEqual('(?:a|b)');
         });
 
-        it('returns a string from toRgx when in concat mode', () => {
+        it('correctly converts when in concat mode', () => {
             const collection = new RGXTokenCollection(['a', 'b'], 'concat');
             const result = collection.toRgx();
 
-            expect(typeof result).toBe('string');
             expect(result).toBe('ab');
         });
     });
@@ -236,9 +234,9 @@ describe('RGXTokenCollection', () => {
             const collection = new RGXTokenCollection(['a', 'b']);
             const indices: number[] = [];
             const arrays: RGXToken[][] = [];
-            collection.forEach((t, i, arr) => {
+            collection.forEach((t, i, c) => {
                 indices.push(i);
-                arrays.push(arr);
+                arrays.push(c.toArray());
             });
 
             expect(indices).toEqual([0, 1]);
@@ -255,13 +253,7 @@ describe('RGXTokenCollection', () => {
             const mapped = collection.map(t => (t as string).toUpperCase());
 
             expect(mapped).not.toBe(collection);
-            expect(mapped.getTokens()).toEqual(['A', 'B']);
-        });
-
-        it('preserves mode', () => {
-            const collection = new RGXTokenCollection(['a', 'b'], 'union');
-            const mapped = collection.map(t => t);
-            expect(mapped.mode).toBe('union');
+            expect(mapped).toEqual(['A', 'B']);
         });
 
         it('does not mutate the original', () => {
@@ -332,7 +324,7 @@ describe('RGXTokenCollection', () => {
             const collection = new RGXTokenCollection(['a', 'b']);
             const result = collection.flatMap(t => [t, 'x']);
 
-            expect(result.getTokens()).toEqual(['a', 'x', 'b', 'x']);
+            expect(result).toEqual(['a', 'x', 'b', 'x']);
         });
 
         it('does not mutate the original', () => {
