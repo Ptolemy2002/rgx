@@ -204,4 +204,45 @@ describe('rgx', () => {
         expectRegexpEqual(regex1, 'foo(?:(?:bar|baz)|(?:bar|qux)|baz)quux');
         expectRegexpEqual(regex2, 'foo(?:(?:bar|baz)|(?:bar|qux)|baz)quux');
     });
+
+    it('converts numbers correctly', () => {
+        const regex1 = rgx()`${42}`;
+        const regex2 = rgxa([42]);
+
+        expectRegexpEqual(regex1, '42');
+        expectRegexpEqual(regex2, '42');
+    });
+
+    it('constructs a RegExp from input with a convertible token returning a RegExp', () => {
+        const token = { toRgx: () => /\w+/ };
+
+        const regex1 = rgx()`foo${token}baz`;
+        const regex2 = rgxa(['foo', token, 'baz']);
+
+        expectRegexpEqual(regex1, 'foo(?:\\w+)baz');
+        expectRegexpEqual(regex2, 'foo(?:\\w+)baz');
+    });
+
+    it('constructs a RegExp from input with a convertible token returning an array', () => {
+        const token = { toRgx: () => ['bar', 'baz'] };
+
+        const regex1 = rgx()`foo${token}qux`;
+        const regex2 = rgxa(['foo', token, 'qux']);
+
+        expectRegexpEqual(regex1, 'foo(?:bar|baz)qux');
+        expectRegexpEqual(regex2, 'foo(?:bar|baz)qux');
+    });
+
+    it('rgxConcat passes groupWrap=false through to resolveRGXToken', () => {
+        const result = rgxConcat([/\d+/, 'abc', /\w/], false);
+        expect(result).toBe('\\d+abc\\w');
+    });
+
+    it('Applies no flags when called without flags argument', () => {
+        const regex1 = rgx()`foo`;
+        const regex2 = rgxa(['foo']);
+
+        expect(regex1.flags).toBe('');
+        expect(regex2.flags).toBe('');
+    });
 });

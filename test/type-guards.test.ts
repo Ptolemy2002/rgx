@@ -185,6 +185,24 @@ describe('Type Guards', () => {
             expect(isRGXConvertibleToken(token)).toBe(false);
             expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
         });
+
+        rgxConvertibleTokenTestMethodTest('an object (invalid return)', { invalid: true }, false);
+        rgxConvertibleTokenTestMethodTest('an array containing an object (invalid element)', [{ invalid: true }], false);
+
+        it('rejects undefined as a value (not an object)', () => {
+            expect(isRGXConvertibleToken(undefined)).toBe(false);
+            expect(() => assertRGXConvertibleToken(undefined)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('rejects primitives', () => {
+            expect(isRGXConvertibleToken('foo')).toBe(false);
+            expect(isRGXConvertibleToken(42)).toBe(false);
+            expect(isRGXConvertibleToken(true)).toBe(false);
+
+            expect(() => assertRGXConvertibleToken('foo')).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXConvertibleToken(42)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXConvertibleToken(true)).toThrow(RGXInvalidTokenError);
+        });
     });
 
     describe('rgxTokenType', () => {

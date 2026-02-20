@@ -23,6 +23,21 @@ function constructionTest(constructor: ConstructFunction<typeof RGXTokenCollecti
         const collection = constructor('a');
         expect(collection.getTokens()).toEqual(['a']);
     });
+
+    it('copies tokens from another RGXTokenCollection', () => {
+        const original = new RGXTokenCollection(['a', 'b'], 'union');
+        const copy = constructor(original);
+        expect(copy.getTokens()).toEqual(['a', 'b']);
+        // The mode is NOT copied from the source - it uses the constructor's mode parameter
+        expect(copy.mode).toBe('concat');
+    });
+
+    it('copies tokens from another RGXTokenCollection with specified mode', () => {
+        const original = new RGXTokenCollection(['a', 'b'], 'concat');
+        const copy = constructor(original, 'union');
+        expect(copy.getTokens()).toEqual(['a', 'b']);
+        expect(copy.mode).toBe('union');
+    });
 }
 
 describe('RGXTokenCollection', () => {
@@ -32,6 +47,17 @@ describe('RGXTokenCollection', () => {
 
     describe('construct function', () => {
         constructionTest(rgxTokenCollection);
+    });
+
+    describe('toArray', () => {
+        it('returns a deep clone of the tokens (same as getTokens)', () => {
+            const tokens = ['a', 'b', ['c']];
+            const collection = new RGXTokenCollection(tokens);
+
+            const result = collection.toArray();
+            expect(result).toEqual(tokens);
+            expect(result).not.toBe(tokens);
+        });
     });
 
     describe('getTokens', () => {

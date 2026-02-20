@@ -25,6 +25,10 @@ describe("RGXClassToken", () => {
     it("is not a group by default", () => {
         expect(testToken1.isGroup).toBe(false);
     });
+
+    it("resolves to a valid regex string via resolve()", () => {
+        expect(testToken1.resolve()).toBe("test");
+    });
 });
 
 describe("or", () => {

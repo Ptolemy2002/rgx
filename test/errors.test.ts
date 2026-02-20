@@ -17,6 +17,11 @@ describe('RGXError', () => {
         expect(error.name).toBe('RGXError');
     });
 
+    it('is an instance of Error', () => {
+        const error = new RGXError('An error occurred');
+        expect(error).toBeInstanceOf(Error);
+    });
+
     it('formats the error message correctly', () => {
         const error = new RGXError('An error occurred', 'UNKNOWN');
         expect(error.toString()).toBe('RGXError: An error occurred');
@@ -32,6 +37,26 @@ describe('RGXInvalidTokenError', () => {
     it('has the correct code', () => {
         const error = new RGXInvalidTokenError('Invalid token', { type: 'tokenType', values: ['literal'] }, 123);
         expect(error.code).toBe('INVALID_RGX_TOKEN');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXInvalidTokenError('Invalid token', { type: 'tokenType', values: ['literal'] }, 123);
+        expect(error.got).toBe(123);
+    });
+
+    it('exposes the expected property', () => {
+        const error = new RGXInvalidTokenError('Invalid token', { type: 'tokenType', values: ['literal'] }, 123);
+        expect(error.expected).toBe('[RegExp]');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInvalidTokenError('Invalid token', null, 123);
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly with expected value of "no-op"', () => {
+        const error = new RGXInvalidTokenError('Invalid token', { type: 'tokenType', values: ['no-op'] }, 123);
+        expect(error.toString()).toBe('RGXInvalidTokenError: Invalid token; Expected: [null or undefined]; Got: 123');
     });
 
     it('formats the error message correctly with expected value of "literal"', () => {
@@ -86,6 +111,16 @@ describe('RGXInvalidRegexStringError', () => {
         expect(error.code).toBe('INVALID_REGEX_STRING');
     });
 
+    it('exposes the got property', () => {
+        const error = new RGXInvalidRegexStringError('Invalid regex string', 'abc[');
+        expect(error.got).toBe('abc[');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInvalidRegexStringError('Invalid regex string', 'abc[');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
     it('formats the error message correctly', () => {
         const error = new RGXInvalidRegexStringError('Invalid regex string', 'abc[');
         expect(error.toString()).toBe('RGXInvalidRegexStringError: Invalid regex string; Got: "abc["');
@@ -103,6 +138,16 @@ describe('RGXInvalidVanillaRegexFlagsError', () => {
         expect(error.code).toBe('INVALID_VANILLA_REGEX_FLAGS');
     });
 
+    it('exposes the got property', () => {
+        const error = new RGXInvalidVanillaRegexFlagsError('Invalid vanilla regex flags', 'gg');
+        expect(error.got).toBe('gg');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInvalidVanillaRegexFlagsError('Invalid vanilla regex flags', 'gg');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
     it('formats the error message correctly', () => {
         const error = new RGXInvalidVanillaRegexFlagsError('Invalid vanilla regex flags', 'gg');
         expect(error.toString()).toBe('RGXInvalidVanillaRegexFlagsError: Invalid vanilla regex flags; Got: "gg"');
@@ -118,6 +163,16 @@ describe('RGXNotImplementedError', () => {
     it('has the correct code', () => {
         const error = new RGXNotImplementedError('Some functionality');
         expect(error.code).toBe('NOT_IMPLEMENTED');
+    });
+
+    it('exposes the functionality property', () => {
+        const error = new RGXNotImplementedError('Some functionality');
+        expect(error.functionality).toBe('Some functionality');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXNotImplementedError('Some functionality');
+        expect(error).toBeInstanceOf(RGXError);
     });
 
     it('formats the error message correctly without additional info', () => {

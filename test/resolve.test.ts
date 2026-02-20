@@ -34,4 +34,38 @@ describe('resolveRGXToken', () => {
         const tokens = ['abc', /def/, { toRgx: () => 'ghi' }, 'abc', /def/];
         expect(resolveRGXToken(tokens)).toBe('(?:abc|(?:def)|ghi)');
     });
+
+    it('resolves null as an empty string', () => {
+        expect(resolveRGXToken(null)).toBe('');
+    });
+
+    it('resolves undefined as an empty string', () => {
+        expect(resolveRGXToken(undefined)).toBe('');
+    });
+
+    it('resolves a number native token by escaping its string representation', () => {
+        expect(resolveRGXToken(42)).toBe('42');
+    });
+
+    it('resolves a boolean native token by escaping its string representation', () => {
+        expect(resolveRGXToken(true)).toBe('true');
+    });
+
+    it('resolves a convertible token that returns a RegExp', () => {
+        const token = { toRgx: () => /abc/ };
+        expect(resolveRGXToken(token)).toBe('(?:abc)');
+    });
+
+    it('resolves a convertible token that returns an array of tokens', () => {
+        const token = { toRgx: () => ['abc', /def/] };
+        expect(resolveRGXToken(token)).toBe('(?:abc|(?:def))');
+    });
+
+    it('resolves an empty array as an empty string', () => {
+        expect(resolveRGXToken([])).toBe('');
+    });
+
+    it('resolves a single-element array without adding a non-capturing group', () => {
+        expect(resolveRGXToken(['abc'])).toBe('abc');
+    });
 });

@@ -1,4 +1,4 @@
-import { RGXClassUnionToken, rgxClassInit, rgxClassUnion } from "src/class";
+import { RGXClassUnionToken, rgxClassInit, rgxClassUnion, expandRgxUnionTokens, removeRgxUnionDuplicates } from "src/class";
 import { RGXTokenCollection } from "src/collection";
 import { ConstructFunction } from "src/internal";
 
@@ -233,15 +233,93 @@ describe("RGXClassUnionToken", () => {
         }); 
     });
 
+    describe("toRgx", () => {
+        it("returns a RegExp", () => {
+            const instance = new RGXClassUnionToken(["a", "b"]);
+            const result = instance.toRgx();
+            expect(result).toBeInstanceOf(RegExp);
+        });
+
+        it("returns a RegExp with the correct source", () => {
+            const instance = new RGXClassUnionToken(["a", "b"]);
+            const result = instance.toRgx();
+            expect(result.source).toBe("a|b");
+        });
+    });
+
     describe("or", () => {
         it("combines correctly with another class union token", () => {
             rgxClassInit(); // Ensure the or method is patched before testing
-            
+
             const token1 = new RGXClassUnionToken(["a", "b"]);
             const token2 = new RGXClassUnionToken(["b", "c"]);
             const result = token1.or(token2);
             expect(result).toBeInstanceOf(RGXClassUnionToken);
             expect((result as RGXClassUnionToken).tokens.toArray()).toEqual(["a", "b", "c"]);
         });
+    });
+});
+
+describe("expandRgxUnionTokens", () => {
+    it("returns a flat collection from plain tokens", () => {
+        const result = expandRgxUnionTokens("a", "b", "c");
+        expect(result.toArray()).toEqual(["a", "b", "c"]);
+    });
+
+    it("expands nested arrays", () => {
+        const result = expandRgxUnionTokens("a", ["b", "c"]);
+        expect(result.toArray()).toEqual(["a", "b", "c"]);
+    });
+
+    it("expands RGXTokenCollection in union mode", () => {
+        const collection = new RGXTokenCollection(["b", "c"], "union");
+        const result = expandRgxUnionTokens("a", collection);
+        expect(result.toArray()).toEqual(["a", "b", "c"]);
+    });
+
+    it("does not expand RGXTokenCollection in concat mode", () => {
+        const collection = new RGXTokenCollection(["b", "c"], "concat");
+        const result = expandRgxUnionTokens("a", collection);
+        expect(result.toArray()).toEqual(["a", collection]);
+    });
+
+    it("expands RGXClassUnionToken instances", () => {
+        const union = new RGXClassUnionToken(["b", "c"]);
+        const result = expandRgxUnionTokens("a", union);
+        expect(result.toArray()).toEqual(["a", "b", "c"]);
+    });
+
+    it("recursively expands deeply nested unions", () => {
+        const innerUnion = new RGXClassUnionToken(["c", "d"]);
+        const outerCollection = new RGXTokenCollection(["b", innerUnion], "union");
+        const result = expandRgxUnionTokens("a", outerCollection);
+        expect(result.toArray()).toEqual(["a", "b", "c", "d"]);
+    });
+});
+
+describe("removeRgxUnionDuplicates", () => {
+    it("removes duplicate primitive tokens", () => {
+        const result = removeRgxUnionDuplicates("a", "b", "a", "c", "b");
+        expect(result.toArray()).toEqual(["a", "b", "c"]);
+    });
+
+    it("returns a collection in union mode", () => {
+        const result = removeRgxUnionDuplicates("a", "b");
+        expect(result.mode).toBe("union");
+    });
+
+    it("removes duplicate RegExp tokens with same pattern and flags", () => {
+        const result = removeRgxUnionDuplicates(/abc/, /def/, /abc/);
+        expect(result.toArray()).toEqual([/abc/, /def/]);
+    });
+
+    it("preserves RegExp tokens with different flags", () => {
+        const result = removeRgxUnionDuplicates(/abc/i, /abc/g);
+        expect(result.length).toBe(2);
+    });
+
+    it("returns an empty collection when given no tokens", () => {
+        const result = removeRgxUnionDuplicates();
+        expect(result.toArray()).toEqual([]);
     });
 });
