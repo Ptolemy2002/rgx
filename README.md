@@ -112,7 +112,7 @@ constructor(functionality: string, message?: string | null)
 - `functionality` (`string`): The description of the unimplemented functionality.
 
 #### Methods
-- `toString()` (`() => string`): Returns a formatted string indicating the unimplemented functionality and any additional message.
+- `toString() => string`: Returns a formatted string indicating the unimplemented functionality and any additional message.
 
 ### RGXTokenCollection
 A class representing a collection of RGX tokens. This class manages collections of RGX tokens like an array, but with additional metadata about the collection mode (union or concat). Since `toRgx()` returns a `RegExp`, instances of this class satisfy the `RGXConvertibleToken` interface and can be used directly as tokens in `rgx`, `rgxa`, and other token-accepting functions.
@@ -129,11 +129,12 @@ constructor(tokens: RGXTokenCollectionInput = [], mode: RGXTokenCollectionMode =
 #### Properties
 - `tokens` (`RGXToken[]`): The array of RGX tokens managed by the collection. In almost all cases, use `getTokens()` instead of accessing this property directly, as it will be copied to prevent external mutation.
 - `mode` (`RGXTokenCollectionMode`): The mode of the collection, either 'union' or 'concat'. This determines how the tokens in the collection will be resolved when `toRgx()` is called.
-- `toRgx()` (`() => RegExp`): A method that resolves the collection to a `RegExp` object based on the collection mode. In 'union' mode, the tokens are resolved as alternatives (using the `|` operator), while in 'concat' mode, the tokens are resolved as concatenated together. No flags are applied to the resulting `RegExp`. Since this method returns a `RegExp` (which is `RGXLiteralToken`), `RGXTokenCollection` instances satisfy the `RGXConvertibleToken` interface and can be used directly as tokens in `rgx`, `rgxa`, and other token-accepting functions.
-- `getTokens()` (`() => RGXToken[]`): A method that returns a copy of the array of RGX tokens managed by the collection. This is used to prevent external mutation of the internal `tokens` array.
-- `clone()` (`() => RGXTokenCollection`): A method that creates and returns a deep clone of the RGXTokenCollection instance. This is useful for creating a new collection with the same tokens and mode without affecting the original collection.
-- `asConcat()` (`() => RGXTokenCollection`): If this collection is in 'union' mode, this method returns a new RGXTokenCollection instance with the same tokens but in 'concat' mode. If the collection is already in 'concat' mode, it simply returns itself.
-- `asUnion()` (`() => RGXTokenCollection`): If this collection is in 'concat' mode, this method returns a new RGXTokenCollection instance with the same tokens but in 'union' mode. If the collection is already in 'union' mode, it simply returns itself.
+- `toRgx() => RegExp`: A method that resolves the collection to a `RegExp` object based on the collection mode. In 'union' mode, the tokens are resolved as alternatives (using the `|` operator), while in 'concat' mode, the tokens are resolved as concatenated together. No flags are applied to the resulting `RegExp`. Since this method returns a `RegExp` (which is `RGXLiteralToken`), `RGXTokenCollection` instances satisfy the `RGXConvertibleToken` interface and can be used directly as tokens in `rgx`, `rgxa`, and other token-accepting functions.
+- `getTokens() => RGXToken[]`: A method that returns a copy of the array of RGX tokens managed by the collection. This is used to prevent external mutation of the internal `tokens` array.
+- `toArray() => RGXToken[]`: An alias for `getTokens()`, provided for convenience.
+- `clone() => RGXTokenCollection`: A method that creates and returns a deep clone of the RGXTokenCollection instance. This is useful for creating a new collection with the same tokens and mode without affecting the original collection.
+- `asConcat() => RGXTokenCollection`: If this collection is in 'union' mode, this method returns a new RGXTokenCollection instance with the same tokens but in 'concat' mode. If the collection is already in 'concat' mode, it simply returns itself.
+- `asUnion() => RGXTokenCollection`: If this collection is in 'concat' mode, this method returns a new RGXTokenCollection instance with the same tokens but in 'union' mode. If the collection is already in 'union' mode, it simply returns itself.
 
 Standard array properties and methods like `length`, `push`, `pop`, etc. are implemented to work with the internal `tokens` array, but providing collection instances instead of raw arrays when relevant (e.g., `map` has the third parameter typed as `RGXTokenCollection` instead of `RGXToken[]`).
 
@@ -141,14 +142,14 @@ Standard array properties and methods like `length`, `push`, `pop`, etc. are imp
 An abstract base class for creating custom RGX token classes. Subclasses must implement the `toRgx()` method, which returns a value compatible with `RGXConvertibleTokenOutput`.
 
 #### Abstract Methods
-- `toRgx()` (`() => RGXConvertibleTokenOutput`): Must be implemented by subclasses to return the token's regex representation as a native/literal token or array of native/literal tokens.
+- `toRgx() => RGXConvertibleTokenOutput`: Must be implemented by subclasses to return the token's regex representation as a native/literal token or array of native/literal tokens.
 
 #### Properties
 - `isGroup` (`boolean`): Returns `false` by default. Subclasses can override this to indicate whether the token represents a group.
 
 #### Methods
-- `or(...others: RGXTokenCollectionInput[])` (`(...others: RGXTokenCollectionInput[]) => RGXClassUnionToken`): Creates an `RGXClassUnionToken` that represents a union (alternation) of this token with the provided others. If any of the `others` are `RGXClassUnionToken` instances, their tokens are flattened into the union rather than nested. If `this` is already an `RGXClassUnionToken`, its existing tokens are preserved and the others are appended.
-- `resolve()` (`() => ValidRegexString`): A convenience method that resolves this token by calling `resolveRGXToken(this)`, returning the resolved regex string representation. Since this method is defined on `RGXClassToken`, it is available on all subclasses including `RGXClassUnionToken`.
+- `or(...others: RGXTokenCollectionInput[]) => RGXClassUnionToken`: Creates an `RGXClassUnionToken` that represents a union (alternation) of this token with the provided others. If any of the `others` are `RGXClassUnionToken` instances, their tokens are flattened into the union rather than nested. If `this` is already an `RGXClassUnionToken`, its existing tokens are preserved and the others are appended.
+- `resolve() => ValidRegexString`: A convenience method that resolves this token by calling `resolveRGXToken(this)`, returning the resolved regex string representation. Since this method is defined on `RGXClassToken`, it is available on all subclasses including `RGXClassUnionToken`.
 
 ### RGXClassUnionToken extends RGXClassToken
 A class representing a union (alternation) of RGX tokens. This is typically created via the `or()` method on `RGXClassToken`, but can also be instantiated directly.
@@ -166,10 +167,10 @@ constructor(tokens: RGXTokenCollectionInput = [])
 - `isGroup` (`boolean`): Returns `true`, indicating this token represents a group.
 
 #### Methods
-- `add(token: RGXToken, pos?: RGXUnionInsertionPosition)` (`(token: RGXToken, pos?: RGXUnionInsertionPosition) => this`): Adds a token to the union. The `pos` parameter controls where the token is inserted: `'prefix'` inserts at the beginning, `'suffix'` (default) appends to the end. Returns `this` for chaining.
-- `concat(pos?: RGXUnionInsertionPosition, ...others: RGXTokenCollectionInput[])` (`(pos?: RGXUnionInsertionPosition, ...others: RGXTokenCollectionInput[]) => this`): Concatenates additional tokens into the union. The `pos` parameter controls insertion position: `'suffix'` (default) appends to the end, `'prefix'` prepends to the beginning. Returns `this` for chaining.
-- `cleanTokens()` (`() => this`): Expands any nested union tokens and removes duplicates from the internal token collection. Returns `this` for chaining. Called automatically during construction and after `add` or `concat`.
-- `toRgx()` (`() => RegExp`): Resolves the union by calling `toRgx()` on the internal `RGXTokenCollection`, returning a `RegExp`.
+- `add(token: RGXToken, pos?: RGXUnionInsertionPosition) => this`: Adds a token to the union. The `pos` parameter controls where the token is inserted: `'prefix'` inserts at the beginning, `'suffix'` (default) appends to the end. Returns `this` for chaining.
+- `concat(pos?: RGXUnionInsertionPosition, ...others: RGXTokenCollectionInput[]) => this`: Concatenates additional tokens into the union. The `pos` parameter controls insertion position: `'suffix'` (default) appends to the end, `'prefix'` prepends to the beginning. Returns `this` for chaining.
+- `cleanTokens() => this`: Expands any nested union tokens and removes duplicates from the internal token collection. Returns `this` for chaining. Called automatically during construction and after `add` or `concat`.
+- `toRgx() => RegExp`: Resolves the union by calling `toRgx()` on the internal `RGXTokenCollection`, returning a `RegExp`.
 
 ## Functions
 The following functions are exported by the library:
@@ -432,7 +433,7 @@ A helper function that resolves an array of RGX tokens and concatenates their re
 
 ### rgx
 ```typescript
-function rgx(flags?: string): (strings: TemplateStringsArray, ...tokens: RGXToken[]) =>RegExp
+function rgx(flags?: string): (strings: TemplateStringsArray, ...tokens: RGXToken[]) => RegExp
 ```
 
 Creates and returns a template tag function that constructs a `RegExp` object from the provided template literal with the provided flags. The template literal can contain RGX tokens, which will be resolved and concatenated with the literal parts to form the final regex pattern.
