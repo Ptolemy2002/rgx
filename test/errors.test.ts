@@ -1,4 +1,4 @@
-import { RGXError, RGXInvalidTokenError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError } from 'src/index';
+import { RGXError, RGXInvalidTokenError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError, RGXNotImplementedError } from 'src/index';
 
 describe('RGXError', () => {
     it('sets the message and code correctly', () => {
@@ -106,5 +106,29 @@ describe('RGXInvalidVanillaRegexFlagsError', () => {
     it('formats the error message correctly', () => {
         const error = new RGXInvalidVanillaRegexFlagsError('Invalid vanilla regex flags', 'gg');
         expect(error.toString()).toBe('RGXInvalidVanillaRegexFlagsError: Invalid vanilla regex flags; Got: "gg"');
+    });
+});
+
+describe('RGXNotImplementedError', () => {
+    it('has the correct name', () => {
+        const error = new RGXNotImplementedError('Some functionality');
+        expect(error.name).toBe('RGXNotImplementedError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXNotImplementedError('Some functionality');
+        expect(error.code).toBe('NOT_IMPLEMENTED');
+    });
+
+    it('formats the error message correctly without additional info', () => {
+        const error = new RGXNotImplementedError('Some functionality');
+        expect(error.toString()).toBe('RGXNotImplementedError: Some functionality is not implemented yet.');
+    });
+
+    it('formats the error message correctly with additional info', () => {
+        const error = new RGXNotImplementedError('Some functionality', 'This will be implemented in the future.');
+        expect(error.toString()).toBe(
+            'RGXNotImplementedError: Some functionality is not implemented yet. Additional info: This will be implemented in the future.'
+        );
     });
 });

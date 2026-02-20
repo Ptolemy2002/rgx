@@ -18,6 +18,11 @@ function constructionTest(constructor: ConstructFunction<typeof RGXTokenCollecti
         expect(collection.getTokens()).toEqual(['a', 'b']);
         expect(collection.mode).toBe('union');
     });
+
+    it('accepts a single token as tokens argument', () => {
+        const collection = constructor('a');
+        expect(collection.getTokens()).toEqual(['a']);
+    });
 }
 
 describe('RGXTokenCollection', () => {
@@ -120,14 +125,14 @@ describe('RGXTokenCollection', () => {
             const collection = new RGXTokenCollection(['a', 'b'], 'union');
             const result = collection.toRgx();
 
-            expect(result).toEqual('(?:a|b)');
+            expect(result.source).toEqual('a|b');
         });
 
         it('correctly converts when in concat mode', () => {
             const collection = new RGXTokenCollection(['a', 'b'], 'concat');
             const result = collection.toRgx();
 
-            expect(result).toBe('ab');
+            expect(result.source).toEqual('ab');
         });
     });
 

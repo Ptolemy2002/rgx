@@ -1,7 +1,7 @@
 import { 
     isRGXConvertibleToken, isRGXLiteralToken, isRGXNativeToken, isRGXNoOpToken, RGXToken, rgxTokenType,
     assertRGXConvertibleToken, assertRGXLiteralToken, assertRGXNativeToken, assertRGXNoOpToken,
-    RGXInvalidTokenError
+    RGXInvalidTokenError, rgxTokenTypeFlat
 } from 'src/index';
 
 function rgxConvertibleTokenTestMethodTest(returnValueDesc: string, returnValue: unknown, expected: boolean) {
@@ -212,6 +212,34 @@ describe('Type Guards', () => {
         it('identifies arrays of tokens', () => {
             const token: RGXToken = ['foo', { toRgx: () => 14 }, null];
             expect(rgxTokenType(token)).toEqual(['native', 'convertible', 'no-op']);
+        });
+    });
+
+    describe('rgxTokenTypeFlat', () => {
+        it('identifies no-op tokens', () => {
+            expect(rgxTokenTypeFlat(null)).toBe('no-op');
+            expect(rgxTokenTypeFlat(undefined)).toBe('no-op');
+        });
+
+        it('identifies literal tokens', () => {
+            expect(rgxTokenTypeFlat(/foo/)).toBe('literal');
+            expect(rgxTokenTypeFlat(new RegExp('bar'))).toBe('literal');
+        });
+
+        it('identifies native tokens', () => {
+            expect(rgxTokenTypeFlat('foo')).toBe('native');
+            expect(rgxTokenTypeFlat(14)).toBe('native');
+            expect(rgxTokenTypeFlat(true)).toBe('native');
+        });
+
+        it('identifies convertible tokens', () => {
+            const token: RGXToken = { toRgx: () => 'foo' };
+            expect(rgxTokenTypeFlat(token)).toBe('convertible');
+        });
+
+        it('identifies arrays of tokens', () => {
+            const token: RGXToken = ['foo', { toRgx: () => 14 }, null];
+            expect(rgxTokenTypeFlat(token)).toEqual("array");
         });
     });
 });

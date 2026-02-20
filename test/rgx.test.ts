@@ -1,4 +1,4 @@
-import rgx, { rgxa, rgxConcat, RGXInvalidVanillaRegexFlagsError } from 'src/index';
+import rgx, { rgxa, rgxConcat, RGXInvalidVanillaRegexFlagsError, RGXTokenCollection } from 'src/index';
 
 function expectRegexpEqual(received: RegExp, expected: RegExp | string) {
     const expectedPattern = typeof expected === 'string' ? expected : expected.source;
@@ -169,5 +169,39 @@ describe('rgx', () => {
     it('Throws the correct error for invalid flags', () => {
         expect(() => rgx('invalid')`foo`).toThrow(RGXInvalidVanillaRegexFlagsError);
         expect(() => rgxa(['foo'], 'invalid')).toThrow(RGXInvalidVanillaRegexFlagsError);
+    });
+
+    it('Handles an RGXTokenCollection in union mode correctly', () => {
+        const collection = new RGXTokenCollection(['foo', 'bar', 'baz'], "union");
+        const regex1 = rgx()`qux${collection}quux`;
+        const regex2 = rgxa(['qux', collection, 'quux']);
+
+        expectRegexpEqual(regex1, 'qux(?:foo|bar|baz)quux');
+        expectRegexpEqual(regex2, 'qux(?:foo|bar|baz)quux');
+    });
+
+    it('Handles an RGXTokenCollection in concat mode correctly', () => {
+        const collection = new RGXTokenCollection(['foo', 'bar', 'baz'], "concat");
+        const regex1 = rgx()`qux${collection}quux`;
+        const regex2 = rgxa(['qux', collection, 'quux']);
+
+        expectRegexpEqual(regex1, 'qux(?:foobarbaz)quux');
+        expectRegexpEqual(regex2, 'qux(?:foobarbaz)quux');
+    });
+
+    it('Removes duplicates from unions', () => {
+        const regex1 = rgx()`foo${['bar', 'baz', 'bar', 'qux', 'baz']}quux`;
+        const regex2 = rgxa(['foo', ['bar', 'baz', 'bar', 'qux', 'baz'], 'quux']);
+
+        expectRegexpEqual(regex1, 'foo(?:bar|baz|qux)quux');
+        expectRegexpEqual(regex2, 'foo(?:bar|baz|qux)quux');
+    });
+
+    it('Does not remove duplicates from nested unions', () => {
+        const regex1 = rgx()`foo${[['bar', 'baz'], ['bar', 'qux'], 'baz']}quux`;
+        const regex2 = rgxa(['foo', [['bar', 'baz'], ['bar', 'qux'], 'baz'], 'quux']);
+
+        expectRegexpEqual(regex1, 'foo(?:(?:bar|baz)|(?:bar|qux)|baz)quux');
+        expectRegexpEqual(regex2, 'foo(?:(?:bar|baz)|(?:bar|qux)|baz)quux');
     });
 });

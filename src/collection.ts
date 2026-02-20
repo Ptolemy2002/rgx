@@ -1,26 +1,40 @@
 import { RGXToken, ValidRegexString } from "./types";
-import { resolveRGXToken, rgxConcat } from "./index";
+import { resolveRGXToken } from "./resolve";
+import { rgxConcat } from "./concat";
 import { CloneDepth, immutableMut, extClone, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { Collection } from "@ptolemy2002/ts-utils";
 import { createConstructFunction } from "./internal";
 
 export type RGXTokenCollectionMode = 'union' | 'concat';
+export type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
 
 export class RGXTokenCollection implements Collection<RGXToken> {
     mode: RGXTokenCollectionMode;
     tokens: RGXToken[] = [];
 
-    constructor(tokens: RGXToken[] = [], mode: RGXTokenCollectionMode = 'concat') {
-        this.tokens = tokens;
+    constructor(tokens: RGXTokenCollectionInput = [], mode: RGXTokenCollectionMode = 'concat') {
+        if (tokens instanceof RGXTokenCollection) {
+            this.tokens = tokens.tokens;
+        } else if (Array.isArray(tokens)) {
+            this.tokens = tokens;
+        } else {
+            this.tokens = [tokens];
+        }
+        
         this.mode = mode;
     }
 
-    toRgx(): ValidRegexString {
+    toRgx(): RegExp {
+        let pattern: ValidRegexString;
         if (this.mode === 'union') {
-            return resolveRGXToken(this.tokens);
+            // The RegExp will already be wrapped with resolveRGXToken,
+            // so we don't need to wrap it again here.
+            pattern = resolveRGXToken(this.tokens, false);
         } else {
-            return rgxConcat(this.tokens);
+            pattern = rgxConcat(this.tokens);
         }
+
+        return new RegExp(pattern);
     }
 
     getTokens(): RGXToken[] {
@@ -126,9 +140,9 @@ export class RGXTokenCollection implements Collection<RGXToken> {
         });
     }
 
-    concat(...others: (RGXToken | RGXToken[] | RGXTokenCollection)[]): RGXTokenCollection {
+    concat(...others: (RGXToken | RGXTokenCollection)[]): RGXTokenCollection {
         return immutableMut(this, clone => {
-            const arrays = others.map(o => o instanceof RGXTokenCollection ? o.tokens : Array.isArray(o) ? o : [o]);
+            const arrays = others.map(o => o instanceof RGXTokenCollection && o.mode === this.mode ? o.tokens : Array.isArray(o) ? o : [o]);
             clone.tokens = clone.tokens.concat(...arrays.flat());
         });
     }

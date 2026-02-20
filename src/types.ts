@@ -10,11 +10,12 @@ export type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | 
 
 export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | RGXTokenType[];
 export type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
-export type RGXTokenFromType<T extends RGXTokenType> =
+export type RGXTokenFromType<T extends RGXTokenType | RGXTokenTypeFlat> =
     T extends 'no-op' ? RGXNoOpToken :
     T extends 'literal' ? RGXLiteralToken :
     T extends 'native' ? RGXNativeToken :
     T extends 'convertible' ? RGXConvertibleToken :
+    T extends 'array' ? RGXToken[] :
     T extends RGXTokenType[] ? { [K in keyof T]: T[K] extends RGXTokenType ? RGXTokenFromType<T[K]> : never } :
     never
 ;
