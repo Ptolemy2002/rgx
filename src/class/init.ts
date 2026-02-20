@@ -6,7 +6,7 @@ export function rgxClassInit() {
     // Patch RGXClassToken here, Since classes like RGXClassUnionToken are instances of RGXClassToken
     // themselves. If we tried to import RGXClassUnionToken in base.ts, it would cause a circular dependency.
     
-    RGXClassToken.prototype.or = function (this: RGXClassToken, ...others: RGXTokenCollectionInput[]): RGXClassToken {
+    RGXClassToken.prototype.or = function (this: RGXClassToken, ...others: RGXTokenCollectionInput[]): RGXClassUnionToken {
         if (others.length === 0) return new RGXClassUnionToken([this]);
 
         const expandedOthers: RGXTokenCollection = expandRgxUnionTokens(...others);
