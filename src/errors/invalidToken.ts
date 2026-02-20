@@ -6,8 +6,8 @@ const tokenExpectationMap: Record<RGXTokenTypeFlat, string[]> = {
     'no-op': ['null', 'undefined'],
     'literal': ['RegExp'],
     'native': ['string', 'number', 'boolean', 'null', 'undefined'],
-    'convertible': ['object with a toRgx method that returns a valid token'],
-    'array': ['array of native/literal tokens'],
+    'convertible': ['object with a toRgx method that returns a valid native/literal token or an array of valid native/literal tokens'],
+    'array': ['array of native/literal/convertible tokens'],
 } as const;
 
 export type ExpectedTokenType = {

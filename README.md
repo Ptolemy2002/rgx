@@ -23,7 +23,8 @@ type ValidVanillaRegexFlags = Branded<string, [ValidVanillaRegexFlagsBrandSymbol
 
 type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | RGXTokenType[];
 type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
-type RGXTokenFromType<T extends RGXTokenType | RGXTokenTypeFlat> =
+type RGXTokenTypeGuardInput = Exclude<RGXTokenType, RGXTokenType[]> | RGXTokenTypeFlat | null | RGXTokenTypeGuardInput[];
+type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     // ... see source for full definition
 ;
 
@@ -339,6 +340,64 @@ Does nothing at runtime, but performs a type assertion to the correct subset of 
 
 #### Returns
 - `RGXTokenFromType<T>`: The input value, but with its type asserted to the corresponding token type based on the provided `RGXTokenType`.
+
+### rgxTokenTypeToFlat
+```typescript
+function rgxTokenTypeToFlat(type: RGXTokenType): RGXTokenTypeFlat
+```
+
+Converts an `RGXTokenType` to its flat equivalent `RGXTokenTypeFlat`. If the type is an array, it returns `'array'`; otherwise, it returns the type as-is.
+
+#### Parameters
+  - `type` (`RGXTokenType`): The RGX token type to convert.
+
+#### Returns
+- `RGXTokenTypeFlat`: The flat equivalent of the provided token type.
+
+### rgxTokenTypeGuardInputToFlat
+```typescript
+function rgxTokenTypeGuardInputToFlat(type: RGXTokenTypeGuardInput): RGXTokenTypeFlat | null
+```
+
+Converts an `RGXTokenTypeGuardInput` to its flat equivalent. If the type is `null`, it returns `null`; if it is an array, it returns `'array'`; otherwise, it returns the type as-is.
+
+#### Parameters
+  - `type` (`RGXTokenTypeGuardInput`): The type guard input to convert.
+
+#### Returns
+- `RGXTokenTypeFlat | null`: The flat equivalent of the provided type guard input, or `null` if the input is `null`.
+
+### isRGXToken
+```typescript
+function isRGXToken<T extends RGXTokenTypeGuardInput = null>(value: unknown, type?: T, matchLength?: boolean): value is RGXTokenFromType<T>
+```
+
+Checks if the given value is a valid RGX token, optionally narrowed to a specific token type. When `type` is `null` (the default), it checks against all token types. When `type` is a specific token type string, it checks only against that type.
+
+When `type` is an array, it checks that every element of the value array is a valid RGX token matching the corresponding type in the `type` array. If `matchLength` is `true` (the default), it also requires that the value array has the same length as the type array; if `false`, it allows the value array to be longer than the type array, as long as all elements up to the length of the type array match and all elements after that are still valid RGX tokens of any type.
+
+#### Parameters
+  - `value` (`unknown`): The value to check.
+  - `type` (`T`, optional): The token type to check against. Defaults to `null`, which checks against all token types.
+  - `matchLength` (`boolean`, optional): When `type` is an array, whether to require that the value array has the same length as the type array. Defaults to `true`.
+
+#### Returns
+- `boolean`: `true` if the value is a valid RGX token matching the specified type, otherwise `false`.
+
+### assertRGXToken
+```typescript
+function assertRGXToken<T extends RGXTokenTypeGuardInput = null>(value: unknown, type?: T, matchLength?: boolean): asserts value is RGXTokenFromType<T>
+```
+
+Asserts that the given value is a valid RGX token, optionally narrowed to a specific token type. Uses the same logic as `isRGXToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Parameters
+  - `value` (`unknown`): The value to assert.
+  - `type` (`T`, optional): The token type to assert against. Defaults to `null`, which checks against all token types.
+  - `matchLength` (`boolean`, optional): When `type` is an array, whether to require that the value array has the same length as the type array. Defaults to `true`.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an error if the assertion fails.
 
 ### isValidRegexString
 ```typescript

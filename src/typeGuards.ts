@@ -84,6 +84,51 @@ export function rgxTokenFromType<T extends t.RGXTokenType | t.RGXTokenTypeFlat>(
     return value as t.RGXTokenFromType<typeof type>;
 }
 
+export function rgxTokenTypeToFlat(type: t.RGXTokenType): t.RGXTokenTypeFlat {
+    return Array.isArray(type) ? 'array' : type;
+}
+
+export function rgxTokenTypeGuardInputToFlat(type: t.RGXTokenTypeGuardInput): t.RGXTokenTypeFlat | null {
+    if (type === null) return null;
+    if (Array.isArray(type)) return 'array';
+    return type;
+}
+
+export function isRGXToken<
+    T extends t.RGXTokenTypeGuardInput = null
+>(value: unknown, type: T = null as T, matchLength: boolean = true): value is t.RGXTokenFromType<T> {
+    function typeMatches(s: string) {
+        return type === null || type === s;
+    }
+
+    if (typeMatches('no-op') && isRGXNoOpToken(value)) return true;
+    if (typeMatches('literal') && isRGXLiteralToken(value)) return true;
+    if (typeMatches('native') && isRGXNativeToken(value)) return true;
+    if (typeMatches('convertible') && isRGXConvertibleToken(value)) return true;
+    if (typeMatches('array') && Array.isArray(value)) {
+        // @ts-ignore Excessively deep type is not a problem here.
+        return value.every(item => isRGXToken(item, null));
+    }
+
+    if (Array.isArray(type) && Array.isArray(value) && (!matchLength || type.length === value.length)) {
+        // This will always be false.
+        if (value.length < type.length) return false;
+        // @ts-ignore Excessively deep type is not a problem here.
+        return value.every((item, i) => isRGXToken(item, type[i] ?? null));
+    }
+    
+    return false;
+}
+
+export function assertRGXToken<
+    T extends t.RGXTokenTypeGuardInput = null
+>(value: unknown, type: T = null as T, matchLength: boolean = true): asserts value is t.RGXTokenFromType<T> {
+    if (!isRGXToken(value, type, matchLength)) {
+        const flatType = rgxTokenTypeGuardInputToFlat(type);
+        throw new e.RGXInvalidTokenError("Invalid RGX token", flatType === null ? null : {type: "tokenType", values: [flatType]}, value);
+    }
+}
+
 export function isValidRegexString(value: string): value is t.ValidRegexString {
     try {
         new RegExp(value);

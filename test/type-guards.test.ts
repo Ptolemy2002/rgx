@@ -1,7 +1,8 @@
-import { 
+import {
     isRGXConvertibleToken, isRGXLiteralToken, isRGXNativeToken, isRGXNoOpToken, RGXToken, rgxTokenType,
     assertRGXConvertibleToken, assertRGXLiteralToken, assertRGXNativeToken, assertRGXNoOpToken,
-    RGXInvalidTokenError, rgxTokenTypeFlat
+    RGXInvalidTokenError, rgxTokenTypeFlat, isRGXToken, assertRGXToken,
+    RGXTokenTypeGuardInput, rgxTokenTypeToFlat, rgxTokenTypeGuardInputToFlat
 } from 'src/index';
 
 function rgxConvertibleTokenTestMethodTest(returnValueDesc: string, returnValue: unknown, expected: boolean) {
@@ -258,6 +259,170 @@ describe('Type Guards', () => {
         it('identifies arrays of tokens', () => {
             const token: RGXToken = ['foo', { toRgx: () => 14 }, null];
             expect(rgxTokenTypeFlat(token)).toEqual("array");
+        });
+    });
+
+    describe('isRGXToken', () => {
+        it('returns true for every valid token type when a specific type is not specified', () => {
+            expect(isRGXToken(null)).toBe(true);
+            expect(isRGXToken(undefined)).toBe(true);
+            expect(isRGXToken(/foo/)).toBe(true);
+            expect(isRGXToken('foo')).toBe(true);
+            expect(isRGXToken(14)).toBe(true);
+            expect(isRGXToken(true)).toBe(true);
+            expect(isRGXToken({ toRgx: () => 'foo' })).toBe(true);
+            expect(isRGXToken(['foo', { toRgx: () => 14 }, null])).toBe(true);
+
+            expect(() => assertRGXToken(null)).not.toThrow();
+            expect(() => assertRGXToken(undefined)).not.toThrow();
+            expect(() => assertRGXToken(/foo/)).not.toThrow();
+            expect(() => assertRGXToken('foo')).not.toThrow();
+            expect(() => assertRGXToken(14)).not.toThrow();
+            expect(() => assertRGXToken(true)).not.toThrow();
+            expect(() => assertRGXToken({ toRgx: () => 'foo' })).not.toThrow();
+            expect(() => assertRGXToken(['foo', { toRgx: () => 14 }, null])).not.toThrow();
+        });
+
+        it('returns false for invalid tokens when a specific type is not specified', () => {
+            expect(isRGXToken({})).toBe(false);
+            expect(isRGXToken({ toRgx: 'not a function' })).toBe(false);
+            expect(isRGXToken(['foo', { invalid: true }])).toBe(false);
+
+            expect(() => assertRGXToken({})).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXToken({ toRgx: 'not a function' })).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXToken(['foo', { invalid: true }])).toThrow(RGXInvalidTokenError);
+        });
+
+        it('identifies no-op tokens correctly', () => {
+            expect(isRGXToken(null, 'no-op')).toBe(true);
+            expect(isRGXToken(undefined, 'no-op')).toBe(true);
+            expect(isRGXToken(false, 'no-op')).toBe(false);
+
+            expect(() => assertRGXToken(null, 'no-op')).not.toThrow();
+            expect(() => assertRGXToken(undefined, 'no-op')).not.toThrow();
+            expect(() => assertRGXToken(false, 'no-op')).toThrow(RGXInvalidTokenError);
+        });
+
+        it('identifies literal tokens correctly', () => {
+            expect(isRGXToken(/foo/, 'literal')).toBe(true);
+            expect(isRGXToken(new RegExp('bar'), 'literal')).toBe(true);
+            expect(isRGXToken('foo', 'literal')).toBe(false);
+
+            expect(() => assertRGXToken(/foo/, 'literal')).not.toThrow();
+            expect(() => assertRGXToken(new RegExp('bar'), 'literal')).not.toThrow();
+            expect(() => assertRGXToken('foo', 'literal')).toThrow(RGXInvalidTokenError);
+        });
+
+        it('identifies native tokens correctly', () => {
+            expect(isRGXToken('foo', 'native')).toBe(true);
+            expect(isRGXToken(14, 'native')).toBe(true);
+            expect(isRGXToken(true, 'native')).toBe(true);
+            expect(isRGXToken(null, 'native')).toBe(true);
+            expect(isRGXToken(undefined, 'native')).toBe(true);
+            expect(isRGXToken(/foo/, 'native')).toBe(false);
+
+            expect(() => assertRGXToken('foo', 'native')).not.toThrow();
+            expect(() => assertRGXToken(14, 'native')).not.toThrow();
+            expect(() => assertRGXToken(true, 'native')).not.toThrow();
+            expect(() => assertRGXToken(null, 'native')).not.toThrow();
+            expect(() => assertRGXToken(undefined, 'native')).not.toThrow();
+            expect(() => assertRGXToken(/foo/, 'native')).toThrow(RGXInvalidTokenError);
+        });
+
+        it('identifies convertible tokens correctly', () => {
+            const token: RGXToken = { toRgx: () => 'foo' };
+            expect(isRGXToken(token, 'convertible')).toBe(true);
+            expect(isRGXToken(42, 'convertible')).toBe(false);
+
+            expect(() => assertRGXToken(token, 'convertible')).not.toThrow();
+            expect(() => assertRGXToken(42, 'convertible')).toThrow(RGXInvalidTokenError);
+        });
+
+        it('identifies arrays of tokens correctly', () => {
+            const token: RGXToken = ['foo', { toRgx: () => 14 }, null];
+            expect(isRGXToken(token, 'array')).toBe(true);
+            expect(isRGXToken('not an array', 'array')).toBe(false);
+
+            expect(() => assertRGXToken(token, 'array')).not.toThrow();
+            expect(() => assertRGXToken('not an array', 'array')).toThrow(RGXInvalidTokenError);
+        });
+
+        it('identifies arrays of tokens with specific types correctly', () => {
+            const tokenType: RGXTokenTypeGuardInput = ['native', 'convertible', 'no-op', 'literal', 'array'] as const;
+            const matchingToken: RGXToken = ['foo', { toRgx: () => 14 }, null, /foo/, ['nested array']];
+
+            expect(isRGXToken(matchingToken, tokenType)).toBe(true);
+            expect(isRGXToken(matchingToken, ['native', 'convertible'] as const)).toBe(false);
+
+            expect(() => assertRGXToken(matchingToken, tokenType)).not.toThrow();
+            expect(() => assertRGXToken(matchingToken, ['native', 'convertible'] as const)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('rejects arrays where element types do not match the specified type array', () => {
+            const token: RGXToken = ['foo', /bar/];
+            // 'literal' and 'native' are swapped relative to actual types
+            expect(isRGXToken(token, ['literal', 'native'] as const)).toBe(false);
+            expect(() => assertRGXToken(token, ['literal', 'native'] as const)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('respects matchLength parameter for array types', () => {
+            const shortToken: RGXToken = ['foo', /bar/];
+            const longToken: RGXToken = ['foo', /bar/, null];
+
+            // With matchLength=true (default), lengths must match exactly
+            expect(isRGXToken(shortToken, ['native', 'literal', 'no-op'] as const)).toBe(false);
+            expect(isRGXToken(shortToken, ['native', 'literal'] as const)).toBe(true);
+            expect(isRGXToken(longToken, ['native', 'literal'] as const)).toBe(false);
+
+            // With matchLength=false, fewer values than types always fails, unless the extra types are all null
+            expect(isRGXToken(shortToken, ['native', 'literal', 'no-op'] as const, false)).toBe(false);
+
+            // With matchLength=false, extra values are checked against all types
+            expect(isRGXToken(longToken, ['native', 'literal'] as const, false)).toBe(true);
+            expect(isRGXToken(longToken, ['native'] as const, false)).toBe(true);
+
+            // Extra values still need to be valid tokens
+            expect(isRGXToken([42, {}, /bar/, null], ['native'] as const, false)).toBe(false);
+
+            // Still fails if specified types don't match their corresponding elements
+            expect(isRGXToken(longToken, ['literal', 'native'] as const, false)).toBe(false);
+
+            expect(() => assertRGXToken(shortToken, ['native', 'literal', 'no-op'] as const)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXToken(shortToken, ['native', 'literal', 'no-op'] as const, false)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXToken(longToken, ['native', 'literal'] as const, false)).not.toThrow();
+        });
+    });
+
+    describe('rgxTokenTypeToFlat', () => {
+        it('returns non-array types as-is', () => {
+            expect(rgxTokenTypeToFlat('no-op')).toBe('no-op');
+            expect(rgxTokenTypeToFlat('literal')).toBe('literal');
+            expect(rgxTokenTypeToFlat('native')).toBe('native');
+            expect(rgxTokenTypeToFlat('convertible')).toBe('convertible');
+        });
+
+        it('returns "array" for array types', () => {
+            expect(rgxTokenTypeToFlat(['native', 'literal'])).toBe('array');
+            expect(rgxTokenTypeToFlat([])).toBe('array');
+        });
+    });
+
+    describe('rgxTokenTypeGuardInputToFlat', () => {
+        it('returns null for null', () => {
+            expect(rgxTokenTypeGuardInputToFlat(null)).toBe(null);
+        });
+
+        it('returns non-array types as-is', () => {
+            expect(rgxTokenTypeGuardInputToFlat('no-op')).toBe('no-op');
+            expect(rgxTokenTypeGuardInputToFlat('literal')).toBe('literal');
+            expect(rgxTokenTypeGuardInputToFlat('native')).toBe('native');
+            expect(rgxTokenTypeGuardInputToFlat('convertible')).toBe('convertible');
+            expect(rgxTokenTypeGuardInputToFlat('array')).toBe('array');
+        });
+
+        it('returns "array" for array types', () => {
+            expect(rgxTokenTypeGuardInputToFlat(['native', 'literal'])).toBe('array');
+            expect(rgxTokenTypeGuardInputToFlat([])).toBe('array');
         });
     });
 });

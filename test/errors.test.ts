@@ -71,12 +71,12 @@ describe('RGXInvalidTokenError', () => {
 
     it('formats the error message correctly with expected value of "convertible"', () => {
         const error = new RGXInvalidTokenError('Invalid token', { type: 'tokenType', values: ['convertible'] }, 123);
-        expect(error.toString()).toBe('RGXInvalidTokenError: Invalid token; Expected: [object with a toRgx method that returns a valid token]; Got: 123');
+        expect(error.toString()).toBe('RGXInvalidTokenError: Invalid token; Expected: [object with a toRgx method that returns a valid native/literal token or an array of valid native/literal tokens]; Got: 123');
     });
 
     it('formats the error message correctly with expected value of "array"', () => {
         const error = new RGXInvalidTokenError('Invalid token', { type: 'tokenType', values: ['array'] }, 123);
-        expect(error.toString()).toBe('RGXInvalidTokenError: Invalid token; Expected: [array of native/literal tokens]; Got: 123');
+        expect(error.toString()).toBe('RGXInvalidTokenError: Invalid token; Expected: [array of native/literal/convertible tokens]; Got: 123');
     });
 
     it('formats the error message correctly with expected value of multiple token types', () => {
@@ -94,8 +94,8 @@ describe('RGXInvalidTokenError', () => {
         expect(error.toString()).toBe(
             'RGXInvalidTokenError: Invalid token; Expected: '
             + '[null, undefined, RegExp, string, number, boolean,'
-            + ' object with a toRgx method that returns a valid token,'
-            + ' or array of native/literal tokens]; Got: 123'
+            + ' object with a toRgx method that returns a valid native/literal token or an array of valid native/literal tokens,'
+            + ' or array of native/literal/convertible tokens]; Got: 123'
         );
     });
 });

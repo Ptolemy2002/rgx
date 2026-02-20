@@ -10,13 +10,15 @@ export type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | 
 
 export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | RGXTokenType[];
 export type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
-export type RGXTokenFromType<T extends RGXTokenType | RGXTokenTypeFlat> =
+export type RGXTokenTypeGuardInput = Exclude<RGXTokenType, RGXTokenType[]> | RGXTokenTypeFlat | null | RGXTokenTypeGuardInput[];
+export type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
+    T extends null ? RGXToken :
     T extends 'no-op' ? RGXNoOpToken :
     T extends 'literal' ? RGXLiteralToken :
     T extends 'native' ? RGXNativeToken :
     T extends 'convertible' ? RGXConvertibleToken :
     T extends 'array' ? RGXToken[] :
-    T extends RGXTokenType[] ? { [K in keyof T]: T[K] extends RGXTokenType ? RGXTokenFromType<T[K]> : never } :
+    T extends RGXTokenTypeGuardInput[] ? { [K in keyof T]: T[K] extends RGXTokenTypeGuardInput ? RGXTokenFromType<T[K]> : never } :
     never
 ;
 
