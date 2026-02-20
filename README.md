@@ -305,10 +305,10 @@ Asserts that the given value is an array of RGX tokens. Validates that the value
 
 ### rgxTokenType
 ```typescript
-function rgxTokenType(value: RGXToken): RGXTokenType
+function rgxTokenType(value: unknown): RGXTokenType
 ```
 
-Determines the type of a given RGX token (`no-op`, `literal`, `native`, `convertible`, or an array of the former).
+Determines the type of a given RGX token value (`no-op`, `literal`, `native`, `convertible`, or an array of the former) or throws an error if the value is not a valid RGX token.
 
 If you narrow the result of this function to something more specific, you can then convert these string or array literals into their corresponding token types using the `RGXTokenFromType` utility type or `rgxTokenFromType` function.
 
@@ -323,16 +323,16 @@ if (type === 'native') {
 ```
 
 #### Parameters
-  - `value` (`RGXToken`): The RGX token to check.
+  - `value` (`unknown`): The value to check.
 
 #### Returns
 - `RGXTokenType`: The type of the RGX token.
 
 ### rgxTokenTypeFlat
 ```typescript
-function rgxTokenTypeFlat(value: RGXToken): RGXTokenTypeFlat
+function rgxTokenTypeFlat(value: unknown): RGXTokenTypeFlat
 ```
-Determines the flat type of a given RGX token (`no-op`, `literal`, `native`, `convertible`, or `array`). The `array` type represents any array of RGX tokens, regardless of the types of the individual tokens within the array.
+Determines the flat type of a given RGX token value (`no-op`, `literal`, `native`, `convertible`, or `array`) or throws an error if the value is not a valid RGX token. The `array` type represents any array of RGX tokens, regardless of the types of the individual tokens within the array.
 
 If you narrow the result of this function to something more specific, you can then convert these string literals into their corresponding token types using the `RGXTokenFromType` utility type or `rgxTokenFromType` function.
 
@@ -346,7 +346,7 @@ if (type === 'array') {
 ```
 
 #### Parameters
-  - `value` (`RGXToken`): The RGX token to check.
+  - `value` (`unknown`): The value to check.
 
 #### Returns
 - `RGXTokenTypeFlat`: The flat type of the RGX token.

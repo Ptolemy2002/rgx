@@ -3,7 +3,7 @@ import {
     assertRGXConvertibleToken, assertRGXLiteralToken, assertRGXNativeToken, assertRGXNoOpToken,
     RGXInvalidTokenError, rgxTokenTypeFlat, isRGXToken, assertRGXToken,
     RGXTokenTypeGuardInput, rgxTokenTypeToFlat, rgxTokenTypeGuardInputToFlat, isRGXArrayToken,
-    assertRGXArrayToken
+    assertRGXArrayToken, rgxTokenFromType
 } from 'src/index';
 
 function rgxConvertibleTokenTestMethodTest(returnValueDesc: string, returnValue: unknown, expected: boolean) {
@@ -252,6 +252,12 @@ describe('Type Guards', () => {
             const token: RGXToken = ['foo', { toRgx: () => 14 }, null];
             expect(rgxTokenType(token)).toEqual(['native', 'convertible', 'no-op']);
         });
+
+        it('rejects invalid tokens', () => {
+            expect(() => rgxTokenType({})).toThrow(RGXInvalidTokenError);
+            expect(() => rgxTokenType({ toRgx: 'not a function' })).toThrow(RGXInvalidTokenError);
+            expect(() => rgxTokenType(['foo', { invalid: true }])).toThrow(RGXInvalidTokenError);
+        });
     });
 
     describe('rgxTokenTypeFlat', () => {
@@ -279,6 +285,12 @@ describe('Type Guards', () => {
         it('identifies arrays of tokens', () => {
             const token: RGXToken = ['foo', { toRgx: () => 14 }, null];
             expect(rgxTokenTypeFlat(token)).toEqual("array");
+        });
+
+        it('rejects invalid tokens', () => {
+            expect(() => rgxTokenTypeFlat({})).toThrow(RGXInvalidTokenError);
+            expect(() => rgxTokenTypeFlat({ toRgx: 'not a function' })).toThrow(RGXInvalidTokenError);
+            expect(() => rgxTokenTypeFlat(['foo', { invalid: true }])).toThrow(RGXInvalidTokenError);
         });
     });
 
@@ -457,6 +469,19 @@ describe('Type Guards', () => {
         it('returns "array" for array types', () => {
             expect(rgxTokenTypeGuardInputToFlat(['native', 'literal'])).toBe('array');
             expect(rgxTokenTypeGuardInputToFlat([])).toBe('array');
+        });
+    });
+
+    describe('rgxTokenFromType', () => {
+        it('returns the same value it is passed', () => {
+            // First argument will always be null, as it only has an effect
+            // on TypeScript, and that's not what we're testing here
+            expect(rgxTokenFromType(null, "foo")).toBe("foo");
+            expect(rgxTokenFromType(null, 14)).toBe(14);
+            expect(rgxTokenFromType(null, true)).toBe(true);
+            expect(rgxTokenFromType(null, /foo/)).toEqual(/foo/);
+            expect(rgxTokenFromType(null, null)).toBe(null);
+            expect(rgxTokenFromType(null, undefined)).toBe(undefined);
         });
     });
 });

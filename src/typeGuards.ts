@@ -71,26 +71,20 @@ export function assertRGXArrayToken(value: unknown): asserts value is t.RGXToken
     }
 }
 
-export function rgxTokenTypeFlat(value: t.RGXToken): t.RGXTokenTypeFlat {
+export function rgxTokenTypeFlat(value: unknown): t.RGXTokenTypeFlat {
     if (isRGXNoOpToken(value)) return 'no-op';
     if (isRGXLiteralToken(value)) return 'literal';
     if (isRGXNativeToken(value)) return 'native';
     if (isRGXConvertibleToken(value)) return 'convertible';
-    if (Array.isArray(value)) return 'array';
-
-    // Ignoring this line since it should be impossible to reach if the types are correct, but we need it to satisfy the return type
-    /* istanbul ignore next */
+    if (isRGXArrayToken(value)) return 'array';
+    
     throw new e.RGXInvalidTokenError("Invalid RGX token", null, value);
 }
 
-export function rgxTokenType(value: t.RGXToken): t.RGXTokenType {
+export function rgxTokenType(value: unknown): t.RGXTokenType {
     const flatType = rgxTokenTypeFlat(value);
     if (flatType !== 'array') return flatType;
-    if (flatType === 'array') return (value as t.RGXToken[]).map(rgxTokenType);
-
-    // Ignoring this line since it should be impossible to reach if the types are correct, but we need it to satisfy the return type
-    /* istanbul ignore next */
-    throw new e.RGXInvalidTokenError("Invalid RGX token", null, value);
+    else return (value as t.RGXToken[]).map(rgxTokenType);
 }
 
 export function rgxTokenFromType<T extends t.RGXTokenTypeGuardInput>(type: T, value: t.RGXToken): t.RGXTokenFromType<T> {
