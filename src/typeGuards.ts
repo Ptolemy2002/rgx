@@ -56,6 +56,21 @@ export function assertRGXConvertibleToken(value: unknown): asserts value is t.RG
     }
 }
 
+export function isRGXArrayToken(value: unknown): value is t.RGXToken[] {
+    return Array.isArray(value) && value.every(
+        item =>
+            isRGXNoOpToken(item) || isRGXLiteralToken(item) ||
+            isRGXNativeToken(item) ||
+            isRGXConvertibleToken(item) || isRGXArrayToken(item)
+    );
+}
+
+export function assertRGXArrayToken(value: unknown): asserts value is t.RGXToken[] {
+    if (!isRGXArrayToken(value)) {
+        throw new e.RGXInvalidTokenError("Invalid array token", {type: "tokenType", values: ['array']}, value);
+    }
+}
+
 export function rgxTokenTypeFlat(value: t.RGXToken): t.RGXTokenTypeFlat {
     if (isRGXNoOpToken(value)) return 'no-op';
     if (isRGXLiteralToken(value)) return 'literal';
@@ -78,7 +93,7 @@ export function rgxTokenType(value: t.RGXToken): t.RGXTokenType {
     throw new e.RGXInvalidTokenError("Invalid RGX token", null, value);
 }
 
-export function rgxTokenFromType<T extends t.RGXTokenType | t.RGXTokenTypeFlat>(type: T, value: t.RGXToken): t.RGXTokenFromType<T> {
+export function rgxTokenFromType<T extends t.RGXTokenTypeGuardInput>(type: T, value: t.RGXToken): t.RGXTokenFromType<T> {
     // Ignoring this line because the function is entirely a TypeScript utility that doesn't need to be tested at runtime.
     /* istanbul ignore next */
     return value as t.RGXTokenFromType<typeof type>;
@@ -105,10 +120,7 @@ export function isRGXToken<
     if (typeMatches('literal') && isRGXLiteralToken(value)) return true;
     if (typeMatches('native') && isRGXNativeToken(value)) return true;
     if (typeMatches('convertible') && isRGXConvertibleToken(value)) return true;
-    if (typeMatches('array') && Array.isArray(value)) {
-        // @ts-ignore Excessively deep type is not a problem here.
-        return value.every(item => isRGXToken(item, null));
-    }
+    if (typeMatches('array') && isRGXArrayToken(value)) return true;
 
     if (Array.isArray(type) && Array.isArray(value) && (!matchLength || type.length === value.length)) {
         // This will always be false.

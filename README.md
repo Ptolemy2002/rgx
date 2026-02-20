@@ -23,7 +23,7 @@ type ValidVanillaRegexFlags = Branded<string, [ValidVanillaRegexFlagsBrandSymbol
 
 type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | RGXTokenType[];
 type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
-type RGXTokenTypeGuardInput = Exclude<RGXTokenType, RGXTokenType[]> | RGXTokenTypeFlat | null | RGXTokenTypeGuardInput[];
+type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXTokenTypeGuardInput[];
 type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     // ... see source for full definition
 ;
@@ -279,6 +279,30 @@ Asserts that the given value is a convertible token (an object with a `toRgx` me
 #### Returns
 - `void`: This function does not return a value, but will throw an error if the assertion fails.
 
+### isRGXArrayToken
+```typescript
+function isRGXArrayToken(value: unknown): value is RGXToken[]
+```
+Checks if the given value is an array of RGX tokens. Validates that the value is an array and that every element is a valid RGX token (of any type, including nested arrays).
+
+#### Parameters
+  - `value` (`unknown`): The value to check.
+
+#### Returns
+- `boolean`: `true` if the value is an array of RGX tokens, otherwise `false`.
+
+### assertRGXArrayToken
+```typescript
+function assertRGXArrayToken(value: unknown): asserts value is RGXToken[]
+```
+Asserts that the given value is an array of RGX tokens. Validates that the value is an array and that every element is a valid RGX token (of any type, including nested arrays). If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Parameters
+  - `value` (`unknown`): The value to assert.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an error if the assertion fails.
+
 ### rgxTokenType
 ```typescript
 function rgxTokenType(value: RGXToken): RGXTokenType
@@ -329,7 +353,7 @@ if (type === 'array') {
 
 ### rgxTokenFromType
 ```typescript
-function rgxTokenFromType<T extends RGXTokenType | RGXTokenTypeFlat>(type: T, value: RGXToken): RGXTokenFromType<T>
+function rgxTokenFromType<T extends RGXTokenTypeGuardInput>(type: T, value: RGXToken): RGXTokenFromType<T>
 ```
 
 Does nothing at runtime, but performs a type assertion to the correct subset of `RGXToken` based on the provided `RGXTokenType`.

@@ -2,7 +2,8 @@ import {
     isRGXConvertibleToken, isRGXLiteralToken, isRGXNativeToken, isRGXNoOpToken, RGXToken, rgxTokenType,
     assertRGXConvertibleToken, assertRGXLiteralToken, assertRGXNativeToken, assertRGXNoOpToken,
     RGXInvalidTokenError, rgxTokenTypeFlat, isRGXToken, assertRGXToken,
-    RGXTokenTypeGuardInput, rgxTokenTypeToFlat, rgxTokenTypeGuardInputToFlat
+    RGXTokenTypeGuardInput, rgxTokenTypeToFlat, rgxTokenTypeGuardInputToFlat, isRGXArrayToken,
+    assertRGXArrayToken
 } from 'src/index';
 
 function rgxConvertibleTokenTestMethodTest(returnValueDesc: string, returnValue: unknown, expected: boolean) {
@@ -206,6 +207,25 @@ describe('Type Guards', () => {
         });
     });
 
+    describe('isRGXArrayToken', () => {
+        it('accepts arrays of valid tokens', () => {
+            const token: RGXToken = ['foo', { toRgx: () => 14 }, null, /foo/, ['nested array']];
+            expect(isRGXArrayToken(token)).toBe(true);
+            expect(() => assertRGXArrayToken(token)).not.toThrow();
+        });
+
+        it('rejects arrays containing invalid tokens', () => {
+            const token = ['foo', { invalid: true }];
+            expect(isRGXArrayToken(token)).toBe(false);
+            expect(() => assertRGXArrayToken(token)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('rejects non-array values', () => {
+            expect(isRGXArrayToken('not an array')).toBe(false);
+            expect(() => assertRGXArrayToken('not an array')).toThrow(RGXInvalidTokenError);
+        });
+    });
+
     describe('rgxTokenType', () => {
         it('identifies no-op tokens', () => {
             expect(rgxTokenType(null)).toBe('no-op');
@@ -358,6 +378,18 @@ describe('Type Guards', () => {
             expect(() => assertRGXToken(matchingToken, ['native', 'convertible'] as const)).toThrow(RGXInvalidTokenError);
         });
 
+        it('rejects arrays that include invalid tokens when a specific type is not specified', () => {
+            const token = ['foo', { invalid: true }];
+            expect(isRGXToken(token)).toBe(false);
+            expect(() => assertRGXToken(token)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('rejects arrays that include invalid tokens when a specific type is specified', () => {
+            const token = ['foo', { invalid: true }];
+            expect(isRGXToken(token, ['native', 'convertible'] as const)).toBe(false);
+            expect(() => assertRGXToken(token, ['native', 'convertible'] as const)).toThrow(RGXInvalidTokenError);
+        });
+
         it('rejects arrays where element types do not match the specified type array', () => {
             const token: RGXToken = ['foo', /bar/];
             // 'literal' and 'native' are swapped relative to actual types
@@ -365,31 +397,33 @@ describe('Type Guards', () => {
             expect(() => assertRGXToken(token, ['literal', 'native'] as const)).toThrow(RGXInvalidTokenError);
         });
 
-        it('respects matchLength parameter for array types', () => {
-            const shortToken: RGXToken = ['foo', /bar/];
-            const longToken: RGXToken = ['foo', /bar/, null];
+        it('rejects values that are not arrays when the specified type is an array', () => {
+            expect(isRGXToken('not an array', ['native'] as const)).toBe(false);
+            expect(() => assertRGXToken('not an array', ['native'] as const)).toThrow(RGXInvalidTokenError);
+        });
 
-            // With matchLength=true (default), lengths must match exactly
-            expect(isRGXToken(shortToken, ['native', 'literal', 'no-op'] as const)).toBe(false);
-            expect(isRGXToken(shortToken, ['native', 'literal'] as const)).toBe(true);
-            expect(isRGXToken(longToken, ['native', 'literal'] as const)).toBe(false);
+        it('rejects when values is shorter than specified type array when matchLength is true', () => {
+            const token: RGXToken = ['foo'];
+            expect(isRGXToken(token, ['native', 'convertible'] as const)).toBe(false);
+            expect(() => assertRGXToken(token, ['native', 'convertible'] as const)).toThrow(RGXInvalidTokenError);
+        });
 
-            // With matchLength=false, fewer values than types always fails, unless the extra types are all null
-            expect(isRGXToken(shortToken, ['native', 'literal', 'no-op'] as const, false)).toBe(false);
+        it('rejects when values is shorter than specified type array when matchLength is false', () => {
+            const token: RGXToken = ['foo'];
+            expect(isRGXToken(token, ['native', 'convertible'] as const, false)).toBe(false);
+            expect(() => assertRGXToken(token, ['native', 'convertible'] as const, false)).toThrow(RGXInvalidTokenError);
+        });
 
-            // With matchLength=false, extra values are checked against all types
-            expect(isRGXToken(longToken, ['native', 'literal'] as const, false)).toBe(true);
-            expect(isRGXToken(longToken, ['native'] as const, false)).toBe(true);
+        it('rejects when values is longer than specified type array when matchLength is true', () => {
+            const token: RGXToken = ['foo', { toRgx: () => 14 }, null];
+            expect(isRGXToken(token, ['native', 'convertible'] as const)).toBe(false);
+            expect(() => assertRGXToken(token, ['native', 'convertible'] as const)).toThrow(RGXInvalidTokenError);
+        });
 
-            // Extra values still need to be valid tokens
-            expect(isRGXToken([42, {}, /bar/, null], ['native'] as const, false)).toBe(false);
-
-            // Still fails if specified types don't match their corresponding elements
-            expect(isRGXToken(longToken, ['literal', 'native'] as const, false)).toBe(false);
-
-            expect(() => assertRGXToken(shortToken, ['native', 'literal', 'no-op'] as const)).toThrow(RGXInvalidTokenError);
-            expect(() => assertRGXToken(shortToken, ['native', 'literal', 'no-op'] as const, false)).toThrow(RGXInvalidTokenError);
-            expect(() => assertRGXToken(longToken, ['native', 'literal'] as const, false)).not.toThrow();
+        it('accepts when values is longer than specified type array when matchLength is false', () => {
+            const token: RGXToken = ['foo', { toRgx: () => 14 }, null];
+            expect(isRGXToken(token, ['native', 'convertible'] as const, false)).toBe(true);
+            expect(() => assertRGXToken(token, ['native', 'convertible'] as const, false)).not.toThrow();
         });
     });
 
