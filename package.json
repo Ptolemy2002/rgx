@@ -1,6 +1,6 @@
 {
     "name": "@ptolemy2002/rgx",
-    "version": "2.8.0",
+    "version": "2.9.0",
     "private": false,
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
