@@ -32,16 +32,14 @@ export function assertRGXNativeToken(value: unknown): asserts value is t.RGXNati
     }
 }
 
-export function isRGXConvertibleToken(value: unknown): value is t.RGXConvertibleToken {
+export function isRGXConvertibleToken(value: unknown, returnCheck: boolean = true): value is t.RGXConvertibleToken {
     if (typeof value === 'object' && value !== null && 'toRgx' in value) {
         if (isCallable(value.toRgx)) {
-            const returnValue = value.toRgx();
-
-            if (Array.isArray(returnValue)) {
-                return returnValue.every(value => isRGXNativeToken(value) || isRGXLiteralToken(value));
-            }
-
-            return isRGXNativeToken(returnValue) || isRGXLiteralToken(returnValue);
+            if (!returnCheck) return true;
+            const rv = value.toRgx();
+            return isRGXNativeToken(rv) || isRGXLiteralToken(rv) || 
+                   isRGXNoOpToken(rv) || isRGXArrayToken(rv) ||
+                   isRGXConvertibleToken(rv);
         }
 
         return false;
@@ -50,23 +48,23 @@ export function isRGXConvertibleToken(value: unknown): value is t.RGXConvertible
     return false;
 }
 
-export function assertRGXConvertibleToken(value: unknown): asserts value is t.RGXConvertibleToken {
-    if (!isRGXConvertibleToken(value)) {
+export function assertRGXConvertibleToken(value: unknown, returnCheck: boolean = true): asserts value is t.RGXConvertibleToken {
+    if (!isRGXConvertibleToken(value, returnCheck)) {
         throw new e.RGXInvalidTokenError(`Invalid convertible token`, {type: "tokenType", values: ['convertible']}, value);
     }
 }
 
-export function isRGXArrayToken(value: unknown): value is t.RGXToken[] {
-    return Array.isArray(value) && value.every(
+export function isRGXArrayToken(value: unknown, contentCheck: boolean = true): value is t.RGXToken[] {
+    return Array.isArray(value) && (!contentCheck || value.every(
         item =>
             isRGXNoOpToken(item) || isRGXLiteralToken(item) ||
             isRGXNativeToken(item) ||
             isRGXConvertibleToken(item) || isRGXArrayToken(item)
-    );
+    ));
 }
 
-export function assertRGXArrayToken(value: unknown): asserts value is t.RGXToken[] {
-    if (!isRGXArrayToken(value)) {
+export function assertRGXArrayToken(value: unknown, contentCheck: boolean = true): asserts value is t.RGXToken[] {
+    if (!isRGXArrayToken(value, contentCheck)) {
         throw new e.RGXInvalidTokenError("Invalid array token", {type: "tokenType", values: ['array']}, value);
     }
 }

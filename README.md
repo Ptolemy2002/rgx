@@ -4,13 +4,11 @@ A library for easy construction and validation of regular expressions in TypeScr
 ## Type Reference
 ```typescript
 import { Branded } from "@ptolemy2002/ts-brand-utils";
-import { MaybeArray } from "@ptolemy2002/ts-utils";
 
 type RGXNoOpToken = null | undefined;
 type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
-type RGXConvertibleTokenOutput = MaybeArray<RGXNativeToken | RGXLiteralToken>;
-type RGXConvertibleToken = { toRgx: () => RGXConvertibleTokenOutput };
+type RGXConvertibleToken = { toRgx: () => RGXToken };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 
 const validRegexSymbol = Symbol('rgx.ValidRegex');
@@ -140,10 +138,10 @@ constructor(tokens: RGXTokenCollectionInput = [], mode: RGXTokenCollectionMode =
 Standard array properties and methods like `length`, `push`, `pop`, etc. are implemented to work with the internal `tokens` array, but providing collection instances instead of raw arrays when relevant (e.g., `map` has the third parameter typed as `RGXTokenCollection` instead of `RGXToken[]`).
 
 ### RGXClassToken (abstract)
-An abstract base class for creating custom RGX token classes. Subclasses must implement the `toRgx()` method, which returns a value compatible with `RGXConvertibleTokenOutput`.
+An abstract base class for creating custom RGX token classes. Subclasses must implement the `toRgx()` method, which returns any valid `RGXToken` (including other convertible tokens, allowing for recursive structures).
 
 #### Abstract Methods
-- `toRgx() => RGXConvertibleTokenOutput`: Must be implemented by subclasses to return the token's regex representation as a native/literal token or array of native/literal tokens.
+- `toRgx() => RGXToken`: Must be implemented by subclasses to return the token's regex representation as any valid RGX token (native, literal, convertible, or array of tokens).
 
 #### Properties
 - `isGroup` (`boolean`): Returns `false` by default. Subclasses can override this to indicate whether the token represents a group.
@@ -256,49 +254,53 @@ Asserts that the given value is a native token (string, number, boolean, or no-o
 
 ### isRGXConvertibleToken
 ```typescript
-function isRGXConvertibleToken(value: unknown): value is RGXConvertibleToken
+function isRGXConvertibleToken(value: unknown, returnCheck?: boolean): value is RGXConvertibleToken
 ```
 
-Checks if the given value is a convertible token (an object with a `toRgx` method). Validates that `toRgx` is callable and returns a valid RGX native or literal token, or an array of native/literal tokens.
+Checks if the given value is a convertible token (an object with a `toRgx` method). When `returnCheck` is `true` (the default), also validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures).
 
 #### Parameters
   - `value` (`unknown`): The value to check.
+  - `returnCheck` (`boolean`, optional): Whether to validate the return value of the `toRgx` method. Defaults to `true`. When `false`, only checks that `toRgx` exists and is callable. **Note**: Setting this to `false` makes the type guard assertion strictly unsafe, as it doesn't verify that the `toRgx` method actually returns a valid `RGXToken`. However, depending on the type of the value you're checking, you might not need that safety (e.g., when checking values that you know are valid based on other context).
 
 #### Returns
 - `boolean`: `true` if the value is a convertible token, otherwise `false`.
 
 ### assertRGXConvertibleToken
 ```typescript
-function assertRGXConvertibleToken(value: unknown): asserts value is RGXConvertibleToken
+function assertRGXConvertibleToken(value: unknown, returnCheck?: boolean): asserts value is RGXConvertibleToken
 ```
-Asserts that the given value is a convertible token (an object with a `toRgx` method). Validates that `toRgx` is callable and returns a valid RGX native or literal token, or an array of native/literal tokens. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+Asserts that the given value is a convertible token (an object with a `toRgx` method). When `returnCheck` is `true` (the default), also validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). If the assertion fails, an `RGXInvalidTokenError` will be thrown.
 
 #### Parameters
   - `value` (`unknown`): The value to assert.
+  - `returnCheck` (`boolean`, optional): Whether to validate the return value of the `toRgx` method. Defaults to `true`. When `false`, only checks that `toRgx` exists and is callable. **Note**: Setting this to `false` makes the type guard assertion strictly unsafe, as it doesn't verify that the `toRgx` method actually returns a valid `RGXToken`. However, depending on the type of the value you're asserting, you might not need that safety (e.g., when asserting values that you know are valid based on other context).
 
 #### Returns
 - `void`: This function does not return a value, but will throw an error if the assertion fails.
 
 ### isRGXArrayToken
 ```typescript
-function isRGXArrayToken(value: unknown): value is RGXToken[]
+function isRGXArrayToken(value: unknown, contentCheck?: boolean): value is RGXToken[]
 ```
-Checks if the given value is an array of RGX tokens. Validates that the value is an array and that every element is a valid RGX token (of any type, including nested arrays).
+Checks if the given value is an array of RGX tokens. When `contentCheck` is `true` (the default), validates that the value is an array and that every element is a valid RGX token (of any type, including nested arrays). When `contentCheck` is `false`, only checks that the value is an array without validating the contents.
 
 #### Parameters
   - `value` (`unknown`): The value to check.
+  - `contentCheck` (`boolean`, optional): Whether to validate that every element is a valid RGX token. Defaults to `true`. When `false`, only checks that the value is an array. **Note**: Setting this to `false` makes the type guard assertion strictly unsafe, as it doesn't verify that the array elements are actually valid `RGXToken` values. However, depending on the context, you might not need that safety (e.g., when checking arrays that you know are valid based on other validation).
 
 #### Returns
-- `boolean`: `true` if the value is an array of RGX tokens, otherwise `false`.
+- `boolean`: `true` if the value is an array of RGX tokens (or just an array when `contentCheck` is `false`), otherwise `false`.
 
 ### assertRGXArrayToken
 ```typescript
-function assertRGXArrayToken(value: unknown): asserts value is RGXToken[]
+function assertRGXArrayToken(value: unknown, contentCheck?: boolean): asserts value is RGXToken[]
 ```
-Asserts that the given value is an array of RGX tokens. Validates that the value is an array and that every element is a valid RGX token (of any type, including nested arrays). If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+Asserts that the given value is an array of RGX tokens. When `contentCheck` is `true` (the default), validates that the value is an array and that every element is a valid RGX token (of any type, including nested arrays). When `contentCheck` is `false`, only checks that the value is an array without validating the contents. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
 
 #### Parameters
   - `value` (`unknown`): The value to assert.
+  - `contentCheck` (`boolean`, optional): Whether to validate that every element is a valid RGX token. Defaults to `true`. When `false`, only checks that the value is an array. **Note**: Setting this to `false` makes the type guard assertion strictly unsafe, as it doesn't verify that the array elements are actually valid `RGXToken` values. However, depending on the context, you might not need that safety (e.g., when asserting arrays that you know are valid based on other validation).
 
 #### Returns
 - `void`: This function does not return a value, but will throw an error if the assertion fails.

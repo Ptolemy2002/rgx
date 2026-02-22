@@ -7,7 +7,7 @@ import {
 } from 'src/index';
 
 function rgxConvertibleTokenTestMethodTest(returnValueDesc: string, returnValue: unknown, expected: boolean) {
-    it(`${expected ? 'identifies' : 'rejects'} objects with a toRgx function that returns ${returnValueDesc}`, () => {
+    it(`${expected ? 'accepts' : 'rejects'} objects with a toRgx function that returns ${returnValueDesc} with returnCheck=true`, () => {
         const token = { toRgx: () => returnValue };
         expect(isRGXConvertibleToken(token)).toBe(expected);
         if (expected) {
@@ -15,6 +15,13 @@ function rgxConvertibleTokenTestMethodTest(returnValueDesc: string, returnValue:
         } else {
             expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
         }
+    });
+
+    it(`accepts objects with a toRgx function that returns ${returnValueDesc} with returnCheck=false`, () => {
+        const token = { toRgx: () => returnValue };
+        // Always true since we're not checking the return value
+        expect(isRGXConvertibleToken(token, false)).toBe(true);
+        expect(() => assertRGXConvertibleToken(token, false)).not.toThrow();
     });
 }
 
@@ -172,6 +179,9 @@ describe('Type Guards', () => {
         rgxConvertibleTokenTestMethodTest('an array of RegExps', [/foo/, /bar/], true);
         rgxConvertibleTokenTestMethodTest('an array of strings and RegExps', ['foo', /bar/], true);
 
+        rgxConvertibleTokenTestMethodTest('another convertible token', { toRgx: () => 'foo' }, true);
+        rgxConvertibleTokenTestMethodTest('an array of convertible tokens', [{ toRgx: () => 'foo' }, { toRgx: () => 14 }], true);
+
         it('rejects null', () => {
             expect(isRGXConvertibleToken(null)).toBe(false);
             expect(() => assertRGXConvertibleToken(null)).toThrow(RGXInvalidTokenError);
@@ -214,10 +224,16 @@ describe('Type Guards', () => {
             expect(() => assertRGXArrayToken(token)).not.toThrow();
         });
 
-        it('rejects arrays containing invalid tokens', () => {
+        it('rejects arrays containing invalid tokens when contentCheck is true', () => {
             const token = ['foo', { invalid: true }];
-            expect(isRGXArrayToken(token)).toBe(false);
-            expect(() => assertRGXArrayToken(token)).toThrow(RGXInvalidTokenError);
+            expect(isRGXArrayToken(token, true)).toBe(false);
+            expect(() => assertRGXArrayToken(token, true)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('accepts arrays containing invalid tokens when contentCheck is false', () => {
+            const token = ['foo', { invalid: true }];
+            expect(isRGXArrayToken(token, false)).toBe(true);
+            expect(() => assertRGXArrayToken(token, false)).not.toThrow();
         });
 
         it('rejects non-array values', () => {

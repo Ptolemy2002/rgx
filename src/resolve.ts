@@ -22,7 +22,7 @@ export function resolveRGXToken(token: t.RGXToken, groupWrap=true): t.ValidRegex
     }
 
     // Interpret arrays as unions
-    if (Array.isArray(token)) {
+    if (tg.isRGXArrayToken(token, false)) {
         if (token.length === 0) return '' as t.ValidRegexString;
         
         if (token.length > 1) {

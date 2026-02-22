@@ -1,11 +1,9 @@
 import { Branded } from "@ptolemy2002/ts-brand-utils";
-import { MaybeArray } from "@ptolemy2002/ts-utils";
 
 export type RGXNoOpToken = null | undefined;
 export type RGXLiteralToken = RegExp;
 export type RGXNativeToken = string | number | boolean | RGXNoOpToken;
-export type RGXConvertibleTokenOutput = MaybeArray<RGXNativeToken | RGXLiteralToken>;
-export type RGXConvertibleToken = { toRgx: () => RGXConvertibleTokenOutput };
+export type RGXConvertibleToken = { toRgx: () => RGXToken };
 export type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 
 export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | RGXTokenType[];

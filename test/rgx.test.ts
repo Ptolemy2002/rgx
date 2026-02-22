@@ -233,9 +233,14 @@ describe('rgx', () => {
         expectRegexpEqual(regex2, 'foo(?:bar|baz)qux');
     });
 
-    it('rgxConcat passes groupWrap=false through to resolveRGXToken', () => {
-        const result = rgxConcat([/\d+/, 'abc', /\w/], false);
-        expect(result).toBe('\\d+abc\\w');
+    it('constructs a RegExp from input with a convertible token returning an array that contains other convertible tokens', () => {
+        const token = { toRgx: () => ['bar', 'baz', { toRgx: () => 'qux' }] };
+
+        const regex1 = rgx()`foo${token}quux`;
+        const regex2 = rgxa(['foo', token, 'quux']);
+
+        expectRegexpEqual(regex1, 'foo(?:bar|baz|qux)quux');
+        expectRegexpEqual(regex2, 'foo(?:bar|baz|qux)quux');
     });
 
     it('Applies no flags when called without flags argument', () => {
@@ -244,5 +249,17 @@ describe('rgx', () => {
 
         expect(regex1.flags).toBe('');
         expect(regex2.flags).toBe('');
+    });
+});
+
+describe('rgxConcat', () => {
+    it('concatenates an array of tokens into a single regex string', () => {
+        const result = rgxConcat([/\d+/, 'abc', /\w/]);
+        expect(result).toBe('(?:\\d+)abc(?:\\w)');
+    });
+
+    it('passes groupWrap=false through to resolveRGXToken', () => {
+        const result = rgxConcat([/\d+/, 'abc', /\w/], false);
+        expect(result).toBe('\\d+abc\\w');
     });
 });
