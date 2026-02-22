@@ -1,8 +1,8 @@
 import * as t from "./types";
 import * as e from "./errors";
-import { isRgxClassToken } from "./class";
 import isCallable from "is-callable";
 import { isConstructor } from "./internal";
+import { RGXClassToken } from "./class";
 
 export function isRGXNoOpToken(value: unknown): value is t.RGXNoOpToken {
     return value === null || value === undefined;
@@ -76,7 +76,7 @@ export function rgxTokenTypeFlat(value: unknown, recognizeClass: boolean = true)
     if (isRGXLiteralToken(value)) return 'literal';
     if (isRGXNativeToken(value)) return 'native';
     // We have to check class before convertible because class tokens are also convertible.
-    if (recognizeClass && isRgxClassToken(value)) return 'class';
+    if (recognizeClass && RGXClassToken.check(value)) return 'class';
     if (isRGXConvertibleToken(value)) return 'convertible';
     if (isRGXArrayToken(value)) return 'array';
     
@@ -120,7 +120,7 @@ export function isRGXToken<
     if (typeMatches('literal') && isRGXLiteralToken(value)) return true;
     if (typeMatches('native') && isRGXNativeToken(value)) return true;
     // We have to check class before convertible because class tokens are also convertible.
-    if (typeMatches('class') && isRgxClassToken(value)) return true;
+    if (typeMatches('class') && RGXClassToken.check(value)) return true;
     if (typeMatches('convertible') && isRGXConvertibleToken(value)) return true;
     if (typeMatches('array') && isRGXArrayToken(value)) return true;
 

@@ -141,10 +141,16 @@ constructor(tokens: RGXTokenCollectionInput = [], mode: RGXTokenCollectionMode =
 
 Standard array properties and methods like `length`, `push`, `pop`, etc. are implemented to work with the internal `tokens` array, but providing collection instances instead of raw arrays when relevant (e.g., `map` has the third parameter typed as `RGXTokenCollection` instead of `RGXToken[]`).
 
+#### Static Properties
+- `check(value: unknown): value is RGXTokenCollection`: A type guard that checks if the given value is an instance of `RGXTokenCollection`.
+- `assert(value: unknown): asserts value is RGXTokenCollection`: An assertion that checks if the given value is an instance of `RGXTokenCollection`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
 ### RGXClassToken (abstract)
 An abstract base class for creating custom RGX token classes. Subclasses must implement the `toRgx()` method, which returns any valid `RGXToken` (including other convertible tokens, allowing for recursive structures).
 
-Two type guards are provided for this class: `isRgxClassToken` to check if a value is an instance of `RGXClassToken`, and `assertRgxClassToken` to assert that a value is an instance of `RGXClassToken` (throwing an `InvalidTokenError` if the assertion fails). Both of these take a single parameter of type `unknown` for the value.
+#### Static Properties
+- `check(value: unknown): value is RGXClassToken`: A type guard that checks if the given value is an instance of `RGXClassToken`.
+- `assert(value: unknown): asserts value is RGXClassToken`: An assertion that checks if the given value is an instance of `RGXClassToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
 
 #### Abstract Methods
 - `toRgx() => RGXToken`: Must be implemented by subclasses to return the token's regex representation as any valid RGX token (native, literal, convertible, or array of tokens).
@@ -159,7 +165,11 @@ Two type guards are provided for this class: `isRgxClassToken` to check if a val
 ### RGXClassUnionToken extends RGXClassToken
 A class representing a union (alternation) of RGX tokens. This is typically created via the `or()` method on `RGXClassToken`, but can also be instantiated directly.
 
-A function `rgxClassUnion` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword. Two type guards are provided for this class: `isRgxClassUnionToken` to check if a value is an instance of `RGXClassUnionToken`, and `assertRgxClassUnionToken` to assert that a value is an instance of `RGXClassUnionToken` (throwing an `InvalidTokenError` if the assertion fails). Both of these take a single parameter of type `unknown` for the value.
+A function `rgxClassUnion` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
+
+#### Static Properties
+- `check(value: unknown): value is RGXClassUnionToken`: A type guard that checks if the given value is an instance of `RGXClassUnionToken`.
+- `assert(value: unknown): asserts value is RGXClassUnionToken`: An assertion that checks if the given value is an instance of `RGXClassUnionToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
 
 #### Constructor
 ```typescript

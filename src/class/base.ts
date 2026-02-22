@@ -7,6 +7,15 @@ import type { RGXClassUnionToken } from "./union";
 export abstract class RGXClassToken {
     abstract toRgx(): RGXToken
 
+    // The createClassGuard function only accepts non-abstract classes, so we 
+    // manually define the guard and assertion functions for RGXClassToken here.
+    static check = (value: unknown): value is RGXClassToken => value instanceof RGXClassToken;
+    static assert = (value: unknown): asserts value is RGXClassToken => {
+        if (!(value instanceof RGXClassToken)) {
+            throw new RGXInvalidTokenError("Invalid token type", { type: "custom", values: ["instance of RGXClassToken"] }, value);
+        }
+    };
+
     get isGroup() {
         return false;
     }
@@ -19,12 +28,3 @@ export abstract class RGXClassToken {
         return resolveRGXToken(this);
     }
 }
-
-// The createClassGuard function only accepts non-abstract classes, so we 
-// manually define the guard and assertion functions for RGXClassToken here.
-export const isRgxClassToken = (value: unknown): value is RGXClassToken => value instanceof RGXClassToken;
-export const assertRgxClassToken = (value: unknown): asserts value is RGXClassToken => {
-    if (!(value instanceof RGXClassToken)) {
-        throw new RGXInvalidTokenError("Invalid token type", { type: "custom", values: ["instance of RGXClassToken"] }, value);
-    }
-};

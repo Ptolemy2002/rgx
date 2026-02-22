@@ -6,6 +6,9 @@ import { RGXClassToken } from "./base";
 export type RGXUnionInsertionPosition = 'prefix' | 'suffix';
 export class RGXClassUnionToken extends RGXClassToken {
     tokens: RGXTokenCollection;
+    
+    static check = createClassGuardFunction(RGXClassUnionToken);
+    static assert = createAssertClassGuardFunction(RGXClassUnionToken);
 
     get isGroup() {
         return true;
@@ -91,5 +94,3 @@ export function removeRgxUnionDuplicates(...tokens: RGXTokenCollectionInput[]): 
 }
 
 export const rgxClassUnion = createConstructFunction(RGXClassUnionToken);
-export const isRgxClassUnionToken = createClassGuardFunction(RGXClassUnionToken);
-export const assertRgxClassUnionToken = createAssertClassGuardFunction(RGXClassUnionToken);

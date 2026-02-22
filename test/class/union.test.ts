@@ -1,4 +1,4 @@
-import { RGXClassUnionToken, rgxClassInit, rgxClassUnion, expandRgxUnionTokens, removeRgxUnionDuplicates, RGXClassToken, isRgxClassUnionToken, assertRgxClassUnionToken } from "src/class";
+import { RGXClassUnionToken, rgxClassInit, rgxClassUnion, expandRgxUnionTokens, removeRgxUnionDuplicates, RGXClassToken } from "src/class";
 import { RGXTokenCollection } from "src/collection";
 import { RGXInvalidTokenError } from "src/errors";
 import { ConstructFunction } from "src/internal";
@@ -8,6 +8,9 @@ class TestClassToken extends RGXClassToken {
         return "test";
     }
 }
+
+const isRgxClassUnionToken = RGXClassUnionToken.check;
+const assertRgxClassUnionToken = RGXClassUnionToken.assert;
 
 function constructionTest(constructor: ConstructFunction<typeof RGXClassUnionToken>) {
     it("constructs an instance of RGXClassUnionToken", () => {

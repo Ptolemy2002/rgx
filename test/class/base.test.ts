@@ -1,4 +1,4 @@
-import { rgxClassInit, RGXClassToken, RGXClassUnionToken, isRgxClassToken, assertRgxClassToken } from "src/class";
+import { rgxClassInit, RGXClassToken, RGXClassUnionToken } from "src/class";
 import { RGXNotImplementedError, RGXInvalidTokenError } from "src/errors";
 
 class TestClassToken extends RGXClassToken {
@@ -8,6 +8,9 @@ class TestClassToken extends RGXClassToken {
 }
 
 const testToken1 = new TestClassToken();
+
+const isRgxClassToken = RGXClassToken.check;
+const assertRgxClassToken = RGXClassToken.assert;
 
 describe("type guards", () => {
     it("accepts instances of RGXClassToken", () => {

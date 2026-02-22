@@ -1,4 +1,4 @@
-import { RGXTokenCollection, rgxTokenCollection, RGXToken } from "src/index";
+import { RGXTokenCollection, rgxTokenCollection, RGXToken, RGXInvalidTokenError } from "src/index";
 import { ConstructFunction } from "src/internal";
 
 function constructionTest(constructor: ConstructFunction<typeof RGXTokenCollection>) {
@@ -40,6 +40,9 @@ function constructionTest(constructor: ConstructFunction<typeof RGXTokenCollecti
     });
 }
 
+const isRgxTokenCollection = RGXTokenCollection.check;
+const assertRgxTokenCollection = RGXTokenCollection.assert;
+
 describe('RGXTokenCollection', () => {
     describe('constructor', () => {
         constructionTest((...args) => new RGXTokenCollection(...args));
@@ -47,6 +50,30 @@ describe('RGXTokenCollection', () => {
 
     describe('construct function', () => {
         constructionTest(rgxTokenCollection);
+    });
+
+    describe('check', () => {
+        it('returns true for RGXTokenCollection instances', () => {
+            const collection = new RGXTokenCollection();
+            expect(isRgxTokenCollection(collection)).toBe(true);
+            expect(() => assertRgxTokenCollection(collection)).not.toThrow();
+        });
+
+        it('returns false for non-RGXTokenCollection values', () => {
+            expect(isRgxTokenCollection({})).toBe(false);
+            expect(isRgxTokenCollection([])).toBe(false);
+            expect(isRgxTokenCollection('test')).toBe(false);
+            expect(isRgxTokenCollection(123)).toBe(false);
+            expect(isRgxTokenCollection(null)).toBe(false);
+            expect(isRgxTokenCollection(undefined)).toBe(false);
+
+            expect(() => assertRgxTokenCollection({})).toThrow(RGXInvalidTokenError);
+            expect(() => assertRgxTokenCollection([])).toThrow(RGXInvalidTokenError);
+            expect(() => assertRgxTokenCollection('test')).toThrow(RGXInvalidTokenError);
+            expect(() => assertRgxTokenCollection(123)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRgxTokenCollection(null)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRgxTokenCollection(undefined)).toThrow(RGXInvalidTokenError);
+        });
     });
 
     describe('toArray', () => {

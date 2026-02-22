@@ -3,7 +3,7 @@ import { resolveRGXToken } from "./resolve";
 import { rgxConcat } from "./concat";
 import { CloneDepth, immutableMut, extClone, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { Collection } from "@ptolemy2002/ts-utils";
-import { createConstructFunction } from "./internal";
+import { createConstructFunction, createClassGuardFunction, createAssertClassGuardFunction } from "./internal";
 
 export type RGXTokenCollectionMode = 'union' | 'concat';
 export type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
@@ -11,6 +11,9 @@ export type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
 export class RGXTokenCollection implements Collection<RGXToken> {
     mode: RGXTokenCollectionMode;
     tokens: RGXToken[] = [];
+
+    static check = createClassGuardFunction(RGXTokenCollection);
+    static assert = createAssertClassGuardFunction(RGXTokenCollection);
 
     constructor(tokens: RGXTokenCollectionInput = [], mode: RGXTokenCollectionMode = 'concat') {
         if (tokens instanceof RGXTokenCollection) {
