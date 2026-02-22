@@ -1,4 +1,4 @@
-import { createConstructFunction } from "src/internal";
+import { createAssertClassGuardFunction, createClassGuardFunction, createConstructFunction } from "src/internal";
 import { RGXToken } from "src/types";
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 import { RGXClassToken } from "./base";
@@ -91,3 +91,5 @@ export function removeRgxUnionDuplicates(...tokens: RGXTokenCollectionInput[]): 
 }
 
 export const rgxClassUnion = createConstructFunction(RGXClassUnionToken);
+export const isRgxClassUnionToken = createClassGuardFunction(RGXClassUnionToken);
+export const assertRgxClassUnionToken = createAssertClassGuardFunction(RGXClassUnionToken);

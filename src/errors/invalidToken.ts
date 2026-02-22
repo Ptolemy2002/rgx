@@ -1,6 +1,7 @@
 import { RGXError } from "src/errors";
 import { RGXTokenTypeFlat } from "src/types";
 import { listInPlainEnglish } from "@ptolemy2002/js-utils";
+import { isRgxClassToken } from "src/class";
 
 const tokenExpectationMap: Record<RGXTokenTypeFlat, string[]> = {
     'no-op': ['null', 'undefined'],
@@ -57,6 +58,7 @@ export class RGXInvalidTokenError extends RGXError {
     }
 
     toString() {
-        return `${this.name}: ${this.message}; Expected: ${this.expected}; Got: ${JSON.stringify(this.got)}`;
+        const gotString = isRgxClassToken(this.got) ? `instance of ${this.got.constructor.name}` : JSON.stringify(this.got);
+        return `${this.name}: ${this.message}; Expected: ${this.expected}; Got: [${gotString}]`;
     }
 }

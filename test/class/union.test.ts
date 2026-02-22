@@ -1,6 +1,13 @@
-import { RGXClassUnionToken, rgxClassInit, rgxClassUnion, expandRgxUnionTokens, removeRgxUnionDuplicates } from "src/class";
+import { RGXClassUnionToken, rgxClassInit, rgxClassUnion, expandRgxUnionTokens, removeRgxUnionDuplicates, RGXClassToken, isRgxClassUnionToken, assertRgxClassUnionToken } from "src/class";
 import { RGXTokenCollection } from "src/collection";
+import { RGXInvalidTokenError } from "src/errors";
 import { ConstructFunction } from "src/internal";
+
+class TestClassToken extends RGXClassToken {
+    toRgx() {
+        return "test";
+    }
+}
 
 function constructionTest(constructor: ConstructFunction<typeof RGXClassUnionToken>) {
     it("constructs an instance of RGXClassUnionToken", () => {
@@ -40,6 +47,31 @@ function constructionTest(constructor: ConstructFunction<typeof RGXClassUnionTok
 }
 
 describe("RGXClassUnionToken", () => {
+    describe("type guards", () => {
+        it("accepts instances of RGXClassUnionToken", () => {
+            const instance = new RGXClassUnionToken();
+            expect(isRgxClassUnionToken(instance)).toBe(true);
+            expect(() => assertRgxClassUnionToken(instance)).not.toThrow();
+        });
+
+        it("rejects non-instances of RGXClassUnionToken", () => {
+            const instance = new TestClassToken();
+            expect(isRgxClassUnionToken({})).toBe(false);
+            expect(isRgxClassUnionToken("test")).toBe(false);
+            expect(isRgxClassUnionToken(123)).toBe(false);
+            expect(isRgxClassUnionToken(null)).toBe(false);
+            expect(isRgxClassUnionToken(undefined)).toBe(false);
+            expect(isRgxClassUnionToken(instance)).toBe(false);
+
+            expect(() => assertRgxClassUnionToken({})).toThrow(RGXInvalidTokenError);
+            expect(() => assertRgxClassUnionToken("test")).toThrow(RGXInvalidTokenError);
+            expect(() => assertRgxClassUnionToken(123)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRgxClassUnionToken(null)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRgxClassUnionToken(undefined)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRgxClassUnionToken(instance)).toThrow(RGXInvalidTokenError);
+        });
+    });
+
     describe("constructor", () => {
         constructionTest((...args) => new RGXClassUnionToken(...args));
     });

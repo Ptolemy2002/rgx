@@ -1,5 +1,5 @@
-import { rgxClassInit, RGXClassToken, RGXClassUnionToken } from "src/class";
-import { RGXNotImplementedError } from "src/errors";
+import { rgxClassInit, RGXClassToken, RGXClassUnionToken, isRgxClassToken, assertRgxClassToken } from "src/class";
+import { RGXNotImplementedError, RGXInvalidTokenError } from "src/errors";
 
 class TestClassToken extends RGXClassToken {
     toRgx() {
@@ -8,6 +8,28 @@ class TestClassToken extends RGXClassToken {
 }
 
 const testToken1 = new TestClassToken();
+
+describe("type guards", () => {
+    it("accepts instances of RGXClassToken", () => {
+        expect(isRgxClassToken(testToken1)).toBe(true);
+        expect(() => assertRgxClassToken(testToken1)).not.toThrow();
+    });
+
+    it("rejects non-instances of RGXClassToken", () => {
+        expect(isRgxClassToken({})).toBe(false);
+        expect(isRgxClassToken("test")).toBe(false);
+        expect(isRgxClassToken(123)).toBe(false);
+        expect(isRgxClassToken(null)).toBe(false);
+        expect(isRgxClassToken(undefined)).toBe(false);
+
+        expect(() => assertRgxClassToken({})).toThrow(RGXInvalidTokenError);
+        expect(() => assertRgxClassToken("test")).toThrow(RGXInvalidTokenError);
+        expect(() => assertRgxClassToken(123)).toThrow(RGXInvalidTokenError);
+        expect(() => assertRgxClassToken(null)).toThrow(RGXInvalidTokenError);
+        expect(() => assertRgxClassToken(undefined)).toThrow(RGXInvalidTokenError);
+    });
+});
+
 
 describe("rgxClassInit", () => {
     it("doesn't implement the or method before being called", () => {

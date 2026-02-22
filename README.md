@@ -140,6 +140,8 @@ Standard array properties and methods like `length`, `push`, `pop`, etc. are imp
 ### RGXClassToken (abstract)
 An abstract base class for creating custom RGX token classes. Subclasses must implement the `toRgx()` method, which returns any valid `RGXToken` (including other convertible tokens, allowing for recursive structures).
 
+Two type guards are provided for this class: `isRgxClassToken` to check if a value is an instance of `RGXClassToken`, and `assertRgxClassToken` to assert that a value is an instance of `RGXClassToken` (throwing an `InvalidTokenError` if the assertion fails). Both of these take a single parameter of type `unknown` for the value.
+
 #### Abstract Methods
 - `toRgx() => RGXToken`: Must be implemented by subclasses to return the token's regex representation as any valid RGX token (native, literal, convertible, or array of tokens).
 
@@ -153,7 +155,7 @@ An abstract base class for creating custom RGX token classes. Subclasses must im
 ### RGXClassUnionToken extends RGXClassToken
 A class representing a union (alternation) of RGX tokens. This is typically created via the `or()` method on `RGXClassToken`, but can also be instantiated directly.
 
-A function `rgxClassUnion` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
+A function `rgxClassUnion` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword. Two type guards are provided for this class: `isRgxClassUnionToken` to check if a value is an instance of `RGXClassUnionToken`, and `assertRgxClassUnionToken` to assert that a value is an instance of `RGXClassUnionToken` (throwing an `InvalidTokenError` if the assertion fails). Both of these take a single parameter of type `unknown` for the value.
 
 #### Constructor
 ```typescript
