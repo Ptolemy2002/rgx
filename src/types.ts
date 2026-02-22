@@ -6,10 +6,11 @@ export type RGXLiteralToken = RegExp;
 export type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 export type RGXConvertibleToken = { toRgx: () => RGXToken };
 export type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
+export type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 
 export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
 export type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
-export type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXTokenTypeGuardInput[];
+export type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | RGXTokenTypeGuardInput[];
 export type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     T extends null ? RGXToken :
     T extends 'no-op' ? RGXNoOpToken :
@@ -19,6 +20,7 @@ export type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     T extends 'class' ? RGXClassToken :
     T extends 'array' ? RGXToken[] :
     T extends RGXTokenTypeGuardInput[] ? { [K in keyof T]: T[K] extends RGXTokenTypeGuardInput ? RGXTokenFromType<T[K]> : never } :
+    T extends RGXClassTokenConstructor ? InstanceType<T> :
     never
 ;
 

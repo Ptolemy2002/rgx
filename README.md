@@ -10,6 +10,7 @@ type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 type RGXConvertibleToken = { toRgx: () => RGXToken };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
+type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 
 const validRegexSymbol = Symbol('rgx.ValidRegex');
 type ValidRegexBrandSymbol = typeof validRegexSymbol;
@@ -21,8 +22,11 @@ type ValidVanillaRegexFlags = Branded<string, [ValidVanillaRegexFlagsBrandSymbol
 
 type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
 type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
-type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXTokenTypeGuardInput[];
+type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | RGXTokenTypeGuardInput[];
 type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
+    // Maps token type strings to their corresponding types, e.g.:
+    // 'no-op' -> RGXNoOpToken, 'literal' -> RGXLiteralToken, etc.
+    // Also maps RGXClassTokenConstructor to InstanceType<T>.
     // ... see source for full definition
 ;
 
@@ -393,7 +397,7 @@ Converts an `RGXTokenType` to its flat equivalent `RGXTokenTypeFlat`. If the typ
 function rgxTokenTypeGuardInputToFlat(type: RGXTokenTypeGuardInput): RGXTokenTypeFlat | null
 ```
 
-Converts an `RGXTokenTypeGuardInput` to its flat equivalent. If the type is `null`, it returns `null`; if it is an array, it returns `'array'`; otherwise, it returns the type as-is.
+Converts an `RGXTokenTypeGuardInput` to its flat equivalent. If the type is `null`, it returns `null`; if it is an array, it returns `'array'`; if it is an `RGXClassTokenConstructor` (a constructor for an `RGXClassToken` subclass), it returns `'class'` (making it slightly lossy in that case); otherwise, it returns the type as-is.
 
 #### Parameters
   - `type` (`RGXTokenTypeGuardInput`): The type guard input to convert.
@@ -408,11 +412,13 @@ function isRGXToken<T extends RGXTokenTypeGuardInput = null>(value: unknown, typ
 
 Checks if the given value is a valid RGX token, optionally narrowed to a specific token type. When `type` is `null` (the default), it checks against all token types. When `type` is a specific token type string, it checks only against that type. The `'class'` type matches `RGXClassToken` instances specifically, while `'convertible'` also matches class tokens since they implement the convertible interface.
 
+When `type` is an `RGXClassTokenConstructor` (a constructor for an `RGXClassToken` subclass), it performs an `instanceof` check against that specific constructor, allowing you to narrow to a specific class token subclass rather than all class tokens. In this case, `RGXTokenFromType` resolves to `InstanceType<T>`, giving you the specific subclass type.
+
 When `type` is an array, it checks that every element of the value array is a valid RGX token matching the corresponding type in the `type` array. If `matchLength` is `true` (the default), it also requires that the value array has the same length as the type array; if `false`, it allows the value array to be longer than the type array, as long as all elements up to the length of the type array match and all elements after that are still valid RGX tokens of any type.
 
 #### Parameters
   - `value` (`unknown`): The value to check.
-  - `type` (`T`, optional): The token type to check against. Defaults to `null`, which checks against all token types.
+  - `type` (`T`, optional): The token type to check against. Can be a token type string, `null` (checks against all token types), an `RGXClassTokenConstructor` (checks via `instanceof`), or an array of these. Defaults to `null`.
   - `matchLength` (`boolean`, optional): When `type` is an array, whether to require that the value array has the same length as the type array. Defaults to `true`.
 
 #### Returns
@@ -423,11 +429,11 @@ When `type` is an array, it checks that every element of the value array is a va
 function assertRGXToken<T extends RGXTokenTypeGuardInput = null>(value: unknown, type?: T, matchLength?: boolean): asserts value is RGXTokenFromType<T>
 ```
 
-Asserts that the given value is a valid RGX token, optionally narrowed to a specific token type (including `'class'` for `RGXClassToken` instances). Uses the same logic as `isRGXToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+Asserts that the given value is a valid RGX token, optionally narrowed to a specific token type (including `'class'` for `RGXClassToken` instances, or a specific `RGXClassTokenConstructor` for `instanceof` checks). Uses the same logic as `isRGXToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
 
 #### Parameters
   - `value` (`unknown`): The value to assert.
-  - `type` (`T`, optional): The token type to assert against. Defaults to `null`, which checks against all token types.
+  - `type` (`T`, optional): The token type to assert against. Can be a token type string, `null` (checks against all token types), an `RGXClassTokenConstructor` (checks via `instanceof`), or an array of these. Defaults to `null`.
   - `matchLength` (`boolean`, optional): When `type` is an array, whether to require that the value array has the same length as the type array. Defaults to `true`.
 
 #### Returns

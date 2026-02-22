@@ -2,6 +2,7 @@ import * as t from "./types";
 import * as e from "./errors";
 import { isRgxClassToken } from "./class";
 import isCallable from "is-callable";
+import { isConstructor } from "./internal";
 
 export function isRGXNoOpToken(value: unknown): value is t.RGXNoOpToken {
     return value === null || value === undefined;
@@ -101,16 +102,20 @@ export function rgxTokenTypeToFlat(type: t.RGXTokenType): t.RGXTokenTypeFlat {
 export function rgxTokenTypeGuardInputToFlat(type: t.RGXTokenTypeGuardInput): t.RGXTokenTypeFlat | null {
     if (type === null) return null;
     if (Array.isArray(type)) return 'array';
+    if (isConstructor(type)) return 'class';
+
     return type;
 }
 
 export function isRGXToken<
     T extends t.RGXTokenTypeGuardInput = null
 >(value: unknown, type: T = null as T, matchLength: boolean = true): value is t.RGXTokenFromType<T> {
+    if (isConstructor(type)) return value instanceof type;
+
     function typeMatches(s: string) {
         return type === null || type === s;
     }
-
+    
     if (typeMatches('no-op') && isRGXNoOpToken(value)) return true;
     if (typeMatches('literal') && isRGXLiteralToken(value)) return true;
     if (typeMatches('native') && isRGXNativeToken(value)) return true;

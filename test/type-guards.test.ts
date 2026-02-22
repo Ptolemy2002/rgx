@@ -7,7 +7,13 @@ import {
     RGXClassToken
 } from 'src/index';
 
-class TestClassToken extends RGXClassToken {
+class TestClassToken1 extends RGXClassToken {
+    toRgx() {
+        return "test";
+    }
+}
+
+class TestClassToken2 extends RGXClassToken {
     toRgx() {
         return "test";
     }
@@ -272,12 +278,12 @@ describe('Type Guards', () => {
         });
 
         it('identifies class tokens when recognizeClass is true', () => {
-            const token: RGXToken = new TestClassToken();
+            const token: RGXToken = new TestClassToken1();
             expect(rgxTokenType(token, true)).toBe('class');
         });
 
         it('identifies class tokens as convertible when recognizeClass is false', () => {
-            const token: RGXToken = new TestClassToken();
+            const token: RGXToken = new TestClassToken1();
             expect(rgxTokenType(token, false)).toBe('convertible');
         });
 
@@ -316,12 +322,12 @@ describe('Type Guards', () => {
         });
 
         it('identifies class tokens when recognizeClass is true', () => {
-            const token: RGXToken = new TestClassToken();
+            const token: RGXToken = new TestClassToken1();
             expect(rgxTokenTypeFlat(token, true)).toBe('class');
         });
 
         it('identifies class tokens as convertible when recognizeClass is false', () => {
-            const token: RGXToken = new TestClassToken();
+            const token: RGXToken = new TestClassToken1();
             expect(rgxTokenTypeFlat(token, false)).toBe('convertible');
         });
 
@@ -414,14 +420,14 @@ describe('Type Guards', () => {
         });
 
         it('identifies class tokens as class', () => {
-            const token: RGXToken = new TestClassToken();
+            const token: RGXToken = new TestClassToken1();
             expect(isRGXToken(token, 'class')).toBe(true);
 
             expect(() => assertRGXToken(token, 'class')).not.toThrow();
         });
 
         it('identifies class tokens as convertible', () => {
-            const token: RGXToken = new TestClassToken();
+            const token: RGXToken = new TestClassToken1();
             expect(isRGXToken(token, 'convertible')).toBe(true);
             
             expect(() => assertRGXToken(token, 'convertible')).not.toThrow();
@@ -445,6 +451,21 @@ describe('Type Guards', () => {
 
             expect(() => assertRGXToken(matchingToken, tokenType)).not.toThrow();
             expect(() => assertRGXToken(matchingToken, ['native', 'convertible'] as const)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('correctly handles constructors', () => {
+            const token1: RGXToken = new TestClassToken1();
+            const token2: RGXToken = new TestClassToken2();
+
+            expect(isRGXToken(token1, TestClassToken1)).toBe(true);
+            expect(isRGXToken(token2, TestClassToken2)).toBe(true);
+            expect(isRGXToken(token1, TestClassToken2)).toBe(false);
+            expect(isRGXToken(token2, TestClassToken1)).toBe(false);
+
+            expect(() => assertRGXToken(token1, TestClassToken1)).not.toThrow();
+            expect(() => assertRGXToken(token2, TestClassToken2)).not.toThrow();
+            expect(() => assertRGXToken(token1, TestClassToken2)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXToken(token2, TestClassToken1)).toThrow(RGXInvalidTokenError);
         });
 
         it('rejects arrays that include invalid tokens when a specific type is not specified', () => {
@@ -526,6 +547,11 @@ describe('Type Guards', () => {
         it('returns "array" for array types', () => {
             expect(rgxTokenTypeGuardInputToFlat(['native', 'literal'])).toBe('array');
             expect(rgxTokenTypeGuardInputToFlat([])).toBe('array');
+        });
+
+        it('returns "class" for class token constructors', () => {
+            expect(rgxTokenTypeGuardInputToFlat(TestClassToken1)).toBe('class');
+            expect(rgxTokenTypeGuardInputToFlat(TestClassToken2)).toBe('class');
         });
     });
 
