@@ -19,7 +19,7 @@ const validVanillaRegexFlagsSymbol = Symbol('rgx.ValidVanillaRegexFlags');
 type ValidVanillaRegexFlagsBrandSymbol = typeof validVanillaRegexFlagsSymbol;
 type ValidVanillaRegexFlags = Branded<string, [ValidVanillaRegexFlagsBrandSymbol]>;
 
-type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | RGXTokenType[];
+type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
 type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
 type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXTokenTypeGuardInput[];
 type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
@@ -309,10 +309,12 @@ Asserts that the given value is an array of RGX tokens. When `contentCheck` is `
 
 ### rgxTokenType
 ```typescript
-function rgxTokenType(value: unknown): RGXTokenType
+function rgxTokenType(value: unknown, recognizeClass?: boolean): RGXTokenType
 ```
 
-Determines the type of a given RGX token value (`no-op`, `literal`, `native`, `convertible`, or an array of the former) or throws an error if the value is not a valid RGX token.
+Determines the type of a given RGX token value (`no-op`, `literal`, `native`, `convertible`, `class`, or an array of the former) or throws an error if the value is not a valid RGX token.
+
+When `recognizeClass` is `true` (the default), `RGXClassToken` instances are identified as `'class'` rather than `'convertible'`. When `recognizeClass` is `false`, class tokens are identified as `'convertible'` instead. The `recognizeClass` preference is passed through to recursive calls for array elements.
 
 If you narrow the result of this function to something more specific, you can then convert these string or array literals into their corresponding token types using the `RGXTokenFromType` utility type or `rgxTokenFromType` function.
 
@@ -328,15 +330,18 @@ if (type === 'native') {
 
 #### Parameters
   - `value` (`unknown`): The value to check.
+  - `recognizeClass` (`boolean`, optional): Whether to recognize `RGXClassToken` instances as `'class'` instead of `'convertible'`. Defaults to `true`.
 
 #### Returns
 - `RGXTokenType`: The type of the RGX token.
 
 ### rgxTokenTypeFlat
 ```typescript
-function rgxTokenTypeFlat(value: unknown): RGXTokenTypeFlat
+function rgxTokenTypeFlat(value: unknown, recognizeClass?: boolean): RGXTokenTypeFlat
 ```
-Determines the flat type of a given RGX token value (`no-op`, `literal`, `native`, `convertible`, or `array`) or throws an error if the value is not a valid RGX token. The `array` type represents any array of RGX tokens, regardless of the types of the individual tokens within the array.
+Determines the flat type of a given RGX token value (`no-op`, `literal`, `native`, `convertible`, `class`, or `array`) or throws an error if the value is not a valid RGX token. The `array` type represents any array of RGX tokens, regardless of the types of the individual tokens within the array.
+
+When `recognizeClass` is `true` (the default), `RGXClassToken` instances are identified as `'class'` rather than `'convertible'`. This distinction is important because class tokens are also convertible tokens, but the `'class'` type is more specific. When `recognizeClass` is `false`, class tokens are identified as `'convertible'` instead.
 
 If you narrow the result of this function to something more specific, you can then convert these string literals into their corresponding token types using the `RGXTokenFromType` utility type or `rgxTokenFromType` function.
 
@@ -351,6 +356,7 @@ if (type === 'array') {
 
 #### Parameters
   - `value` (`unknown`): The value to check.
+  - `recognizeClass` (`boolean`, optional): Whether to recognize `RGXClassToken` instances as `'class'` instead of `'convertible'`. Defaults to `true`.
 
 #### Returns
 - `RGXTokenTypeFlat`: The flat type of the RGX token.
@@ -400,7 +406,7 @@ Converts an `RGXTokenTypeGuardInput` to its flat equivalent. If the type is `nul
 function isRGXToken<T extends RGXTokenTypeGuardInput = null>(value: unknown, type?: T, matchLength?: boolean): value is RGXTokenFromType<T>
 ```
 
-Checks if the given value is a valid RGX token, optionally narrowed to a specific token type. When `type` is `null` (the default), it checks against all token types. When `type` is a specific token type string, it checks only against that type.
+Checks if the given value is a valid RGX token, optionally narrowed to a specific token type. When `type` is `null` (the default), it checks against all token types. When `type` is a specific token type string, it checks only against that type. The `'class'` type matches `RGXClassToken` instances specifically, while `'convertible'` also matches class tokens since they implement the convertible interface.
 
 When `type` is an array, it checks that every element of the value array is a valid RGX token matching the corresponding type in the `type` array. If `matchLength` is `true` (the default), it also requires that the value array has the same length as the type array; if `false`, it allows the value array to be longer than the type array, as long as all elements up to the length of the type array match and all elements after that are still valid RGX tokens of any type.
 
@@ -417,7 +423,7 @@ When `type` is an array, it checks that every element of the value array is a va
 function assertRGXToken<T extends RGXTokenTypeGuardInput = null>(value: unknown, type?: T, matchLength?: boolean): asserts value is RGXTokenFromType<T>
 ```
 
-Asserts that the given value is a valid RGX token, optionally narrowed to a specific token type. Uses the same logic as `isRGXToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+Asserts that the given value is a valid RGX token, optionally narrowed to a specific token type (including `'class'` for `RGXClassToken` instances). Uses the same logic as `isRGXToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
 
 #### Parameters
   - `value` (`unknown`): The value to assert.

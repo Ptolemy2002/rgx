@@ -1,5 +1,6 @@
 import * as t from "./types";
 import * as e from "./errors";
+import { isRgxClassToken } from "./class";
 import isCallable from "is-callable";
 
 export function isRGXNoOpToken(value: unknown): value is t.RGXNoOpToken {
@@ -69,20 +70,22 @@ export function assertRGXArrayToken(value: unknown, contentCheck: boolean = true
     }
 }
 
-export function rgxTokenTypeFlat(value: unknown): t.RGXTokenTypeFlat {
+export function rgxTokenTypeFlat(value: unknown, recognizeClass: boolean = true): t.RGXTokenTypeFlat {
     if (isRGXNoOpToken(value)) return 'no-op';
     if (isRGXLiteralToken(value)) return 'literal';
     if (isRGXNativeToken(value)) return 'native';
+    // We have to check class before convertible because class tokens are also convertible.
+    if (recognizeClass && isRgxClassToken(value)) return 'class';
     if (isRGXConvertibleToken(value)) return 'convertible';
     if (isRGXArrayToken(value)) return 'array';
     
     throw new e.RGXInvalidTokenError("Invalid RGX token", null, value);
 }
 
-export function rgxTokenType(value: unknown): t.RGXTokenType {
-    const flatType = rgxTokenTypeFlat(value);
+export function rgxTokenType(value: unknown, recognizeClass: boolean = true): t.RGXTokenType {
+    const flatType = rgxTokenTypeFlat(value, recognizeClass);
     if (flatType !== 'array') return flatType;
-    else return (value as t.RGXToken[]).map(rgxTokenType);
+    else return (value as t.RGXToken[]).map(item => rgxTokenType(item, recognizeClass));
 }
 
 export function rgxTokenFromType<T extends t.RGXTokenTypeGuardInput>(type: T, value: t.RGXToken): t.RGXTokenFromType<T> {
@@ -111,6 +114,8 @@ export function isRGXToken<
     if (typeMatches('no-op') && isRGXNoOpToken(value)) return true;
     if (typeMatches('literal') && isRGXLiteralToken(value)) return true;
     if (typeMatches('native') && isRGXNativeToken(value)) return true;
+    // We have to check class before convertible because class tokens are also convertible.
+    if (typeMatches('class') && isRgxClassToken(value)) return true;
     if (typeMatches('convertible') && isRGXConvertibleToken(value)) return true;
     if (typeMatches('array') && isRGXArrayToken(value)) return true;
 

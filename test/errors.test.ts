@@ -85,6 +85,11 @@ describe('RGXInvalidTokenError', () => {
         expect(error.toString()).toBe('RGXInvalidTokenError: Invalid token; Expected: [array of native/literal/convertible tokens]; Got: [123]');
     });
 
+    it('formats the error message correctly with expected value of "class"', () => {
+        const error = new RGXInvalidTokenError('Invalid token', { type: 'tokenType', values: ['class'] }, 123);
+        expect(error.toString()).toBe('RGXInvalidTokenError: Invalid token; Expected: [instance of RGXClassToken]; Got: [123]');
+    });
+
     it('formats the error message correctly with expected value of multiple token types', () => {
         const error = new RGXInvalidTokenError('Invalid token', { type: 'tokenType', values: ['literal', 'native'] }, 123);
         expect(error.toString()).toBe('RGXInvalidTokenError: Invalid token; Expected: [RegExp, string, number, boolean, null, or undefined]; Got: [123]');
@@ -106,7 +111,8 @@ describe('RGXInvalidTokenError', () => {
             'RGXInvalidTokenError: Invalid token; Expected: '
             + '[null, undefined, RegExp, string, number, boolean,'
             + ' object with a toRgx method that returns a valid native/literal token or an array of valid native/literal tokens,'
-            + ' or array of native/literal/convertible tokens]; Got: [123]'
+            + ' array of native/literal/convertible tokens,'
+            + ' or instance of RGXClassToken]; Got: [123]'
         );
     });
 });
