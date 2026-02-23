@@ -1,4 +1,8 @@
-import { RGXError, RGXInvalidTokenError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError, RGXNotImplementedError, RGXClassToken, RGXInvalidIdentifierError } from 'src/index';
+import { 
+    RGXError, RGXInvalidTokenError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError,
+    RGXNotImplementedError, RGXClassToken, RGXInvalidIdentifierError, RGXOutOfBoundsError,
+    isInRange, assertInRange
+} from 'src/index';
 
 class TestClassToken extends RGXClassToken {
     toRgx() {
@@ -229,5 +233,138 @@ describe('RGXInvalidIdentifierError', () => {
     it('formats the error message correctly', () => {
         const error = new RGXInvalidIdentifierError('Invalid identifier', '123abc');
         expect(error.toString()).toBe('RGXInvalidIdentifierError: Invalid identifier; Got: "123abc"');
+    });
+});
+
+describe('RGXOutOfBoundsError', () => {
+    it('has the correct name', () => {
+        const error = new RGXOutOfBoundsError('Value out of bounds', 5, { min: 0, max: 10 });
+        expect(error.name).toBe('RGXOutOfBoundsError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXOutOfBoundsError('Value out of bounds', 5, { min: 0, max: 10 });
+        expect(error.code).toBe('OUT_OF_BOUNDS');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXOutOfBoundsError('Value out of bounds', 5, { min: 0, max: 10 });
+        expect(error.got).toBe(5);
+    });
+
+    it('exposes the min and max properties', () => {
+        const error = new RGXOutOfBoundsError('Value out of bounds', 5, { min: 0, max: 10 });
+        expect(error.min).toBe(0);
+        expect(error.max).toBe(10);
+    });
+
+    it('exposes the inclusiveLeft and inclusiveRight properties', () => {
+        const error = new RGXOutOfBoundsError('Value out of bounds', 5, { min: 0, max: 10, inclusiveLeft: false, inclusiveRight: false });
+        expect(error.inclusiveLeft).toBe(false);
+        expect(error.inclusiveRight).toBe(false);
+    });
+
+    it('defaults inclusiveLeft and inclusiveRight to true', () => {
+        const error = new RGXOutOfBoundsError('Value out of bounds', 5, { min: 0, max: 10 });
+        expect(error.inclusiveLeft).toBe(true);
+        expect(error.inclusiveRight).toBe(true);
+    });
+
+    it('defaults min and max to null', () => {
+        const error = new RGXOutOfBoundsError('Value out of bounds', 5, {});
+        expect(error.min).toBeNull();
+        expect(error.max).toBeNull();
+    });
+
+    it('defaults to no bounds and inclusive on both sides when options object is not provided', () => {
+        const error = new RGXOutOfBoundsError('Value out of bounds', 5);
+        expect(error.min).toBeNull();
+        expect(error.max).toBeNull();
+        expect(error.inclusiveLeft).toBe(true);
+        expect(error.inclusiveRight).toBe(true);
+    });
+
+    it('clamps max to min if min is set to a value greater than the current max', () => {
+        const error = new RGXOutOfBoundsError('Value out of bounds', 5, { min: 0, max: 10 });
+        error.min = 15;
+        expect(error.min).toBe(15);
+        expect(error.max).toBe(15);
+    });
+
+    it('clamps min to max if max is set to a value less than the current min', () => {
+        const error = new RGXOutOfBoundsError('Value out of bounds', 5, { min: 0, max: 10 });
+        error.max = -5;
+        expect(error.max).toBe(-5);
+        expect(error.min).toBe(-5);
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXOutOfBoundsError('Value out of bounds', 5, { min: 0, max: 10 });
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly with no failure', () => {
+        const error = new RGXOutOfBoundsError('Value out of bounds', 5, { min: 0, max: 10 });
+        expect(error.toString()).toBe('RGXOutOfBoundsError: Value out of bounds; Got: [5]; Expected: [>= 0 and <= 10]');
+    });
+
+    it('formats the error message correctly with failure at min', () => {
+        const error1 = new RGXOutOfBoundsError('Value out of bounds', 0, { min: 0, max: 10, inclusiveLeft: false });
+        expect(error1.toString()).toBe('RGXOutOfBoundsError: Value out of bounds; Got: [0]; Expected: [> 0 and <= 10]; 0 == 0');
+
+        const error2 = new RGXOutOfBoundsError('Value out of bounds', -1, { min: 0, max: 10, inclusiveLeft: false });
+        expect(error2.toString()).toBe('RGXOutOfBoundsError: Value out of bounds; Got: [-1]; Expected: [> 0 and <= 10]; -1 < 0');
+    });
+
+    it('formats the error message correctly with failure at max', () => {
+        const error1 = new RGXOutOfBoundsError('Value out of bounds', 10, { min: 0, max: 10, inclusiveRight: false });
+        expect(error1.toString()).toBe('RGXOutOfBoundsError: Value out of bounds; Got: [10]; Expected: [>= 0 and < 10]; 10 == 10');
+
+        const error2 = new RGXOutOfBoundsError('Value out of bounds', 11, { min: 0, max: 10, inclusiveRight: false });
+        expect(error2.toString()).toBe('RGXOutOfBoundsError: Value out of bounds; Got: [11]; Expected: [>= 0 and < 10]; 11 > 10');
+    });
+});
+
+describe('isInRange', () => {
+    it('always accepts a value when no min or max is specified', () => {
+        expect(isInRange(5)).toBe(true);
+        expect(isInRange(-100)).toBe(true);
+        expect(isInRange(100)).toBe(true);
+    });
+
+    it('always accepts a value in between the min and max', () => {
+        expect(isInRange(5, { min: 0, max: 10 })).toBe(true);
+        expect(isInRange(0.5, { min: 0, max: 1 })).toBe(true);
+        expect(isInRange(-5, { min: -10, max: 0 })).toBe(true);
+    });
+
+    it('always rejects a value less than the min', () => {
+        expect(isInRange(-1, { min: 0, max: 10 })).toBe(false);
+        expect(isInRange(-0.1, { min: 0, max: 1 })).toBe(false);
+        expect(isInRange(-10.1, { min: -10, max: 0 })).toBe(false);
+    });
+
+    it('always rejects a value greater than the max', () => {
+        expect(isInRange(11, { min: 0, max: 10 })).toBe(false);
+        expect(isInRange(1.1, { min: 0, max: 1 })).toBe(false);
+        expect(isInRange(0.1, { min: -10, max: 0 })).toBe(false);
+    });
+
+    it('accepts a value equal to the minimum when inclusiveLeft is true', () => {
+        expect(isInRange(0, { min: 0, max: 10, inclusiveLeft: true })).toBe(true);
+    });
+
+    it('rejects a value equal to the minimum when inclusiveLeft is false', () => {
+        expect(isInRange(0, { min: 0, max: 10, inclusiveLeft: false })).toBe(false);
+    });
+
+    it('accepts a value equal to the maximum when inclusiveRight is true', () => {
+        expect(isInRange(10, { min: 0, max: 10, inclusiveRight: true })).toBe(true);
+        expect(() => assertInRange(10, { min: 0, max: 10, inclusiveRight: true })).not.toThrow();
+    });
+
+    it('rejects a value equal to the maximum when inclusiveRight is false', () => {
+        expect(isInRange(10, { min: 0, max: 10, inclusiveRight: false })).toBe(false);
+        expect(() => assertInRange(10, { min: 0, max: 10, inclusiveRight: false })).toThrow(RGXOutOfBoundsError);
     });
 });

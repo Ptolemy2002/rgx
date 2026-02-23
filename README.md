@@ -34,7 +34,14 @@ type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     // ... see source for full definition
 ;
 
-type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_VANILLA_REGEX_FLAGS' | 'NOT_IMPLEMENTED' | 'INVALID_IDENTIFIER';
+type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_VANILLA_REGEX_FLAGS' | 'NOT_IMPLEMENTED' | 'INVALID_IDENTIFIER' | 'OUT_OF_BOUNDS';
+
+type RangeObject = {
+    min?: number | null;
+    max?: number | null;
+    inclusiveLeft?: boolean;
+    inclusiveRight?: boolean;
+};
 type ExpectedTokenType = {
     type: "tokenType";
     values: RGXTokenTypeFlat[];
@@ -141,6 +148,33 @@ constructor(message: string, got: string)
 
 #### Methods
 - `toString() => string`: Returns a formatted string indicating the invalid identifier and the reason for failure.
+
+### RGXOutOfBoundsError extends RGXError
+A specific error class for out-of-bounds values. This error is thrown when a numeric value falls outside an expected range. The error code is set to `OUT_OF_BOUNDS` on instantiation.
+
+#### Constructor
+```typescript
+constructor(message: string, got: number, { min, max, inclusiveLeft, inclusiveRight }?: RangeObject)
+```
+- `message` (`string`): The error message.
+- `got` (`number`): The actual numeric value that was received, which fell outside the expected range.
+- `min` (`number | null`, optional): The minimum bound of the range. Defaults to `null` (no minimum).
+- `max` (`number | null`, optional): The maximum bound of the range. Defaults to `null` (no maximum). Setting `min` to a value greater than `max` will adjust `max` to equal `min`, and vice versa.
+- `inclusiveLeft` (`boolean`, optional): Whether the minimum bound is inclusive. Defaults to `true`.
+- `inclusiveRight` (`boolean`, optional): Whether the maximum bound is inclusive. Defaults to `true`.
+
+#### Properties
+- `got` (`number`): The actual numeric value that was received.
+- `min` (`number | null`): The minimum bound of the range. Setting this to a value greater than `max` will adjust `max` to equal `min`.
+- `max` (`number | null`): The maximum bound of the range. Setting this to a value less than `min` will adjust `min` to equal `max`.
+- `inclusiveLeft` (`boolean`): Whether the minimum bound is inclusive.
+- `inclusiveRight` (`boolean`): Whether the maximum bound is inclusive.
+
+#### Methods
+- `failedAtMin() => boolean`: Returns `true` if the `got` value is below the minimum bound (respecting `inclusiveLeft`), otherwise `false`. Returns `false` if `min` is `null`.
+- `failedAtMax() => boolean`: Returns `true` if the `got` value is above the maximum bound (respecting `inclusiveRight`), otherwise `false`. Returns `false` if `max` is `null`.
+- `failedAtAny() => boolean`: Returns `true` if the value failed at either the minimum or maximum bound.
+- `toString() => string`: Returns a formatted string indicating the out-of-bounds value, the expected range, and which bound was violated.
 
 ### RGXTokenCollection
 A class representing a collection of RGX tokens. This class manages collections of RGX tokens like an array, but with additional metadata about the collection mode (union or concat). Since `toRgx()` returns a `RegExp`, instances of this class satisfy the `RGXConvertibleToken` interface and can be used directly as tokens in `rgx`, `rgxa`, and other token-accepting functions.
@@ -699,6 +733,81 @@ function rgxClassInit(): void
 ```
 
 Initializes internal method patches required for `RGXClassToken` subclass methods (such as `or` and `group`) to work correctly. This function is called automatically when importing from the main module entry point, so you typically do not need to call it yourself. It only needs to be called manually if you import directly from sub-modules.
+
+### isInRange
+```typescript
+function isInRange(value: number, { min, max, inclusiveLeft, inclusiveRight }?: RangeObject): boolean
+```
+
+Checks if the given numeric value falls within the specified range.
+
+#### Parameters
+  - `value` (`number`): The value to check.
+  - `min` (`number | null`, optional): The minimum bound of the range. Defaults to `null` (no minimum).
+  - `max` (`number | null`, optional): The maximum bound of the range. Defaults to `null` (no maximum).
+  - `inclusiveLeft` (`boolean`, optional): Whether the minimum bound is inclusive. Defaults to `true`.
+  - `inclusiveRight` (`boolean`, optional): Whether the maximum bound is inclusive. Defaults to `true`.
+
+#### Returns
+- `boolean`: `true` if the value is within the specified range, otherwise `false`.
+
+### assertInRange
+```typescript
+function assertInRange(value: number, range: RangeObject, message?: string): void
+```
+
+Asserts that the given numeric value falls within the specified range. If the assertion fails, an `RGXOutOfBoundsError` will be thrown.
+
+#### Parameters
+  - `value` (`number`): The value to assert.
+  - `range` (`RangeObject`): The range to check against.
+  - `message` (`string`, optional): A custom error message. Defaults to `"Value out of bounds"`.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an error if the assertion fails.
+
+### normalizeVanillaRegexFlags
+```typescript
+function normalizeVanillaRegexFlags(flags: string): string
+```
+
+Normalizes a string of vanilla regex flags by removing duplicate flags while preserving order. If any character in the string is not a valid vanilla regex flag (g, i, m, s, u, y), an `RGXInvalidVanillaRegexFlagsError` will be thrown.
+
+#### Parameters
+  - `flags` (`string`): The flags string to normalize.
+
+#### Returns
+- `string`: The normalized flags string with duplicates removed.
+
+### regexWithFlags
+```typescript
+function regexWithFlags(exp: RegExp, flags: string, replace?: boolean): RegExp
+```
+
+Creates a new `RegExp` from an existing one with additional or replaced flags. When `replace` is `false` (the default), the provided flags are merged with the existing flags and normalized (duplicates removed). When `replace` is `true`, the existing flags are discarded and only the provided flags are used. The provided flags are validated as valid vanilla regex flags via `assertValidVanillaRegexFlags`.
+
+#### Parameters
+  - `exp` (`RegExp`): The source regular expression.
+  - `flags` (`string`): The flags to add or replace with. Must be valid vanilla regex flags, or an `RGXInvalidVanillaRegexFlagsError` will be thrown.
+  - `replace` (`boolean`, optional): Whether to replace the existing flags entirely instead of merging. Defaults to `false`.
+
+#### Returns
+- `RegExp`: A new `RegExp` with the same source pattern and the resulting flags.
+
+### regexMatchAtPosition
+```typescript
+function regexMatchAtPosition(regex: RegExp, str: string, position: number): boolean
+```
+
+Tests whether the given regular expression matches at a specific position in the string. This is done by creating a sticky (`y` flag) copy of the regex and setting its `lastIndex` to the desired position. The position must be within the bounds of the string (>= 0 and < string length), or an `RGXOutOfBoundsError` will be thrown.
+
+#### Parameters
+  - `regex` (`RegExp`): The regular expression to test.
+  - `str` (`string`): The string to test against.
+  - `position` (`number`): The zero-based index in the string at which to test the match. Must be >= 0 and < `str.length`.
+
+#### Returns
+- `boolean`: `true` if the regex matches at the specified position, otherwise `false`.
 
 ## Peer Dependencies
 - `@ptolemy2002/immutability-utils` ^2.0.0

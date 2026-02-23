@@ -4,3 +4,4 @@ export * from './invalidRegexString';
 export * from './invalidVanillaRegexFlags';
 export * from './notImplemented';
 export * from './invalidIdentifier';
+export * from './outOfBounds';

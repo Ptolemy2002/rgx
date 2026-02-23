@@ -11,6 +11,7 @@ export * from "./collection";
 export * from "./class";
 export * from "./resolve";
 export * from "./concat";
+export * from "./utils";
 
 // Call this for certain class methods to work correctly
 rgxClassInit();

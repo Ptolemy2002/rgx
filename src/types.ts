@@ -24,6 +24,13 @@ export type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     never
 ;
 
+export type RangeObject = {
+    min?: number | null;
+    max?: number | null;
+    inclusiveLeft?: boolean;
+    inclusiveRight?: boolean;
+};
+
 export const validRegexSymbol = Symbol('rgx.ValidRegex');
 export type ValidRegexBrandSymbol = typeof validRegexSymbol;
 export type ValidRegexString = Branded<string, [ValidRegexBrandSymbol]>;
