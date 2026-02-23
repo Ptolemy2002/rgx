@@ -105,7 +105,7 @@ export function isInRange(value: number, {min=null, max=null, inclusiveLeft=true
     return true;
 }
 
-export function assertInRange(value: number, range: RangeObject, message: string = "Value out of bounds") {
+export function assertInRange(value: number, range: RangeObject={}, message: string = "Value out of bounds") {
     if (!isInRange(value, range)) {
         throw new RGXOutOfBoundsError(message, value, range);
     }

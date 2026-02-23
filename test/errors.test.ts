@@ -330,32 +330,50 @@ describe('isInRange', () => {
         expect(isInRange(5)).toBe(true);
         expect(isInRange(-100)).toBe(true);
         expect(isInRange(100)).toBe(true);
+
+        expect(() => assertInRange(5)).not.toThrow();
+        expect(() => assertInRange(-100)).not.toThrow();
+        expect(() => assertInRange(100)).not.toThrow();
     });
 
     it('always accepts a value in between the min and max', () => {
         expect(isInRange(5, { min: 0, max: 10 })).toBe(true);
         expect(isInRange(0.5, { min: 0, max: 1 })).toBe(true);
         expect(isInRange(-5, { min: -10, max: 0 })).toBe(true);
+
+        expect(() => assertInRange(5, { min: 0, max: 10 })).not.toThrow();
+        expect(() => assertInRange(0.5, { min: 0, max: 1 })).not.toThrow();
+        expect(() => assertInRange(-5, { min: -10, max: 0 })).not.toThrow();
     });
 
     it('always rejects a value less than the min', () => {
         expect(isInRange(-1, { min: 0, max: 10 })).toBe(false);
         expect(isInRange(-0.1, { min: 0, max: 1 })).toBe(false);
         expect(isInRange(-10.1, { min: -10, max: 0 })).toBe(false);
+
+        expect(() => assertInRange(-1, { min: 0, max: 10 })).toThrow(RGXOutOfBoundsError);
+        expect(() => assertInRange(-0.1, { min: 0, max: 1 })).toThrow(RGXOutOfBoundsError);
+        expect(() => assertInRange(-10.1, { min: -10, max: 0 })).toThrow(RGXOutOfBoundsError);
     });
 
     it('always rejects a value greater than the max', () => {
         expect(isInRange(11, { min: 0, max: 10 })).toBe(false);
         expect(isInRange(1.1, { min: 0, max: 1 })).toBe(false);
         expect(isInRange(0.1, { min: -10, max: 0 })).toBe(false);
+
+        expect(() => assertInRange(11, { min: 0, max: 10 })).toThrow(RGXOutOfBoundsError);
+        expect(() => assertInRange(1.1, { min: 0, max: 1 })).toThrow(RGXOutOfBoundsError);
+        expect(() => assertInRange(0.1, { min: -10, max: 0 })).toThrow(RGXOutOfBoundsError);
     });
 
     it('accepts a value equal to the minimum when inclusiveLeft is true', () => {
         expect(isInRange(0, { min: 0, max: 10, inclusiveLeft: true })).toBe(true);
+        expect(() => assertInRange(0, { min: 0, max: 10, inclusiveLeft: true })).not.toThrow();
     });
 
     it('rejects a value equal to the minimum when inclusiveLeft is false', () => {
         expect(isInRange(0, { min: 0, max: 10, inclusiveLeft: false })).toBe(false);
+        expect(() => assertInRange(0, { min: 0, max: 10, inclusiveLeft: false })).toThrow(RGXOutOfBoundsError);
     });
 
     it('accepts a value equal to the maximum when inclusiveRight is true', () => {
