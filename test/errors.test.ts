@@ -1,4 +1,4 @@
-import { RGXError, RGXInvalidTokenError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError, RGXNotImplementedError, RGXClassToken } from 'src/index';
+import { RGXError, RGXInvalidTokenError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError, RGXNotImplementedError, RGXClassToken, RGXInvalidIdentifierError } from 'src/index';
 
 class TestClassToken extends RGXClassToken {
     toRgx() {
@@ -202,5 +202,32 @@ describe('RGXNotImplementedError', () => {
         expect(error.toString()).toBe(
             'RGXNotImplementedError: Some functionality is not implemented yet. Additional info: This will be implemented in the future.'
         );
+    });
+});
+
+describe('RGXInvalidIdentifierError', () => {
+    it('has the correct name', () => {
+        const error = new RGXInvalidIdentifierError('Invalid identifier', '123abc');
+        expect(error.name).toBe('RGXInvalidIdentifierError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXInvalidIdentifierError('Invalid identifier', '123abc');
+        expect(error.code).toBe('INVALID_IDENTIFIER');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXInvalidIdentifierError('Invalid identifier', '123abc');
+        expect(error.got).toBe('123abc');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInvalidIdentifierError('Invalid identifier', '123abc');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXInvalidIdentifierError('Invalid identifier', '123abc');
+        expect(error.toString()).toBe('RGXInvalidIdentifierError: Invalid identifier; Got: "123abc"');
     });
 });

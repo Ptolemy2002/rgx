@@ -3,6 +3,7 @@ import { RGXTokenCollectionInput } from "src/collection";
 import { RGXInvalidTokenError, RGXNotImplementedError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
 import type { RGXClassUnionToken } from "./union";
+import type { RGXGroupToken, RGXGroupTokenArgs } from "./group";
 
 export abstract class RGXClassToken {
     abstract toRgx(): RGXToken
@@ -20,8 +21,16 @@ export abstract class RGXClassToken {
         return false;
     }
 
+    get rgxGroupWrap() {
+        return true;
+    }
+
     or(...others: RGXTokenCollectionInput[]): RGXClassUnionToken {
         throw new RGXNotImplementedError('RGXClassToken.or(...others)', 'call rgxClassInit() first.')
+    }
+
+    group(args: RGXGroupTokenArgs = {}): RGXGroupToken {
+        throw new RGXNotImplementedError('RGXClassToken.group(args)', 'call rgxClassInit() first.')
     }
 
     resolve(): ValidRegexString {

@@ -8,7 +8,7 @@ import { Branded } from "@ptolemy2002/ts-brand-utils";
 type RGXNoOpToken = null | undefined;
 type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
-type RGXConvertibleToken = { toRgx: () => RGXToken };
+type RGXConvertibleToken = { toRgx: () => RGXToken, readonly rgxGroupWrap?: boolean };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 
@@ -20,6 +20,10 @@ const validVanillaRegexFlagsSymbol = Symbol('rgx.ValidVanillaRegexFlags');
 type ValidVanillaRegexFlagsBrandSymbol = typeof validVanillaRegexFlagsSymbol;
 type ValidVanillaRegexFlags = Branded<string, [ValidVanillaRegexFlagsBrandSymbol]>;
 
+const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
+type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;
+type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;
+
 type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
 type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
 type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | RGXTokenTypeGuardInput[];
@@ -30,7 +34,7 @@ type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     // ... see source for full definition
 ;
 
-type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_VANILLA_REGEX_FLAGS' | 'NOT_IMPLEMENTED';
+type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_VANILLA_REGEX_FLAGS' | 'NOT_IMPLEMENTED' | 'INVALID_IDENTIFIER';
 type ExpectedTokenType = {
     type: "tokenType";
     values: RGXTokenTypeFlat[];
@@ -42,6 +46,11 @@ type RGXTokenCollectionMode = 'union' | 'concat';
 type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
 
 type RGXUnionInsertionPosition = 'prefix' | 'suffix';
+
+type RGXGroupTokenArgs = {
+    name?: string | null;
+    capturing?: boolean;
+};
 ```
 
 ## Classes
@@ -117,6 +126,22 @@ constructor(functionality: string, message?: string | null)
 #### Methods
 - `toString() => string`: Returns a formatted string indicating the unimplemented functionality and any additional message.
 
+### RGXInvalidIdentifierError extends RGXError
+A specific error class for invalid identifiers. This error is thrown when a string fails validation as a valid identifier. The error code is set to `INVALID_IDENTIFIER` on instantiation.
+
+#### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The actual string that was received, which failed validation.
+
+#### Properties
+- `got` (`string`): The actual string that was received, which failed validation.
+
+#### Methods
+- `toString() => string`: Returns a formatted string indicating the invalid identifier and the reason for failure.
+
 ### RGXTokenCollection
 A class representing a collection of RGX tokens. This class manages collections of RGX tokens like an array, but with additional metadata about the collection mode (union or concat). Since `toRgx()` returns a `RegExp`, instances of this class satisfy the `RGXConvertibleToken` interface and can be used directly as tokens in `rgx`, `rgxa`, and other token-accepting functions.
 
@@ -132,6 +157,7 @@ constructor(tokens: RGXTokenCollectionInput = [], mode: RGXTokenCollectionMode =
 #### Properties
 - `tokens` (`RGXToken[]`): The array of RGX tokens managed by the collection. In almost all cases, use `getTokens()` instead of accessing this property directly, as it will be copied to prevent external mutation.
 - `mode` (`RGXTokenCollectionMode`): The mode of the collection, either 'union' or 'concat'. This determines how the tokens in the collection will be resolved when `toRgx()` is called.
+- `resolve() => ValidRegexString`: A convenience method that resolves this collection by calling `resolveRGXToken(this)`, returning the resolved regex string representation.
 - `toRgx() => RegExp`: A method that resolves the collection to a `RegExp` object based on the collection mode. In 'union' mode, the tokens are resolved as alternatives (using the `|` operator), while in 'concat' mode, the tokens are resolved as concatenated together. No flags are applied to the resulting `RegExp`. Since this method returns a `RegExp` (which is `RGXLiteralToken`), `RGXTokenCollection` instances satisfy the `RGXConvertibleToken` interface and can be used directly as tokens in `rgx`, `rgxa`, and other token-accepting functions.
 - `getTokens() => RGXToken[]`: A method that returns a copy of the array of RGX tokens managed by the collection. This is used to prevent external mutation of the internal `tokens` array.
 - `toArray() => RGXToken[]`: An alias for `getTokens()`, provided for convenience.
@@ -157,10 +183,12 @@ An abstract base class for creating custom RGX token classes. Subclasses must im
 
 #### Properties
 - `isGroup` (`boolean`): Returns `false` by default. Subclasses can override this to indicate whether the token represents a group.
+- `rgxGroupWrap` (`boolean`): Returns `true` by default. Controls whether the resolver wraps this token's resolved output in a non-capturing group. Subclasses can override this to prevent double-wrapping (e.g., when the token already wraps itself in a group).
 
 #### Methods
 - `or(...others: RGXTokenCollectionInput[]) => RGXClassUnionToken`: Creates an `RGXClassUnionToken` that represents a union (alternation) of this token with the provided others. If any of the `others` are `RGXClassUnionToken` instances, their tokens are flattened into the union rather than nested. If `this` is already an `RGXClassUnionToken`, its existing tokens are preserved and the others are appended.
-- `resolve() => ValidRegexString`: A convenience method that resolves this token by calling `resolveRGXToken(this)`, returning the resolved regex string representation. Since this method is defined on `RGXClassToken`, it is available on all subclasses including `RGXClassUnionToken`.
+- `group(args?: RGXGroupTokenArgs) => RGXGroupToken`: Wraps this token in an `RGXGroupToken` with the provided arguments. The `args` parameter defaults to `{}`, which creates a capturing group with no name. This is a convenience method that creates a new `RGXGroupToken` with `this` as the sole token.
+- `resolve() => ValidRegexString`: A convenience method that resolves this token by calling `resolveRGXToken(this)`, returning the resolved regex string representation. Since this method is defined on `RGXClassToken`, it is available on all subclasses including `RGXClassUnionToken` and `RGXGroupToken`.
 
 ### RGXClassUnionToken extends RGXClassToken
 A class representing a union (alternation) of RGX tokens. This is typically created via the `or()` method on `RGXClassToken`, but can also be instantiated directly.
@@ -186,6 +214,34 @@ constructor(tokens: RGXTokenCollectionInput = [])
 - `concat(pos?: RGXUnionInsertionPosition, ...others: RGXTokenCollectionInput[]) => this`: Concatenates additional tokens into the union. The `pos` parameter controls insertion position: `'suffix'` (default) appends to the end, `'prefix'` prepends to the beginning. Returns `this` for chaining.
 - `cleanTokens() => this`: Expands any nested union tokens and removes duplicates from the internal token collection. Returns `this` for chaining. Called automatically during construction and after `add` or `concat`.
 - `toRgx() => RegExp`: Resolves the union by calling `toRgx()` on the internal `RGXTokenCollection`, returning a `RegExp`.
+
+### RGXGroupToken extends RGXClassToken
+A class representing a group (capturing, non-capturing, or named) wrapping one or more RGX tokens. This is typically created via the `group()` method on `RGXClassToken`, but can also be instantiated directly.
+
+A function `rgxGroup` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
+
+#### Static Properties
+- `check(value: unknown): value is RGXGroupToken`: A type guard that checks if the given value is an instance of `RGXGroupToken`.
+- `assert(value: unknown): asserts value is RGXGroupToken`: An assertion that checks if the given value is an instance of `RGXGroupToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Constructor
+```typescript
+constructor(args?: RGXGroupTokenArgs, tokens?: RGXTokenCollectionInput)
+```
+- `args` (`RGXGroupTokenArgs`, optional): An object specifying the group configuration. Defaults to `{}`.
+  - `name` (`string | null`, optional): The name of the group for named capture groups. Must be a valid identifier (validated via `assertValidIdentifier`). Defaults to `null`.
+  - `capturing` (`boolean`, optional): Whether the group is capturing. Defaults to `true`. Setting this to `false` also clears any `name`.
+- `tokens` (`RGXTokenCollectionInput`, optional): The tokens to be wrapped by the group. Internally stored as an `RGXTokenCollection` in 'concat' mode. Defaults to an empty array.
+
+#### Properties
+- `tokens` (`RGXTokenCollection`): The internal collection of tokens managed in 'concat' mode.
+- `name` (`string | null`): The name of the group. Setting this to a non-null value validates it as a valid identifier via `assertValidIdentifier`.
+- `capturing` (`boolean`): Whether the group is capturing. Any named group is automatically capturing (returns `true` when `name` is not `null`). Setting this to `false` also clears `name` to `null`.
+- `isGroup` (`boolean`): Returns `true`, indicating this token represents a group.
+- `rgxGroupWrap` (`boolean`): Returns `false`, since the group already wraps itself, preventing the resolver from double-wrapping.
+
+#### Methods
+- `toRgx() => RegExp`: Resolves the group by concatenating the internal tokens and wrapping the result in the appropriate group syntax: `(?<name>...)` for named groups, `(?:...)` for non-capturing groups, or `(...)` for capturing groups.
 
 ## Functions
 The following functions are exported by the library:
@@ -273,7 +329,7 @@ Asserts that the given value is a native token (string, number, boolean, or no-o
 function isRGXConvertibleToken(value: unknown, returnCheck?: boolean): value is RGXConvertibleToken
 ```
 
-Checks if the given value is a convertible token (an object with a `toRgx` method). When `returnCheck` is `true` (the default), also validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures).
+Checks if the given value is a convertible token (an object with a `toRgx` method). If the `rgxGroupWrap` property is present, it must be a boolean; otherwise, the check fails. When `returnCheck` is `true` (the default), also validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures).
 
 #### Parameters
   - `value` (`unknown`): The value to check.
@@ -286,7 +342,7 @@ Checks if the given value is a convertible token (an object with a `toRgx` metho
 ```typescript
 function assertRGXConvertibleToken(value: unknown, returnCheck?: boolean): asserts value is RGXConvertibleToken
 ```
-Asserts that the given value is a convertible token (an object with a `toRgx` method). When `returnCheck` is `true` (the default), also validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+Asserts that the given value is a convertible token (an object with a `toRgx` method). If the `rgxGroupWrap` property is present, it must be a boolean; otherwise, the assertion fails. When `returnCheck` is `true` (the default), also validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). If the assertion fails, an `RGXInvalidTokenError` will be thrown.
 
 #### Parameters
   - `value` (`unknown`): The value to assert.
@@ -499,6 +555,30 @@ Asserts that the given string is a valid combination of vanilla regex flags (g, 
 #### Returns
 - `void`: This function does not return a value, but will throw an error if the assertion fails.
 
+### isValidIdentifier
+```typescript
+function isValidIdentifier(value: string): value is ValidIdentifier
+```
+Checks if the given string is a valid identifier, used for group names and backreferences. Valid identifiers contain only letters, digits, dollar signs, and underscores, and cannot start with a digit.
+
+#### Parameters
+  - `value` (`string`): The string to check.
+
+#### Returns
+- `boolean`: `true` if the string is a valid identifier, otherwise `false`.
+
+### assertValidIdentifier
+```typescript
+function assertValidIdentifier(value: string): asserts value is ValidIdentifier
+```
+Asserts that the given string is a valid identifier, used for group names and backreferences. Valid identifiers contain only letters, digits, dollar signs, and underscores, and cannot start with a digit. If the assertion fails, an `RGXInvalidIdentifierError` will be thrown.
+
+#### Parameters
+  - `value` (`string`): The string to assert.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an error if the assertion fails.
+
 ### escapeRegex
 ```typescript
 function escapeRegex(value: string): ValidRegexString
@@ -514,14 +594,17 @@ Escapes special regex characters in the given string and brands the result as a 
 
 ### resolveRGXToken
 ```typescript
-function resolveRGXToken(token: RGXToken, groupWrap?: boolean): ValidRegexString
+function resolveRGXToken(token: RGXToken, groupWrap?: boolean, topLevel?: boolean): ValidRegexString
 ```
 
 Resolves an RGX token to a string. No-op tokens resolve to an empty string, literal tokens are included as-is (wrapped in a non-capturing group when `groupWrap` is `true`), native tokens are converted to strings and escaped, convertible tokens are converted using their `toRgx` method and then resolved recursively, and arrays of tokens are resolved as unions of their resolved elements (repeats removed, placed in a non-capturing group when `groupWrap` is `true`).
 
+For convertible tokens, if the token has an `rgxGroupWrap` property, that value always takes precedence. If `rgxGroupWrap` is not present, the behavior depends on whether the call is top-level: at the top level, the `groupWrap` parameter is passed through; in recursive calls, it falls back to `true` regardless of the `groupWrap` parameter. This ensures that the caller's `groupWrap` preference only affects the outermost convertible token and does not leak into deeply nested resolution.
+
 #### Parameters
   - `token` (`RGXToken`): The RGX token to resolve.
-  - `groupWrap` (`boolean`, optional): Whether to wrap literal tokens and array unions in non-capturing groups (`(?:...)`). Defaults to `true`. When `false`, literals use their raw source and array unions omit the wrapping group. The `groupWrap` preference is passed through to recursive calls for convertible tokens, but array union elements always use `groupWrap=true` internally.
+  - `groupWrap` (`boolean`, optional): Whether to wrap literal tokens and array unions in non-capturing groups (`(?:...)`). Defaults to `true`. When `false`, literals use their raw source and array unions omit the wrapping group. For convertible tokens, the token's `rgxGroupWrap` property always takes precedence; otherwise, this value is only passed through at the top level (in recursive calls it falls back to `true`). Array union elements always use `groupWrap=true` internally.
+  - `topLevel` (`boolean`, optional): Tracks whether the current call is the initial (top-level) invocation. Defaults to `true`. **Warning**: This parameter is intended for internal use by the resolver's own recursion. External callers should not set this parameter, as doing so may produce unexpected wrapping behavior.
 
 #### Returns
 - `ValidRegexString`: The resolved string representation of the RGX token. This is guaranteed to be a valid regex string, as convertible tokens are validated to only produce valid regex strings or arrays of valid regex strings.
@@ -615,7 +698,7 @@ Removes duplicate tokens from the provided list using `Set` equality and returns
 function rgxClassInit(): void
 ```
 
-Initializes internal method patches required for `RGXClassToken` subclass methods (such as `or`) to work correctly. This function is called automatically when importing from the main module entry point, so you typically do not need to call it yourself. It only needs to be called manually if you import directly from sub-modules.
+Initializes internal method patches required for `RGXClassToken` subclass methods (such as `or` and `group`) to work correctly. This function is called automatically when importing from the main module entry point, so you typically do not need to call it yourself. It only needs to be called manually if you import directly from sub-modules.
 
 ## Peer Dependencies
 - `@ptolemy2002/immutability-utils` ^2.0.0

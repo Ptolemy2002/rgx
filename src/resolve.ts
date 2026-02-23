@@ -7,7 +7,7 @@ export function escapeRegex(value: string) {
     return value.replaceAll(/[\-\^\$.*+?^${}()|[\]\\]/g, '\\$&') as t.ValidRegexString;
 }
 
-export function resolveRGXToken(token: t.RGXToken, groupWrap=true): t.ValidRegexString {
+export function resolveRGXToken(token: t.RGXToken, groupWrap=true, topLevel=true): t.ValidRegexString {
     if (tg.isRGXNoOpToken(token)) return '' as t.ValidRegexString;
 
     if (tg.isRGXLiteralToken(token)) {
@@ -18,7 +18,9 @@ export function resolveRGXToken(token: t.RGXToken, groupWrap=true): t.ValidRegex
     if (tg.isRGXNativeToken(token)) return escapeRegex(String(token));
 
     if (tg.isRGXConvertibleToken(token)) {
-        return resolveRGXToken(token.toRgx(), groupWrap);
+        // The top-level group-wrapping preference propogates to a direct convertible token, but after that
+        // the preference falls back to true whenever a token doesn't explicitly specify a preference.
+        return resolveRGXToken(token.toRgx(), token.rgxGroupWrap ?? (topLevel ? groupWrap : true), false);
     }
 
     // Interpret arrays as unions
@@ -30,8 +32,8 @@ export function resolveRGXToken(token: t.RGXToken, groupWrap=true): t.ValidRegex
             token = [...removeRgxUnionDuplicates(...token)];
 
             // Don't preserve group wrapping preference for the recursive calls
-            if (groupWrap) return '(?:' + token.map(t => resolveRGXToken(t, true)).join('|') + ')' as t.ValidRegexString;
-            else return token.map(t => resolveRGXToken(t, true)).join('|') as t.ValidRegexString;
+            if (groupWrap) return '(?:' + token.map(t => resolveRGXToken(t, true, false)).join('|') + ')' as t.ValidRegexString;
+            else return token.map(t => resolveRGXToken(t, true, false)).join('|') as t.ValidRegexString;
         }
 
         return resolveRGXToken(token[0]);

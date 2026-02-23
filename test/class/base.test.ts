@@ -1,4 +1,4 @@
-import { rgxClassInit, RGXClassToken, RGXClassUnionToken } from "src/class";
+import { rgxClassInit, RGXClassToken, RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { RGXNotImplementedError, RGXInvalidTokenError } from "src/errors";
 
 class TestClassToken extends RGXClassToken {
@@ -39,10 +39,20 @@ describe("rgxClassInit", () => {
         expect(testToken1.or).toThrow(RGXNotImplementedError);
     });
 
+    it("doesn't implement the group method before being called", () => {
+        expect(testToken1.group).toThrow(RGXNotImplementedError);
+    });
+
     it("implements the or method after being called", () => {
         rgxClassInit();
         expect(testToken1.or).toBeDefined();
         expect(typeof testToken1.or).toBe("function");
+    });
+
+    it("implements the group method after being called", () => {
+        rgxClassInit();
+        expect(testToken1.group).toBeDefined();
+        expect(typeof testToken1.group).toBe("function");
     });
 });
 
@@ -124,5 +134,28 @@ describe("or", () => {
         const result = testToken1.or(testToken1, "foo", testToken1);
         expect(result).toBeInstanceOf(RGXClassUnionToken);
         expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, "foo"]);
+    });
+});
+
+describe("group", () => {
+    it("wraps in a group token", () => {
+        const result = testToken1.group();
+        expect(result).toBeInstanceOf(RGXGroupToken);
+        expect((result as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+    });
+
+    it("handles name correctly", () => {
+        const result = testToken1.group({ name: "testGroup" });
+
+        expect(result).toBeInstanceOf(RGXGroupToken);
+        expect((result as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+        expect((result as RGXGroupToken).name).toBe("testGroup");
+    });
+
+    it("handles non-capturing correctly", () => {
+        const result = testToken1.group({ capturing: false });
+        expect(result).toBeInstanceOf(RGXGroupToken);
+        expect((result as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+        expect((result as RGXGroupToken).capturing).toBe(false);
     });
 });

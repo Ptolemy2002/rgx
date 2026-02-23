@@ -1,5 +1,6 @@
 import { RGXClassToken } from "./base";
 import { expandRgxUnionTokens, RGXClassUnionToken } from "./union";
+import { RGXGroupToken, RGXGroupTokenArgs } from "./group";
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 
 export function rgxClassInit() {
@@ -19,4 +20,8 @@ export function rgxClassInit() {
             return new RGXClassUnionToken([this, ...filteredOthers]);
         }
     };
+
+    RGXClassToken.prototype.group = function (this: RGXClassToken, args: RGXGroupTokenArgs = {}): RGXGroupToken {
+        return new RGXGroupToken(args, [this]);
+    }
 }

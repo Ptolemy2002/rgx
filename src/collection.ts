@@ -27,6 +27,10 @@ export class RGXTokenCollection implements Collection<RGXToken> {
         this.mode = mode;
     }
 
+    resolve(): ValidRegexString {
+        return resolveRGXToken(this);
+    }
+
     toRgx(): RegExp {
         let pattern: ValidRegexString;
         if (this.mode === 'union') {

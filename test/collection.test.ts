@@ -189,6 +189,15 @@ describe('RGXTokenCollection', () => {
         });
     });
 
+    describe('resolve', () => {
+        it('resolves correctly', () => {
+            const collection = new RGXTokenCollection(['a', 'b'], 'union');
+            const resolved = collection.resolve();
+            const rgx = collection.toRgx();
+            expect(resolved).toEqual(`(?:${rgx.source})`);
+        });
+    });
+
     describe('length', () => {
         it('returns the number of tokens', () => {
             expect(new RGXTokenCollection(['a', 'b', 'c']).length).toBe(3);

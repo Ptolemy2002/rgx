@@ -20,6 +20,28 @@ describe('resolveRGXToken', () => {
         expect(resolveRGXToken(token)).toBe('abc');
     });
 
+    it('resolves a single convertible token with no rgxGroupWrap property returning a RegExp', () => {
+        const token = {
+            toRgx: () => /abc/
+        };
+        expect(resolveRGXToken(token)).toBe('(?:abc)');
+    });
+
+    it('resolves a single convertible token with rgxGroupWrap set to false returning a RegExp', () => {
+        const token = {
+            toRgx: () => /abc/,
+            rgxGroupWrap: false
+        };
+        expect(resolveRGXToken(token)).toBe('abc');
+    });
+
+    it('does not propogate groupWrap preference to nested convertible tokens', () => {
+        const token = {
+            toRgx: () => ["abc", { toRgx: () => /def/ }]
+        };
+        expect(resolveRGXToken(token, false)).toBe('abc|(?:def)');
+    });
+
     it('resolves an array of tokens as a union', () => {
         const tokens = ['abc', /def/, { toRgx: () => 'ghi' }];
         expect(resolveRGXToken(tokens)).toBe('(?:abc|(?:def)|ghi)');

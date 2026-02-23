@@ -36,6 +36,9 @@ export function assertRGXNativeToken(value: unknown): asserts value is t.RGXNati
 
 export function isRGXConvertibleToken(value: unknown, returnCheck: boolean = true): value is t.RGXConvertibleToken {
     if (typeof value === 'object' && value !== null && 'toRgx' in value) {
+        // The rgxGroupWrap property is optional, but if it exists it must be a boolean.
+        if ('rgxGroupWrap' in value && typeof value.rgxGroupWrap !== 'boolean') return false;
+
         if (isCallable(value.toRgx)) {
             if (!returnCheck) return true;
             const rv = value.toRgx();
@@ -170,5 +173,16 @@ export function isValidVanillaRegexFlags(value: string): value is t.ValidVanilla
 export function assertValidVanillaRegexFlags(value: string): asserts value is t.ValidVanillaRegexFlags {
     if (!isValidVanillaRegexFlags(value)) {
         throw new e.RGXInvalidVanillaRegexFlagsError("Invalid vanilla regex flags", value);
+    }
+}
+
+export function isValidIdentifier(value: string): value is t.ValidIdentifier {
+    // This regex checks for valid JavaScript identifiers, which can be used for named capture groups.
+    return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(value);
+}
+
+export function assertValidIdentifier(value: string): asserts value is t.ValidIdentifier {
+    if (!isValidIdentifier(value)) {
+        throw new e.RGXInvalidIdentifierError("Invalid identifier", value);
     }
 }

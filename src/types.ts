@@ -4,7 +4,7 @@ import type { RGXClassToken } from "./class";
 export type RGXNoOpToken = null | undefined;
 export type RGXLiteralToken = RegExp;
 export type RGXNativeToken = string | number | boolean | RGXNoOpToken;
-export type RGXConvertibleToken = { toRgx: () => RGXToken };
+export type RGXConvertibleToken = { toRgx: () => RGXToken, readonly rgxGroupWrap?: boolean };
 export type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 export type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 
@@ -31,3 +31,7 @@ export type ValidRegexString = Branded<string, [ValidRegexBrandSymbol]>;
 export const validVanillaRegexFlagsSymbol = Symbol('rgx.ValidVanillaRegexFlags');
 export type ValidVanillaRegexFlagsBrandSymbol = typeof validVanillaRegexFlagsSymbol;
 export type ValidVanillaRegexFlags = Branded<string, [ValidVanillaRegexFlagsBrandSymbol]>;
+
+export const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
+export type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;
+export type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;

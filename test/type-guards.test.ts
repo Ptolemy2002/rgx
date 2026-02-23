@@ -4,7 +4,9 @@ import {
     RGXInvalidTokenError, rgxTokenTypeFlat, isRGXToken, assertRGXToken,
     RGXTokenTypeGuardInput, rgxTokenTypeToFlat, rgxTokenTypeGuardInputToFlat, isRGXArrayToken,
     assertRGXArrayToken, rgxTokenFromType,
-    RGXClassToken
+    RGXClassToken,
+    isValidIdentifier, assertValidIdentifier,
+    RGXInvalidIdentifierError
 } from 'src/index';
 
 class TestClassToken1 extends RGXClassToken {
@@ -19,7 +21,7 @@ class TestClassToken2 extends RGXClassToken {
     }
 }
 
-function rgxConvertibleTokenTestMethodTest(returnValueDesc: string, returnValue: unknown, expected: boolean) {
+function rgxConvertibleTokenMethodTest(returnValueDesc: string, returnValue: unknown, expected: boolean) {
     it(`${expected ? 'accepts' : 'rejects'} objects with a toRgx function that returns ${returnValueDesc} with returnCheck=true`, () => {
         const token = { toRgx: () => returnValue };
         expect(isRGXConvertibleToken(token)).toBe(expected);
@@ -172,28 +174,28 @@ describe('Type Guards', () => {
     });
 
     describe('isRGXConvertibleToken', () => {
-        rgxConvertibleTokenTestMethodTest('null', null, true);
-        rgxConvertibleTokenTestMethodTest('undefined', undefined, true);
-        rgxConvertibleTokenTestMethodTest('false', false, true);
+        rgxConvertibleTokenMethodTest('null', null, true);
+        rgxConvertibleTokenMethodTest('undefined', undefined, true);
+        rgxConvertibleTokenMethodTest('false', false, true);
 
-        rgxConvertibleTokenTestMethodTest('a string', 'foo', true);
-        rgxConvertibleTokenTestMethodTest('an array of strings', ['foo', 'bar'], true);
+        rgxConvertibleTokenMethodTest('a string', 'foo', true);
+        rgxConvertibleTokenMethodTest('an array of strings', ['foo', 'bar'], true);
 
-        rgxConvertibleTokenTestMethodTest('a number', 14, true);
-        rgxConvertibleTokenTestMethodTest('an array of numbers', [1, 2, 3], true);
+        rgxConvertibleTokenMethodTest('a number', 14, true);
+        rgxConvertibleTokenMethodTest('an array of numbers', [1, 2, 3], true);
 
-        rgxConvertibleTokenTestMethodTest('a boolean', true, true);
-        rgxConvertibleTokenTestMethodTest('an array of booleans', [true, false], true);
+        rgxConvertibleTokenMethodTest('a boolean', true, true);
+        rgxConvertibleTokenMethodTest('an array of booleans', [true, false], true);
 
-        rgxConvertibleTokenTestMethodTest('an array of strings and numbers', ['foo', 14], true);
-        rgxConvertibleTokenTestMethodTest('an array of strings, numbers, and booleans', ['foo', 14, true], true);
+        rgxConvertibleTokenMethodTest('an array of strings and numbers', ['foo', 14], true);
+        rgxConvertibleTokenMethodTest('an array of strings, numbers, and booleans', ['foo', 14, true], true);
 
-        rgxConvertibleTokenTestMethodTest('a RegExp', /foo/, true);
-        rgxConvertibleTokenTestMethodTest('an array of RegExps', [/foo/, /bar/], true);
-        rgxConvertibleTokenTestMethodTest('an array of strings and RegExps', ['foo', /bar/], true);
+        rgxConvertibleTokenMethodTest('a RegExp', /foo/, true);
+        rgxConvertibleTokenMethodTest('an array of RegExps', [/foo/, /bar/], true);
+        rgxConvertibleTokenMethodTest('an array of strings and RegExps', ['foo', /bar/], true);
 
-        rgxConvertibleTokenTestMethodTest('another convertible token', { toRgx: () => 'foo' }, true);
-        rgxConvertibleTokenTestMethodTest('an array of convertible tokens', [{ toRgx: () => 'foo' }, { toRgx: () => 14 }], true);
+        rgxConvertibleTokenMethodTest('another convertible token', { toRgx: () => 'foo' }, true);
+        rgxConvertibleTokenMethodTest('an array of convertible tokens', [{ toRgx: () => 'foo' }, { toRgx: () => 14 }], true);
 
         it('rejects null', () => {
             expect(isRGXConvertibleToken(null)).toBe(false);
@@ -211,8 +213,8 @@ describe('Type Guards', () => {
             expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
         });
 
-        rgxConvertibleTokenTestMethodTest('an object (invalid return)', { invalid: true }, false);
-        rgxConvertibleTokenTestMethodTest('an array containing an object (invalid element)', [{ invalid: true }], false);
+        rgxConvertibleTokenMethodTest('an object (invalid return)', { invalid: true }, false);
+        rgxConvertibleTokenMethodTest('an array containing an object (invalid element)', [{ invalid: true }], false);
 
         it('rejects undefined as a value (not an object)', () => {
             expect(isRGXConvertibleToken(undefined)).toBe(false);
@@ -227,6 +229,18 @@ describe('Type Guards', () => {
             expect(() => assertRGXConvertibleToken('foo')).toThrow(RGXInvalidTokenError);
             expect(() => assertRGXConvertibleToken(42)).toThrow(RGXInvalidTokenError);
             expect(() => assertRGXConvertibleToken(true)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('accepts objects with an rgxGroupWrap property that is a boolean', () => {
+            const token = { toRgx: () => 'foo', rgxGroupWrap: true };
+            expect(isRGXConvertibleToken(token)).toBe(true);
+            expect(() => assertRGXConvertibleToken(token)).not.toThrow();
+        });
+
+        it('rejects objects with an rgxGroupWrap property that is not a boolean', () => {
+            const token = { toRgx: () => 'foo', rgxGroupWrap: 'not a boolean' };
+            expect(isRGXConvertibleToken(token)).toBe(false);
+            expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
         });
     });
 
@@ -565,6 +579,40 @@ describe('Type Guards', () => {
             expect(rgxTokenFromType(null, /foo/)).toEqual(/foo/);
             expect(rgxTokenFromType(null, null)).toBe(null);
             expect(rgxTokenFromType(null, undefined)).toBe(undefined);
+        });
+    });
+
+    describe('isValidIdentifier', () => {
+        it('accepts valid identifiers', () => {
+            expect(isValidIdentifier('foo')).toBe(true);
+            expect(isValidIdentifier('fooBar')).toBe(true);
+            expect(isValidIdentifier('_foo')).toBe(true);
+            expect(isValidIdentifier('$foo')).toBe(true);
+            expect(isValidIdentifier('foo123')).toBe(true);
+            expect(isValidIdentifier('_foo123')).toBe(true);
+            expect(isValidIdentifier('$foo123')).toBe(true);
+
+            expect(() => assertValidIdentifier('foo')).not.toThrow();
+            expect(() => assertValidIdentifier('fooBar')).not.toThrow();
+            expect(() => assertValidIdentifier('_foo')).not.toThrow();
+            expect(() => assertValidIdentifier('$foo')).not.toThrow();
+            expect(() => assertValidIdentifier('foo123')).not.toThrow();
+            expect(() => assertValidIdentifier('_foo123')).not.toThrow();
+            expect(() => assertValidIdentifier('$foo123')).not.toThrow();
+        });
+
+        it('rejects invalid identifiers', () => {
+            expect(isValidIdentifier('123foo')).toBe(false);
+            expect(isValidIdentifier('-foo')).toBe(false);
+            expect(isValidIdentifier('foo-bar')).toBe(false);
+            expect(isValidIdentifier('foo bar')).toBe(false);
+            expect(isValidIdentifier('')).toBe(false);
+
+            expect(() => assertValidIdentifier('123foo')).toThrow(RGXInvalidIdentifierError);
+            expect(() => assertValidIdentifier('-foo')).toThrow(RGXInvalidIdentifierError);
+            expect(() => assertValidIdentifier('foo-bar')).toThrow(RGXInvalidIdentifierError);
+            expect(() => assertValidIdentifier('foo bar')).toThrow(RGXInvalidIdentifierError);
+            expect(() => assertValidIdentifier('')).toThrow(RGXInvalidIdentifierError);
         });
     });
 });
