@@ -1,7 +1,8 @@
 import { 
     RGXError, RGXInvalidTokenError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError,
     RGXNotImplementedError, RGXClassToken, RGXInvalidIdentifierError, RGXOutOfBoundsError,
-    isInRange, assertInRange
+    RGXInvalidRegexFlagsError, isInRange, assertInRange, RGXInvalidFlagTransformerKeyError,
+    RGXFlagTransformerConflictError
 } from 'src/index';
 
 class TestClassToken extends RGXClassToken {
@@ -175,6 +176,33 @@ describe('RGXInvalidVanillaRegexFlagsError', () => {
     });
 });
 
+describe('RGXInvalidRegexFlagsError', () => {
+    it('has the correct name', () => {
+        const error = new RGXInvalidRegexFlagsError('Invalid regex flags', 'ggx');
+        expect(error.name).toBe('RGXInvalidRegexFlagsError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXInvalidRegexFlagsError('Invalid regex flags', 'ggx');
+        expect(error.code).toBe('INVALID_REGEX_FLAGS');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXInvalidRegexFlagsError('Invalid regex flags', 'ggx');
+        expect(error.got).toBe('ggx');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInvalidRegexFlagsError('Invalid regex flags', 'ggx');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXInvalidRegexFlagsError('Invalid regex flags', 'ggx');
+        expect(error.toString()).toBe('RGXInvalidRegexFlagsError: Invalid regex flags; Got: "ggx"');
+    });
+});
+
 describe('RGXNotImplementedError', () => {
     it('has the correct name', () => {
         const error = new RGXNotImplementedError('Some functionality');
@@ -233,6 +261,60 @@ describe('RGXInvalidIdentifierError', () => {
     it('formats the error message correctly', () => {
         const error = new RGXInvalidIdentifierError('Invalid identifier', '123abc');
         expect(error.toString()).toBe('RGXInvalidIdentifierError: Invalid identifier; Got: "123abc"');
+    });
+});
+
+describe('RGXInvalidFlagTransformerKeyError', () => {
+    it('has the correct name', () => {
+        const error = new RGXInvalidFlagTransformerKeyError('Invalid flag transformer key', 'ab');
+        expect(error.name).toBe('RGXInvalidFlagTransformerKeyError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXInvalidFlagTransformerKeyError('Invalid flag transformer key', 'ab');
+        expect(error.code).toBe('INVALID_FLAG_TRANSFORMER_KEY');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXInvalidFlagTransformerKeyError('Invalid flag transformer key', 'ab');
+        expect(error.got).toBe('ab');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInvalidFlagTransformerKeyError('Invalid flag transformer key', 'ab');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXInvalidFlagTransformerKeyError('Invalid flag transformer key', 'ab');
+        expect(error.toString()).toBe('RGXInvalidFlagTransformerKeyError: Invalid flag transformer key; Got: "ab"');
+    });
+});
+
+describe('RGXFlagTransformerConflictError', () => {
+    it('has the correct name', () => {
+        const error = new RGXFlagTransformerConflictError('Flag transformer conflict', 'g');
+        expect(error.name).toBe('RGXFlagTransformerConflictError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXFlagTransformerConflictError('Flag transformer conflict', 'g');
+        expect(error.code).toBe('FLAG_TRANSFORMER_CONFLICT');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXFlagTransformerConflictError('Flag transformer conflict', 'g');
+        expect(error.got).toBe('g');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXFlagTransformerConflictError('Flag transformer conflict', 'g');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXFlagTransformerConflictError('Flag transformer conflict', 'g');
+        expect(error.toString()).toBe('RGXFlagTransformerConflictError: Flag transformer conflict; Got: "g"');
     });
 });
 

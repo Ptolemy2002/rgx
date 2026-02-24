@@ -6,7 +6,7 @@ import {
     assertRGXArrayToken, rgxTokenFromType,
     RGXClassToken,
     isValidIdentifier, assertValidIdentifier,
-    RGXInvalidIdentifierError
+    RGXInvalidIdentifierError, ExtRegExp
 } from 'src/index';
 
 class TestClassToken1 extends RGXClassToken {
@@ -97,6 +97,11 @@ describe('Type Guards', () => {
 
             expect(() => assertRGXLiteralToken(/foo/)).not.toThrow();
             expect(() => assertRGXLiteralToken(new RegExp('bar'))).not.toThrow();
+        });
+
+        it("Accepts ExtRegExp objects", () => {
+            expect(isRGXLiteralToken(new ExtRegExp('foo'))).toBe(true);
+            expect(() => assertRGXLiteralToken(new ExtRegExp('foo'))).not.toThrow();
         });
 
         it(`rejects non-RegExp objects`, () => {
@@ -528,6 +533,18 @@ describe('Type Guards', () => {
             const token: RGXToken = ['foo', { toRgx: () => 14 }, null];
             expect(isRGXToken(token, ['native', 'convertible'] as const, false)).toBe(true);
             expect(() => assertRGXToken(token, ['native', 'convertible'] as const, false)).not.toThrow();
+        });
+
+        it('accepts the ExtRegExp constructor', () => {
+            const token = new ExtRegExp('foo');
+            expect(isRGXToken(token, ExtRegExp)).toBe(true);
+            expect(() => assertRGXToken(token, ExtRegExp)).not.toThrow();
+        });
+
+        it('Recognizes ExtRegexp instances as literal tokens', () => {
+            const token = new ExtRegExp('foo');
+            expect(isRGXToken(token, 'literal')).toBe(true);
+            expect(() => assertRGXToken(token, 'literal')).not.toThrow();
         });
     });
 

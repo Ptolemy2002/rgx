@@ -1,4 +1,4 @@
-import rgx, { rgxa, rgxConcat, RGXInvalidVanillaRegexFlagsError, RGXTokenCollection } from 'src/index';
+import rgx, { rgxa, rgxConcat, RGXInvalidRegexFlagsError, RGXTokenCollection } from 'src/index';
 
 function expectRegexpEqual(received: RegExp, expected: RegExp | string) {
     const expectedPattern = typeof expected === 'string' ? expected : expected.source;
@@ -167,8 +167,8 @@ describe('rgx', () => {
     });
 
     it('Throws the correct error for invalid flags', () => {
-        expect(() => rgx('invalid')`foo`).toThrow(RGXInvalidVanillaRegexFlagsError);
-        expect(() => rgxa(['foo'], 'invalid')).toThrow(RGXInvalidVanillaRegexFlagsError);
+        expect(() => rgx('invalid')`foo`).toThrow(RGXInvalidRegexFlagsError);
+        expect(() => rgxa(['foo'], 'invalid')).toThrow(RGXInvalidRegexFlagsError);
     });
 
     it('Handles an RGXTokenCollection in union mode correctly', () => {

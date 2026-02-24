@@ -20,21 +20,27 @@ const validVanillaRegexFlagsSymbol = Symbol('rgx.ValidVanillaRegexFlags');
 type ValidVanillaRegexFlagsBrandSymbol = typeof validVanillaRegexFlagsSymbol;
 type ValidVanillaRegexFlags = Branded<string, [ValidVanillaRegexFlagsBrandSymbol]>;
 
+const validRegexFlagsSymbol = Symbol('rgx.ValidRegexFlags');
+type ValidRegexFlagsBrandSymbol = typeof validRegexFlagsSymbol;
+type ValidRegexFlags = Branded<string, [ValidRegexFlagsBrandSymbol]> | ValidVanillaRegexFlags;
+
+type RegExpFlagTransformer = (exp: RegExp) => RegExp;
+
 const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
 type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;
 type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;
 
 type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
 type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
-type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | RGXTokenTypeGuardInput[];
+type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | typeof ExtRegExp | RGXTokenTypeGuardInput[];
 type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     // Maps token type strings to their corresponding types, e.g.:
     // 'no-op' -> RGXNoOpToken, 'literal' -> RGXLiteralToken, etc.
-    // Also maps RGXClassTokenConstructor to InstanceType<T>.
+    // Also maps RGXClassTokenConstructor to InstanceType<T> and typeof ExtRegExp to ExtRegExp.
     // ... see source for full definition
 ;
 
-type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_VANILLA_REGEX_FLAGS' | 'NOT_IMPLEMENTED' | 'INVALID_IDENTIFIER' | 'OUT_OF_BOUNDS';
+type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_REGEX_FLAGS' | 'INVALID_VANILLA_REGEX_FLAGS' | 'NOT_IMPLEMENTED' | 'INVALID_IDENTIFIER' | 'OUT_OF_BOUNDS' | 'INVALID_FLAG_TRANSFORMER_KEY' | 'FLAG_TRANSFORMER_CONFLICT';
 
 type RangeObject = {
     min?: number | null;
@@ -148,6 +154,54 @@ constructor(message: string, got: string)
 
 #### Methods
 - `toString() => string`: Returns a formatted string indicating the invalid identifier and the reason for failure.
+
+### RGXInvalidRegexFlagsError extends RGXError
+A specific error class for invalid regex flags (including both vanilla and custom registered flags). This error is thrown when a string fails validation as valid regex flags. The error code is set to `INVALID_REGEX_FLAGS` on instantiation.
+
+#### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The actual string that was received, which failed validation.
+
+#### Properties
+- `got` (`string`): The actual string that was received, which failed validation.
+
+#### Methods
+- `toString() => string`: Returns a formatted string indicating the invalid flags and the reason for failure.
+
+### RGXInvalidFlagTransformerKeyError extends RGXError
+A specific error class for invalid flag transformer keys. This error is thrown when an invalid key is provided to `registerFlagTransformer` (e.g., a key that is not a single character). The error code is set to `INVALID_FLAG_TRANSFORMER_KEY` on instantiation.
+
+#### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The actual key string that was received, which failed validation.
+
+#### Properties
+- `got` (`string`): The actual key string that was received, which failed validation.
+
+#### Methods
+- `toString() => string`: Returns a formatted string indicating the invalid key and the reason for failure.
+
+### RGXFlagTransformerConflictError extends RGXError
+A specific error class for flag transformer conflicts. This error is thrown when attempting to register a flag transformer with a key that conflicts with an existing vanilla regex flag or an already-registered transformer. The error code is set to `FLAG_TRANSFORMER_CONFLICT` on instantiation.
+
+#### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The conflicting key string.
+
+#### Properties
+- `got` (`string`): The conflicting key string.
+
+#### Methods
+- `toString() => string`: Returns a formatted string indicating the conflict and the reason for failure.
 
 ### RGXOutOfBoundsError extends RGXError
 A specific error class for out-of-bounds values. This error is thrown when a numeric value falls outside an expected range. The error code is set to `OUT_OF_BOUNDS` on instantiation.
@@ -276,6 +330,24 @@ constructor(args?: RGXGroupTokenArgs, tokens?: RGXTokenCollectionInput)
 
 #### Methods
 - `toRgx() => RegExp`: Resolves the group by concatenating the internal tokens and wrapping the result in the appropriate group syntax: `(?<name>...)` for named groups, `(?:...)` for non-capturing groups, or `(...)` for capturing groups.
+
+### ExtRegExp extends RegExp
+A subclass of `RegExp` that supports custom flag transformers in addition to the standard vanilla regex flags (g, i, m, s, u, y). When constructed, custom flags are extracted, their corresponding transformers are applied to the pattern and vanilla flags, and the resulting transformed `RegExp` is created. The `flags` getter returns both the vanilla flags and any custom flags.
+
+A function `extRegExp` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
+
+#### Constructor
+```typescript
+constructor(pattern: string | RegExp, flags?: string)
+```
+- `pattern` (`string | RegExp`): The regex pattern. If a `RegExp` is provided, its `source` is used and its existing `flags` are tracked as already-applied flags to avoid re-applying transformers.
+- `flags` (`string`, optional): The flags string, which may include both vanilla regex flags and custom registered flag keys. Validated via `assertValidRegexFlags`. Defaults to `''`.
+
+#### Properties
+- `flags` (`string`): Returns the combination of the vanilla flags (from the underlying `RegExp`) and any custom flags that were applied during construction.
+
+#### Static Properties
+- `[Symbol.species]` (`RegExpConstructor`): Returns `ExtRegExp`, ensuring that derived `RegExp` methods (like those returning new regex instances) produce `ExtRegExp` instances rather than plain `RegExp`.
 
 ## Functions
 The following functions are exported by the library:
@@ -659,10 +731,10 @@ A helper function that resolves an array of RGX tokens and concatenates their re
 
 ### rgx
 ```typescript
-function rgx(flags?: string): (strings: TemplateStringsArray, ...tokens: RGXToken[]) => RegExp
+function rgx(flags?: string): (strings: TemplateStringsArray, ...tokens: RGXToken[]) => ExtRegExp
 ```
 
-Creates and returns a template tag function that constructs a `RegExp` object from the provided template literal with the provided flags. The template literal can contain RGX tokens, which will be resolved and concatenated with the literal parts to form the final regex pattern.
+Creates and returns a template tag function that constructs an `ExtRegExp` object from the provided template literal with the provided flags. The template literal can contain RGX tokens, which will be resolved and concatenated with the literal parts to form the final regex pattern.
 
 Example usages:
 ```typescript
@@ -679,27 +751,27 @@ const pattern3 = rgx()`${beginning}value: ${[word, optionalDigit]}${end}`; // /^
 
 #### Parameters
 **Direct**
-  - `flags` (`string`, optional): The regex flags to apply to the resulting `RegExp` object (e.g., 'g', 'i', 'm', etc.). If not provided, no flags will be applied. If provided and not valid vanilla regex flags, an `RGXInvalidVanillaRegexFlagsError` will be thrown.
+  - `flags` (`string`, optional): The regex flags to apply to the resulting `ExtRegExp` object (e.g., 'g', 'i', 'm', or custom registered flags). If not provided, no flags will be applied. If provided and not valid regex flags (vanilla or registered custom), an `RGXInvalidRegexFlagsError` will be thrown.
 
 **Template Tag**
   - `strings` (`TemplateStringsArray`): The literal parts of the template string.
   - `tokens` (`RGXToken[]`): The RGX tokens to be resolved and concatenated with the literal parts.
 
 #### Returns
-- `(strings: TemplateStringsArray, ...tokens: RGXToken[]) => RegExp`: A template tag function that takes a template literal and returns a `RegExp` object constructed from the resolved tokens, literal parts, and the provided flags.
+- `(strings: TemplateStringsArray, ...tokens: RGXToken[]) => ExtRegExp`: A template tag function that takes a template literal and returns an `ExtRegExp` object constructed from the resolved tokens, literal parts, and the provided flags.
 
 ### rgxa
 ```typescript
-function rgxa(tokens: RGXToken[], flags?: string): RegExp
+function rgxa(tokens: RGXToken[], flags?: string): ExtRegExp
 ```
-As an alternative to using the `rgx` template tag, you can directly call `rgxa` with an array of RGX tokens and optional flags to get a `RegExp` object. This is useful in cases where you don't want to use a template literal.
+As an alternative to using the `rgx` template tag, you can directly call `rgxa` with an array of RGX tokens and optional flags to get an `ExtRegExp` object. This is useful in cases where you don't want to use a template literal.
 
 #### Parameters
   - `tokens` (`RGXToken[]`): The RGX tokens to be resolved and concatenated to form the regex pattern.
-  - `flags` (`string`, optional): The regex flags to apply to the resulting `RegExp` object (e.g., 'g', 'i', 'm', etc.). If not provided, no flags will be applied. If provided and not valid vanilla regex flags, an `RGXInvalidVanillaRegexFlagsError` will be thrown.
+  - `flags` (`string`, optional): The regex flags to apply to the resulting `ExtRegExp` object (e.g., 'g', 'i', 'm', or custom registered flags). If not provided, no flags will be applied. If provided and not valid regex flags (vanilla or registered custom), an `RGXInvalidRegexFlagsError` will be thrown.
 
 #### Returns
-- `RegExp`: A `RegExp` object constructed from the resolved tokens and the provided flags.
+- `ExtRegExp`: An `ExtRegExp` object constructed from the resolved tokens and the provided flags.
 
 ### expandRgxUnionTokens
 ```typescript
@@ -766,12 +838,132 @@ Asserts that the given numeric value falls within the specified range. If the as
 #### Returns
 - `void`: This function does not return a value, but will throw an error if the assertion fails.
 
+### isValidRegexFlags
+```typescript
+function isValidRegexFlags(flags: string): flags is ValidRegexFlags
+```
+
+Checks if the given string is a valid combination of regex flags, including both vanilla flags (g, i, m, s, u, y) and any custom flags registered via `registerFlagTransformer`. Custom flag characters are stripped before validating the remaining characters as vanilla flags.
+
+#### Parameters
+  - `flags` (`string`): The string to check.
+
+#### Returns
+- `boolean`: `true` if the string is a valid combination of regex flags, otherwise `false`.
+
+### assertValidRegexFlags
+```typescript
+function assertValidRegexFlags(flags: string): asserts flags is ValidRegexFlags
+```
+
+Asserts that the given string is a valid combination of regex flags, including both vanilla flags and any custom registered flags. If the assertion fails, an `RGXInvalidRegexFlagsError` will be thrown.
+
+#### Parameters
+  - `flags` (`string`): The string to assert.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an error if the assertion fails.
+
+### isFlagKeyAvailable
+```typescript
+function isFlagKeyAvailable(flags: string): boolean
+```
+
+Checks if the given string is available for use as a custom flag transformer key. Returns `false` if the string is a vanilla regex flag or if any character in the string is already registered as a custom flag transformer.
+
+#### Parameters
+  - `flags` (`string`): The string to check.
+
+#### Returns
+- `boolean`: `true` if the string is available for use as a custom flag key, otherwise `false`.
+
+### registerFlagTransformer
+```typescript
+function registerFlagTransformer(key: string, transformer: RegExpFlagTransformer): void
+```
+
+Registers a custom flag transformer under the given single-character key. The key must be exactly one character, must not be a vanilla regex flag, and must not already be registered. When an `ExtRegExp` is constructed with this flag character in its flags string, the transformer function will be called with the `RegExp` to transform it.
+
+#### Parameters
+  - `key` (`string`): A single-character string to use as the flag key. Must not be a vanilla regex flag or an already-registered key.
+  - `transformer` (`RegExpFlagTransformer`): A function that takes a `RegExp` and returns a transformed `RegExp`.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an `RGXInvalidFlagTransformerKeyError` if the key is not a single character, or an `RGXFlagTransformerConflictError` if the key conflicts with a vanilla flag or an existing transformer.
+
+### unregisterFlagTransformer
+```typescript
+function unregisterFlagTransformer(key: string): void
+```
+
+Unregisters a previously registered custom flag transformer by its key. If the key was not registered, this is a no-op.
+
+#### Parameters
+  - `key` (`string`): The flag key to unregister.
+
+#### Returns
+- `void`: This function does not return a value.
+
+### applyFlagTransformers
+```typescript
+function applyFlagTransformers(regex: RegExp, flags: string, alreadyAppliedFlags?: string): RegExp
+```
+
+Applies all registered flag transformers whose keys appear in the given flags string to the provided `RegExp`, returning the resulting transformed `RegExp`. Flags present in `alreadyAppliedFlags` are skipped to avoid re-applying transformers.
+
+#### Parameters
+  - `regex` (`RegExp`): The regular expression to transform.
+  - `flags` (`string`): The flags string containing custom flag characters to apply.
+  - `alreadyAppliedFlags` (`string`, optional): A string of flag characters that have already been applied and should be skipped. Defaults to `''`.
+
+#### Returns
+- `RegExp`: The transformed `RegExp` after applying all matching flag transformers.
+
+### extractCustomRegexFlags
+```typescript
+function extractCustomRegexFlags(flags: string): string
+```
+
+Extracts the custom (non-vanilla) flag characters from the given flags string by returning only the characters that correspond to registered flag transformers.
+
+#### Parameters
+  - `flags` (`string`): The flags string to extract custom flags from.
+
+#### Returns
+- `string`: A string containing only the custom flag characters found in the input.
+
+### extractVanillaRegexFlags
+```typescript
+function extractVanillaRegexFlags(flags: string): string
+```
+
+Extracts the vanilla regex flag characters from the given flags string by removing all characters that correspond to registered flag transformers.
+
+#### Parameters
+  - `flags` (`string`): The flags string to extract vanilla flags from.
+
+#### Returns
+- `string`: A string with all registered custom flag characters removed, leaving only vanilla flags.
+
+### normalizeRegexFlags
+```typescript
+function normalizeRegexFlags(flags: string): string
+```
+
+Normalizes a string of regex flags (including both vanilla and custom registered flags) by removing duplicate flags while preserving order. If any character in the string is not a valid regex flag (vanilla or registered custom), an `RGXInvalidRegexFlagsError` will be thrown.
+
+#### Parameters
+  - `flags` (`string`): The flags string to normalize.
+
+#### Returns
+- `string`: The normalized flags string with duplicates removed.
+
 ### normalizeVanillaRegexFlags
 ```typescript
 function normalizeVanillaRegexFlags(flags: string): string
 ```
 
-Normalizes a string of vanilla regex flags by removing duplicate flags while preserving order. If any character in the string is not a valid vanilla regex flag (g, i, m, s, u, y), an `RGXInvalidVanillaRegexFlagsError` will be thrown.
+Normalizes a string of vanilla regex flags by removing duplicate flags while preserving order. First validates that all characters are valid vanilla regex flags (g, i, m, s, u, y), throwing an `RGXInvalidVanillaRegexFlagsError` if any are not, then delegates to `normalizeRegexFlags` for deduplication.
 
 #### Parameters
   - `flags` (`string`): The flags string to normalize.
@@ -781,18 +973,18 @@ Normalizes a string of vanilla regex flags by removing duplicate flags while pre
 
 ### regexWithFlags
 ```typescript
-function regexWithFlags(exp: RegExp, flags: string, replace?: boolean): RegExp
+function regexWithFlags(exp: RegExp | ExtRegExp, flags: string, replace?: boolean): ExtRegExp
 ```
 
-Creates a new `RegExp` from an existing one with additional or replaced flags. When `replace` is `false` (the default), the provided flags are merged with the existing flags and normalized (duplicates removed). When `replace` is `true`, the existing flags are discarded and only the provided flags are used. The provided flags are validated as valid vanilla regex flags via `assertValidVanillaRegexFlags`.
+Creates a new `ExtRegExp` from an existing one with additional or replaced flags. When `replace` is `false` (the default), the provided flags are merged with the existing flags and normalized (duplicates removed). When `replace` is `true`, the existing flags are discarded and only the provided flags are used. The provided flags are validated as valid vanilla regex flags via `assertValidVanillaRegexFlags`.
 
 #### Parameters
-  - `exp` (`RegExp`): The source regular expression.
+  - `exp` (`RegExp | ExtRegExp`): The source regular expression.
   - `flags` (`string`): The flags to add or replace with. Must be valid vanilla regex flags, or an `RGXInvalidVanillaRegexFlagsError` will be thrown.
   - `replace` (`boolean`, optional): Whether to replace the existing flags entirely instead of merging. Defaults to `false`.
 
 #### Returns
-- `RegExp`: A new `RegExp` with the same source pattern and the resulting flags.
+- `ExtRegExp`: A new `ExtRegExp` with the same source pattern and the resulting flags.
 
 ### regexMatchAtPosition
 ```typescript

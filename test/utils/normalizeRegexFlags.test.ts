@@ -1,4 +1,4 @@
-import { normalizeVanillaRegexFlags, RGXInvalidVanillaRegexFlagsError } from 'src/index';
+import { normalizeVanillaRegexFlags, normalizeRegexFlags, RGXInvalidVanillaRegexFlagsError, registerFlagTransformer, unregisterFlagTransformer } from 'src/index';
 
 describe('normalizeVanillaRegexFlags', () => {
     it('leaves valid flags unchanged', () => {
@@ -26,5 +26,45 @@ describe('normalizeVanillaRegexFlags', () => {
         expect(normalizeVanillaRegexFlags('gg')).toBe('g');
         expect(normalizeVanillaRegexFlags('gimim')).toBe('gim');
         expect(normalizeVanillaRegexFlags('ggimsuyy')).toBe('gimsuy');
+    });
+});
+
+describe('normalizeRegexFlags', () => {
+    it('accepts all vanilla regex flags', () => {
+        expect(normalizeRegexFlags('g')).toBe('g');
+        expect(normalizeRegexFlags('i')).toBe('i');
+        expect(normalizeRegexFlags('m')).toBe('m');
+        expect(normalizeRegexFlags('s')).toBe('s');
+        expect(normalizeRegexFlags('u')).toBe('u');
+        expect(normalizeRegexFlags('y')).toBe('y');
+    });
+
+    it('accepts a custom flag', () => {
+        registerFlagTransformer('x', (regex) => regex);
+
+        expect(normalizeRegexFlags('gx')).toBe('gx');
+        expect(normalizeRegexFlags('ix')).toBe('ix');
+        expect(normalizeRegexFlags('mx')).toBe('mx');
+        expect(normalizeRegexFlags('sx')).toBe('sx');
+        expect(normalizeRegexFlags('ux')).toBe('ux');
+        expect(normalizeRegexFlags('yx')).toBe('yx');
+        
+        unregisterFlagTransformer('x');
+    });
+
+    it('leaves an empty string unchanged', () => {
+        expect(normalizeRegexFlags('')).toBe('');
+    });
+
+    it('rejects invalid flags', () => {
+        expect(() => normalizeRegexFlags('z')).toThrow();
+        expect(() => normalizeRegexFlags('gz')).toThrow();
+        expect(() => normalizeRegexFlags('abc')).toThrow();
+    });
+
+    it('removes duplicate flags', () => {
+        expect(normalizeRegexFlags('gg')).toBe('g');
+        expect(normalizeRegexFlags('gimim')).toBe('gim');
+        expect(normalizeRegexFlags('ggimsuyy')).toBe('gimsuy');
     });
 });

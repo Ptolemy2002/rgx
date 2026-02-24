@@ -1,5 +1,6 @@
 import { Branded } from "@ptolemy2002/ts-brand-utils";
 import type { RGXClassToken } from "./class";
+import { ExtRegExp } from "./ExtRegExp";
 
 export type RGXNoOpToken = null | undefined;
 export type RGXLiteralToken = RegExp;
@@ -10,7 +11,7 @@ export type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken
 
 export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
 export type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
-export type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | RGXTokenTypeGuardInput[];
+export type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | typeof ExtRegExp | RGXTokenTypeGuardInput[];
 export type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     T extends null ? RGXToken :
     T extends 'no-op' ? RGXNoOpToken :
@@ -21,6 +22,7 @@ export type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     T extends 'array' ? RGXToken[] :
     T extends RGXTokenTypeGuardInput[] ? { [K in keyof T]: T[K] extends RGXTokenTypeGuardInput ? RGXTokenFromType<T[K]> : never } :
     T extends RGXClassTokenConstructor ? InstanceType<T> :
+    T extends typeof ExtRegExp ? ExtRegExp :
     never
 ;
 
@@ -38,6 +40,10 @@ export type ValidRegexString = Branded<string, [ValidRegexBrandSymbol]>;
 export const validVanillaRegexFlagsSymbol = Symbol('rgx.ValidVanillaRegexFlags');
 export type ValidVanillaRegexFlagsBrandSymbol = typeof validVanillaRegexFlagsSymbol;
 export type ValidVanillaRegexFlags = Branded<string, [ValidVanillaRegexFlagsBrandSymbol]>;
+
+export const validRegexFlagsSymbol = Symbol('rgx.ValidRegexFlags');
+export type ValidRegexFlagsBrandSymbol = typeof validRegexFlagsSymbol;
+export type ValidRegexFlags = Branded<string, [ValidRegexFlagsBrandSymbol]> | ValidVanillaRegexFlags;
 
 export const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
 export type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;
