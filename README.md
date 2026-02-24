@@ -905,6 +905,48 @@ Unregisters a previously registered custom flag transformer by its key. If the k
 #### Returns
 - `void`: This function does not return a value.
 
+### accentInsensitiveFlagTransformer
+```typescript
+const accentInsensitiveFlagTransformer: RegExpFlagTransformer
+```
+
+A pre-built `RegExpFlagTransformer` that makes a regex pattern accent-insensitive. It replaces any accentable characters (a, e, i, o, u and their uppercase equivalents) in the regex source with alternation groups that match both the base character and its accented variants. For example, `é` becomes `(e|é|è|ë|ê)`. The following accent mappings are supported:
+
+- `a` / `A`: á, à, ä, â, ã / Á, À, Ä, Â, Ã
+- `e` / `E`: é, è, ë, ê / É, È, Ë, Ê
+- `i` / `I`: í, ì, ï, î / Í, Ì, Ï, Î
+- `o` / `O`: ó, ò, ö, ô, õ / Ó, Ò, Ö, Ô, Õ
+- `u` / `U`: ú, ù, ü, û / Ú, Ù, Ü, Û
+
+#### Parameters
+  - `exp` (`RegExp`): The regular expression to transform.
+
+#### Returns
+- `RegExp`: A new `RegExp` with the same flags but with accentable characters in the source replaced by accent-insensitive alternation groups.
+
+### registerCustomFlagTransformers
+```typescript
+function registerCustomFlagTransformers(): void
+```
+
+Registers the library's built-in custom flag transformers. Currently registers the following:
+- `"a"` flag: `accentInsensitiveFlagTransformer` — makes patterns accent-insensitive.
+
+This function is called automatically when importing from the main module entry point, so you typically do not need to call it yourself. It only needs to be called manually if you import directly from sub-modules.
+
+#### Returns
+- `void`: This function does not return a value.
+
+### unregisterCustomFlagTransformers
+```typescript
+function unregisterCustomFlagTransformers(): void
+```
+
+Unregisters all built-in custom flag transformers that were registered by `registerCustomFlagTransformers`. Currently unregisters the `"a"` flag.
+
+#### Returns
+- `void`: This function does not return a value.
+
 ### applyFlagTransformers
 ```typescript
 function applyFlagTransformers(regex: RegExp, flags: string, alreadyAppliedFlags?: string): RegExp
