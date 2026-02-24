@@ -6,7 +6,8 @@ import {
     assertRGXArrayToken, rgxTokenFromType,
     RGXClassToken,
     isValidIdentifier, assertValidIdentifier,
-    RGXInvalidIdentifierError, ExtRegExp
+    RGXInvalidIdentifierError, ExtRegExp,
+    RGXTokenCollection
 } from 'src/index';
 
 class TestClassToken1 extends RGXClassToken {
@@ -539,6 +540,12 @@ describe('Type Guards', () => {
             const token = new ExtRegExp('foo');
             expect(isRGXToken(token, ExtRegExp)).toBe(true);
             expect(() => assertRGXToken(token, ExtRegExp)).not.toThrow();
+        });
+
+        it('accepts the RGXTokenCollection constructor', () => {
+            const token = new RGXTokenCollection(['foo', { toRgx: () => 14 }, null]);
+            expect(isRGXToken(token, RGXTokenCollection)).toBe(true);
+            expect(() => assertRGXToken(token, RGXTokenCollection)).not.toThrow();
         });
 
         it('Recognizes ExtRegexp instances as literal tokens', () => {

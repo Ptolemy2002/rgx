@@ -32,11 +32,12 @@ type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;
 
 type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
 type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
-type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | typeof ExtRegExp | RGXTokenTypeGuardInput[];
+type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | typeof ExtRegExp | typeof RGXTokenCollection | RGXTokenTypeGuardInput[];
 type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     // Maps token type strings to their corresponding types, e.g.:
     // 'no-op' -> RGXNoOpToken, 'literal' -> RGXLiteralToken, etc.
-    // Also maps RGXClassTokenConstructor to InstanceType<T> and typeof ExtRegExp to ExtRegExp.
+    // Also maps any constructor to InstanceType<T>,
+    // and preserves tuple types for constant arrays.
     // ... see source for full definition
 ;
 

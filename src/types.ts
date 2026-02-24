@@ -1,6 +1,7 @@
 import { Branded } from "@ptolemy2002/ts-brand-utils";
 import type { RGXClassToken } from "./class";
-import { ExtRegExp } from "./ExtRegExp";
+import type { ExtRegExp } from "./ExtRegExp";
+import type { RGXTokenCollection } from "./collection";
 
 export type RGXNoOpToken = null | undefined;
 export type RGXLiteralToken = RegExp;
@@ -11,7 +12,7 @@ export type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken
 
 export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
 export type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
-export type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | typeof ExtRegExp | RGXTokenTypeGuardInput[];
+export type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | typeof ExtRegExp | typeof RGXTokenCollection | RGXTokenTypeGuardInput[];
 export type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     T extends null ? RGXToken :
     T extends 'no-op' ? RGXNoOpToken :
@@ -20,9 +21,8 @@ export type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     T extends 'convertible' ? RGXConvertibleToken :
     T extends 'class' ? RGXClassToken :
     T extends 'array' ? RGXToken[] :
+    T extends new (...args: unknown[]) => infer R ? R :
     T extends RGXTokenTypeGuardInput[] ? { [K in keyof T]: T[K] extends RGXTokenTypeGuardInput ? RGXTokenFromType<T[K]> : never } :
-    T extends RGXClassTokenConstructor ? InstanceType<T> :
-    T extends typeof ExtRegExp ? ExtRegExp :
     never
 ;
 
