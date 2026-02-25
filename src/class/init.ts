@@ -2,6 +2,7 @@ import { RGXClassToken } from "./base";
 import { expandRgxUnionTokens, RGXClassUnionToken } from "./union";
 import { RGXGroupToken, RGXGroupTokenArgs } from "./group";
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
+import { RGXRepeatToken } from "./repeat";
 
 export function rgxClassInit() {
     // Patch RGXClassToken here, Since classes like RGXClassUnionToken are instances of RGXClassToken
@@ -23,5 +24,9 @@ export function rgxClassInit() {
 
     RGXClassToken.prototype.group = function (this: RGXClassToken, args: RGXGroupTokenArgs = {}): RGXGroupToken {
         return new RGXGroupToken(args, [this]);
+    }
+
+    RGXClassToken.prototype.repeat = function (this: RGXClassToken, min: number = 1, max: number | null = min): RGXRepeatToken {
+        return new RGXRepeatToken(this, min, max);
     }
 }

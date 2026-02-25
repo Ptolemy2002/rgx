@@ -4,6 +4,7 @@ import { RGXInvalidTokenError, RGXNotImplementedError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
 import type { RGXClassUnionToken } from "./union";
 import type { RGXGroupToken, RGXGroupTokenArgs } from "./group";
+import type { RGXRepeatToken } from "./repeat";
 
 export abstract class RGXClassToken {
     abstract toRgx(): RGXToken
@@ -31,6 +32,14 @@ export abstract class RGXClassToken {
 
     group(args: RGXGroupTokenArgs = {}): RGXGroupToken {
         throw new RGXNotImplementedError('RGXClassToken.group(args)', 'call rgxClassInit() first.')
+    }
+
+    repeat(min: number = 1, max: number | null = min): RGXRepeatToken {
+        throw new RGXNotImplementedError('RGXClassToken.repeat(min, max)', 'call rgxClassInit() first.')
+    }
+
+    optional(): RGXRepeatToken {
+        return this.repeat(0, 1);
     }
 
     resolve(): ValidRegexString {

@@ -2,7 +2,6 @@ import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 import { RGXClassToken } from "./base";
 import { createAssertClassGuardFunction, createClassGuardFunction, createConstructFunction } from "src/internal";
 import { assertValidIdentifier } from "src/typeGuards";
-import { resolveRGXToken } from "src/resolve";
 
 export type RGXGroupTokenArgs = {
     name?: string | null;

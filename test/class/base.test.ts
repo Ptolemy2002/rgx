@@ -1,4 +1,4 @@
-import { rgxClassInit, RGXClassToken, RGXClassUnionToken, RGXGroupToken } from "src/class";
+import { rgxClassInit, RGXClassToken, RGXClassUnionToken, RGXGroupToken, RGXRepeatToken } from "src/class";
 import { RGXNotImplementedError, RGXInvalidTokenError } from "src/errors";
 
 class TestClassToken extends RGXClassToken {
@@ -43,6 +43,10 @@ describe("rgxClassInit", () => {
         expect(testToken1.group).toThrow(RGXNotImplementedError);
     });
 
+    it("doesn't implement the repeat method before being called", () => {
+        expect(testToken1.repeat).toThrow(RGXNotImplementedError);
+    });
+
     it("implements the or method after being called", () => {
         rgxClassInit();
         expect(testToken1.or).toBeDefined();
@@ -61,101 +65,162 @@ describe("RGXClassToken", () => {
         expect(testToken1.isGroup).toBe(false);
     });
 
+    it("has rgxGroupWrap as true by default", () => {
+        expect(testToken1.rgxGroupWrap).toBe(true);
+    });
+
     it("resolves to a valid regex string via resolve()", () => {
         expect(testToken1.resolve()).toBe("test");
     });
-});
 
-describe("or", () => {
-    it("wraps in a union when called with no arguments", () => {
-        const result = testToken1.or();
-        expect(result).toBeInstanceOf(RGXClassUnionToken);
-        expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1]);
+    describe("or", () => {
+        it("wraps in a union when called with no arguments", () => {
+            const result = testToken1.or();
+            expect(result).toBeInstanceOf(RGXClassUnionToken);
+            expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1]);
+        });
+
+        it("combines with another class token into a union", () => {
+            const otherToken = new TestClassToken();
+            const result = testToken1.or(otherToken);
+            expect(result).toBeInstanceOf(RGXClassUnionToken);
+            expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, otherToken]);
+        });
+
+        it("combines with multiple other class tokens into a union", () => {
+            const otherToken1 = new TestClassToken();
+            const otherToken2 = new TestClassToken();
+            const result = testToken1.or(otherToken1, otherToken2);
+            expect(result).toBeInstanceOf(RGXClassUnionToken);
+            expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, otherToken1, otherToken2]);
+        });
+
+        it("combines with another non-class and non-array token into a union", () => {
+            const otherToken = "other";
+            const result = testToken1.or(otherToken);
+            expect(result).toBeInstanceOf(RGXClassUnionToken);
+            expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, otherToken]);
+        });
+
+        it("combines with multiple other non-class and non-array tokens into a union", () => {
+            const otherToken1 = "other1";
+            const otherToken2 = "other2";
+            const result = testToken1.or(otherToken1, otherToken2);
+            expect(result).toBeInstanceOf(RGXClassUnionToken);
+            expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, otherToken1, otherToken2]);
+        });
+
+        it("combines with another array token into a union", () => {
+            const otherTokens = ["other1", "other2"];
+            const result = testToken1.or(otherTokens);
+            expect(result).toBeInstanceOf(RGXClassUnionToken);
+            expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, ...otherTokens]);
+        });
+
+        it("combines with multiple other array tokens into a union, flattening them", () => {
+            const otherTokens1 = ["other1", "other2"];
+            const otherTokens2 = ["other3", "other4"];
+            const result = testToken1.or(otherTokens1, otherTokens2);
+            expect(result).toBeInstanceOf(RGXClassUnionToken);
+            expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, ...otherTokens1, ...otherTokens2]);
+        });
+
+        it("removes direct repeats", () => {
+            const result = testToken1.or("foo", "bar", "foo");
+            expect(result).toBeInstanceOf(RGXClassUnionToken);
+            expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, "foo", "bar"]);
+        });
+
+        it("removes nested repeats", () => {
+            const result = testToken1.or("foo", ["bar", "foo"]);
+            expect(result).toBeInstanceOf(RGXClassUnionToken);
+            expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, "foo", "bar"]);
+        });
+
+        it("removes references to itself", () => {
+            const result = testToken1.or(testToken1, "foo", testToken1);
+            expect(result).toBeInstanceOf(RGXClassUnionToken);
+            expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, "foo"]);
+        });
     });
 
-    it("combines with another class token into a union", () => {
-        const otherToken = new TestClassToken();
-        const result = testToken1.or(otherToken);
-        expect(result).toBeInstanceOf(RGXClassUnionToken);
-        expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, otherToken]);
+    describe("group", () => {
+        it("wraps in a group token", () => {
+            const result = testToken1.group();
+            expect(result).toBeInstanceOf(RGXGroupToken);
+            expect((result as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+        });
+
+        it("handles name correctly", () => {
+            const result = testToken1.group({ name: "testGroup" });
+
+            expect(result).toBeInstanceOf(RGXGroupToken);
+            expect((result as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+            expect((result as RGXGroupToken).name).toBe("testGroup");
+        });
+
+        it("handles non-capturing correctly", () => {
+            const result = testToken1.group({ capturing: false });
+            expect(result).toBeInstanceOf(RGXGroupToken);
+            expect((result as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+            expect((result as RGXGroupToken).capturing).toBe(false);
+        });
     });
 
-    it("combines with multiple other class tokens into a union", () => {
-        const otherToken1 = new TestClassToken();
-        const otherToken2 = new TestClassToken();
-        const result = testToken1.or(otherToken1, otherToken2);
-        expect(result).toBeInstanceOf(RGXClassUnionToken);
-        expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, otherToken1, otherToken2]);
+    describe("repeat", () => {
+        beforeAll(() => {
+            rgxClassInit();
+        });
+
+        it("wraps in a repeat token with correct min and max", () => {
+            const result = testToken1.repeat(2, 5);
+            expect(result).toBeInstanceOf(RGXRepeatToken);
+
+            // The test token should be wrapped in a group token
+            expect(result.token).toBeInstanceOf(RGXGroupToken);
+            expect((result.token as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+
+            expect(result.min).toBe(2);
+            expect(result.max).toBe(5);
+        });
+
+        it("handles default max correctly", () => {
+            const result = testToken1.repeat(3);
+            expect(result).toBeInstanceOf(RGXRepeatToken);
+            
+            expect(result.token).toBeInstanceOf(RGXGroupToken);
+            expect((result.token as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+
+            expect(result.min).toBe(3);
+            expect(result.max).toBe(3);
+        });
+
+        it("handles default min correctly", () => {
+            const result = testToken1.repeat(undefined, 4);
+            expect(result).toBeInstanceOf(RGXRepeatToken);
+            
+            expect(result.token).toBeInstanceOf(RGXGroupToken);
+            expect((result.token as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+
+            expect(result.min).toBe(1);
+            expect(result.max).toBe(4);
+        });
     });
 
-    it("combines with another non-class and non-array token into a union", () => {
-        const otherToken = "other";
-        const result = testToken1.or(otherToken);
-        expect(result).toBeInstanceOf(RGXClassUnionToken);
-        expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, otherToken]);
-    });
+    describe("optional", () => {
+        beforeAll(() => {
+            rgxClassInit();
+        });
 
-    it("combines with multiple other non-class and non-array tokens into a union", () => {
-        const otherToken1 = "other1";
-        const otherToken2 = "other2";
-        const result = testToken1.or(otherToken1, otherToken2);
-        expect(result).toBeInstanceOf(RGXClassUnionToken);
-        expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, otherToken1, otherToken2]);
-    });
+        it("wraps in a repeat token with min 0 and max 1", () => {
+            const result = testToken1.optional();
+            expect(result).toBeInstanceOf(RGXRepeatToken);
 
-    it("combines with another array token into a union", () => {
-        const otherTokens = ["other1", "other2"];
-        const result = testToken1.or(otherTokens);
-        expect(result).toBeInstanceOf(RGXClassUnionToken);
-        expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, ...otherTokens]);
-    });
+            expect(result.token).toBeInstanceOf(RGXGroupToken);
+            expect((result.token as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
 
-    it("combines with multiple other array tokens into a union, flattening them", () => {
-        const otherTokens1 = ["other1", "other2"];
-        const otherTokens2 = ["other3", "other4"];
-        const result = testToken1.or(otherTokens1, otherTokens2);
-        expect(result).toBeInstanceOf(RGXClassUnionToken);
-        expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, ...otherTokens1, ...otherTokens2]);
-    });
-
-    it("removes direct repeats", () => {
-        const result = testToken1.or("foo", "bar", "foo");
-        expect(result).toBeInstanceOf(RGXClassUnionToken);
-        expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, "foo", "bar"]);
-    });
-
-    it("removes nested repeats", () => {
-        const result = testToken1.or("foo", ["bar", "foo"]);
-        expect(result).toBeInstanceOf(RGXClassUnionToken);
-        expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, "foo", "bar"]);
-    });
-
-    it("removes references to itself", () => {
-        const result = testToken1.or(testToken1, "foo", testToken1);
-        expect(result).toBeInstanceOf(RGXClassUnionToken);
-        expect((result as RGXClassUnionToken).tokens.toArray()).toEqual([testToken1, "foo"]);
-    });
-});
-
-describe("group", () => {
-    it("wraps in a group token", () => {
-        const result = testToken1.group();
-        expect(result).toBeInstanceOf(RGXGroupToken);
-        expect((result as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
-    });
-
-    it("handles name correctly", () => {
-        const result = testToken1.group({ name: "testGroup" });
-
-        expect(result).toBeInstanceOf(RGXGroupToken);
-        expect((result as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
-        expect((result as RGXGroupToken).name).toBe("testGroup");
-    });
-
-    it("handles non-capturing correctly", () => {
-        const result = testToken1.group({ capturing: false });
-        expect(result).toBeInstanceOf(RGXGroupToken);
-        expect((result as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
-        expect((result as RGXGroupToken).capturing).toBe(false);
+            expect(result.min).toBe(0);
+            expect(result.max).toBe(1);
+        });
     });
 });

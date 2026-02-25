@@ -277,7 +277,9 @@ An abstract base class for creating custom RGX token classes. Subclasses must im
 #### Methods
 - `or(...others: RGXTokenCollectionInput[]) => RGXClassUnionToken`: Creates an `RGXClassUnionToken` that represents a union (alternation) of this token with the provided others. If any of the `others` are `RGXClassUnionToken` instances, their tokens are flattened into the union rather than nested. If `this` is already an `RGXClassUnionToken`, its existing tokens are preserved and the others are appended.
 - `group(args?: RGXGroupTokenArgs) => RGXGroupToken`: Wraps this token in an `RGXGroupToken` with the provided arguments. The `args` parameter defaults to `{}`, which creates a capturing group with no name. This is a convenience method that creates a new `RGXGroupToken` with `this` as the sole token.
-- `resolve() => ValidRegexString`: A convenience method that resolves this token by calling `resolveRGXToken(this)`, returning the resolved regex string representation. Since this method is defined on `RGXClassToken`, it is available on all subclasses including `RGXClassUnionToken` and `RGXGroupToken`.
+- `repeat(min?: number, max?: number | null) => RGXRepeatToken`: Wraps this token in an `RGXRepeatToken` with the given repetition bounds. `min` defaults to `1`, `max` defaults to `min`. Pass `null` for `max` to allow unlimited repetitions. This is a convenience method that creates a new `RGXRepeatToken` with `this` as the token.
+- `optional() => RGXRepeatToken`: Shorthand for `repeat(0, 1)`. Wraps this token in an `RGXRepeatToken` that matches the token zero or one times.
+- `resolve() => ValidRegexString`: A convenience method that resolves this token by calling `resolveRGXToken(this)`, returning the resolved regex string representation. Since this method is defined on `RGXClassToken`, it is available on all subclasses including `RGXClassUnionToken`, `RGXGroupToken`, and `RGXRepeatToken`.
 
 ### RGXClassUnionToken extends RGXClassToken
 A class representing a union (alternation) of RGX tokens. This is typically created via the `or()` method on `RGXClassToken`, but can also be instantiated directly.
@@ -296,8 +298,6 @@ constructor(tokens: RGXTokenCollectionInput = [])
 
 #### Properties
 - `tokens` (`RGXTokenCollection`): The internal collection of tokens managed in 'union' mode.
-- `isGroup` (`boolean`): Returns `true`, indicating this token represents a group.
-
 #### Methods
 - `add(token: RGXToken, pos?: RGXUnionInsertionPosition) => this`: Adds a token to the union. The `pos` parameter controls where the token is inserted: `'prefix'` inserts at the beginning, `'suffix'` (default) appends to the end. Returns `this` for chaining.
 - `concat(pos?: RGXUnionInsertionPosition, ...others: RGXTokenCollectionInput[]) => this`: Concatenates additional tokens into the union. The `pos` parameter controls insertion position: `'suffix'` (default) appends to the end, `'prefix'` prepends to the beginning. Returns `this` for chaining.
@@ -331,6 +331,33 @@ constructor(args?: RGXGroupTokenArgs, tokens?: RGXTokenCollectionInput)
 
 #### Methods
 - `toRgx() => RegExp`: Resolves the group by concatenating the internal tokens and wrapping the result in the appropriate group syntax: `(?<name>...)` for named groups, `(?:...)` for non-capturing groups, or `(...)` for capturing groups.
+
+### RGXRepeatToken extends RGXClassToken
+A class representing a repetition quantifier wrapping an RGX token. This allows specifying how many times a token should be matched (e.g., exactly N times, between N and M times, or unlimited). This is typically created via the `repeat()` or `optional()` methods on `RGXClassToken`, but can also be instantiated directly.
+
+A function `rgxRepeat` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
+
+#### Static Properties
+- `check(value: unknown): value is RGXRepeatToken`: A type guard that checks if the given value is an instance of `RGXRepeatToken`.
+- `assert(value: unknown): asserts value is RGXRepeatToken`: An assertion that checks if the given value is an instance of `RGXRepeatToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Constructor
+```typescript
+constructor(token: RGXToken, min?: number, max?: number | null)
+```
+- `token` (`RGXToken`): The token to repeat. If the token is not already a group (i.e., not an array, `RegExp`, or an `RGXClassToken` with `isGroup` set to `true`), it will be automatically wrapped in an `RGXGroupToken`.
+- `min` (`number`, optional): The minimum number of repetitions. Must be >= 0 and <= `max` (when `max` is not `null`). Non-integer values are floored. Defaults to `1`.
+- `max` (`number | null`, optional): The maximum number of repetitions. Must be >= `min` when not `null`. Non-integer values are floored. Pass `null` for unlimited repetitions. Defaults to `min`.
+
+#### Properties
+- `token` (`RGXToken`): The token being repeated. Setting this will automatically wrap non-group tokens in an `RGXGroupToken`.
+- `min` (`number`): The minimum number of repetitions. Setting this validates that the value is >= 0 and <= `max` (when `max` is not `null`), and floors non-integer values. Throws `RGXOutOfBoundsError` if validation fails.
+- `max` (`number | null`): The maximum number of repetitions. Setting this validates that the value is >= `min` when not `null`, and floors non-integer values. Pass `null` for unlimited. Throws `RGXOutOfBoundsError` if validation fails.
+- `repeaterSuffix` (`string`): Returns the regex quantifier suffix based on the current `min` and `max` values: `*` for `{0,}`, `+` for `{1,}`, `?` for `{0,1}`, `{n}` for exact repetitions, `{n,}` for minimum-only, `{n,m}` for a range, or an empty string for `{1,1}` (exactly once, no quantifier needed).
+- `rgxGroupWrap` (`boolean`): Returns `false`, since the quantifier suffix binds tightly to the preceding group and does not need additional wrapping.
+
+#### Methods
+- `toRgx() => RGXToken`: Resolves the repeat token to a `RegExp` by resolving the inner token and appending the `repeaterSuffix`. Returns `null` (a no-op) when both `min` and `max` are `0`.
 
 ### ExtRegExp extends RegExp
 A subclass of `RegExp` that supports custom flag transformers in addition to the standard vanilla regex flags (g, i, m, s, u, y). When constructed, custom flags are extracted, their corresponding transformers are applied to the pattern and vanilla flags, and the resulting transformed `RegExp` is created. The `flags` getter returns both the vanilla flags and any custom flags.
@@ -805,7 +832,7 @@ Removes duplicate tokens from the provided list using `Set` equality and returns
 function rgxClassInit(): void
 ```
 
-Initializes internal method patches required for `RGXClassToken` subclass methods (such as `or` and `group`) to work correctly. This function is called automatically when importing from the main module entry point, so you typically do not need to call it yourself. It only needs to be called manually if you import directly from sub-modules.
+Initializes internal method patches required for `RGXClassToken` subclass methods (such as `or`, `group`, and `repeat`) to work correctly. This function is called automatically when importing from the main module entry point, so you typically do not need to call it yourself. It only needs to be called manually if you import directly from sub-modules.
 
 ### isInRange
 ```typescript

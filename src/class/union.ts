@@ -10,10 +10,6 @@ export class RGXClassUnionToken extends RGXClassToken {
     static check = createClassGuardFunction(RGXClassUnionToken);
     static assert = createAssertClassGuardFunction(RGXClassUnionToken);
 
-    get isGroup() {
-        return true;
-    }
-
     constructor(tokens: RGXTokenCollectionInput = []) {
         super();
         if (tokens instanceof RGXTokenCollection && tokens.mode === 'concat') this.tokens = new RGXTokenCollection([tokens], 'union');

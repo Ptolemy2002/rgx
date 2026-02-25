@@ -10,7 +10,7 @@ class TestClassToken extends RGXClassToken {
 }
 
 const isRgxClassUnionToken = RGXClassUnionToken.check;
-const assertRgxClassUnionToken = RGXClassUnionToken.assert;
+export const assertRgxClassUnionToken = RGXClassUnionToken.assert;
 
 function constructionTest(constructor: ConstructFunction<typeof RGXClassUnionToken>) {
     it("constructs an instance of RGXClassUnionToken", () => {
@@ -84,9 +84,9 @@ describe("RGXClassUnionToken", () => {
     });
 
     describe("isGroup", () => {
-        it("is true", () => {
+        it("is false", () => {
             const instance = new RGXClassUnionToken();
-            expect(instance.isGroup).toBe(true);
+            expect(instance.isGroup).toBe(false);
         });
     });
 
