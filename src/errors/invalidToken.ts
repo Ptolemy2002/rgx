@@ -5,7 +5,7 @@ import { RGXClassToken } from "src/class";
 
 const tokenExpectationMap: Record<RGXTokenTypeFlat, string[]> = {
     'no-op': ['null', 'undefined'],
-    'literal': ['RegExp'],
+    'literal': ['RegExp', 'ExtRegExp'],
     'native': ['string', 'number', 'boolean', 'null', 'undefined'],
     'convertible': ['object with a toRgx method that returns a valid native/literal token or an array of valid native/literal tokens'],
     'array': ['array of native/literal/convertible tokens'],
@@ -58,8 +58,8 @@ export class RGXInvalidTokenError extends RGXError {
         this.setExpected(expected);
     }
 
-    toString() {
+    calcMessage(message: string) {
         const gotString = RGXClassToken.check(this.got) ? `instance of ${this.got.constructor.name}` : JSON.stringify(this.got);
-        return `${this.name}: ${this.message}; Expected: ${this.expected}; Got: [${gotString}]`;
+        return `${message}; Expected: ${this.expected}; Got: [${gotString}]`;
     }
 }

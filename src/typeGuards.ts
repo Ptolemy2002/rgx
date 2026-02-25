@@ -146,6 +146,26 @@ export function assertRGXToken<
     }
 }
 
+export function isRGXGroupedToken(value: unknown, contentCheck: boolean = true): value is t.RGXGroupedToken  {
+    // Arrays and Literals are implicitly groups.
+    // Classes are only groups if they have the isGroup property set to true.
+    return (
+        isRGXArrayToken(value, contentCheck) ||
+        isRGXToken(value, "literal") ||
+        (isRGXToken(value, "class") && value.isGroup) ||
+        (isRGXConvertibleToken(value, false) && value.rgxGroupWrap === true && (!contentCheck || isRGXGroupedToken(value.toRgx())))
+    );
+}
+
+export function assertRGXGroupedToken(value: unknown, contentCheck: boolean = true): asserts value is t.RGXGroupedToken {
+    if (!isRGXGroupedToken(value, contentCheck)) {
+        throw new e.RGXInvalidTokenError(
+            "Invalid group token, class token is not group, or convertible token is not group wrapped.",
+            {type: "custom", values: ['array', 'literal', 'class', 'convertible']}, value
+        );
+    }
+}
+
 export function isValidRegexString(value: string): value is t.ValidRegexString {
     try {
         new RegExp(value);

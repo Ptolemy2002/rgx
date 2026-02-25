@@ -1,13 +1,13 @@
-import { RGXToken } from "src/types";
+import { RGXGroupedToken, RGXToken } from "src/types";
 import { RGXClassToken } from "./base";
 import { RGXGroupToken } from "./group";
-import { isRGXToken } from "src/typeGuards";
+import { isRGXGroupedToken, isRGXToken } from "src/typeGuards";
 import { assertInRange } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
 import { createAssertClassGuardFunction, createClassGuardFunction, createConstructFunction } from "src/internal";
 
 export class RGXRepeatToken extends RGXClassToken {
-    _token: RGXToken;
+    _token: RGXGroupedToken;
     _min: number;
     _max: number | null = null;
 
@@ -42,22 +42,15 @@ export class RGXRepeatToken extends RGXClassToken {
     }
 
     set token(value: RGXToken) {
-        // Arrays and Literals are implicitly grouped.
-        const isGroup = 
-            isRGXToken(value, "array") ||
-            isRGXToken(value, "literal") ||
-            (isRGXToken(value, "class") && value.isGroup)
-        ;
-
-        // Make sure we are always working with a group token.
-        if (isGroup) this._token = value;
+        // Make sure we are always working with a grouped token.
+        if (isRGXGroupedToken(value)) this._token = value;
         else this._token = new RGXGroupToken({capturing: false}, value);
     }
 
     // We don't need to group wrap this token because the repeater has no
     // semantics that would change if there are other tokens to the right.
-    get rgxGroupWrap(): boolean {
-        return false;
+    get rgxGroupWrap() {
+        return false as const;
     }
 
     // By default, repeat a fixed number of times.

@@ -9,7 +9,7 @@ export class RGXInvalidVanillaRegexFlagsError extends RGXError {
         this.got = got;
     }
 
-    toString() {
-        return `${this.name}: ${this.message}; Got: ${JSON.stringify(this.got)}`;
+    calcMessage(message: string) {
+        return `${message}; Got: ${JSON.stringify(this.got)}`;
     }
 }

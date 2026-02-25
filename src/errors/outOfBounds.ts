@@ -52,7 +52,7 @@ export class RGXOutOfBoundsError extends RGXError {
         return this.failedAtMin() || this.failedAtMax();
     }
 
-    toString() {
+    calcMessage(message: string) {
         const rangeParts: string[] = [];
         if (this.min !== null) {
             if (this.inclusiveLeft) rangeParts.push(`>= ${this.min}`);
@@ -68,19 +68,19 @@ export class RGXOutOfBoundsError extends RGXError {
 
         // Determine which one was failed
         if (!this.failedAtAny()) {
-            return `${this.name}: ${this.message}; Got: [${this.got}]; Expected: [${rangeStr}]`;
+            return `${message}; Got: [${this.got}]; Expected: [${rangeStr}]`;
         } else if (this.failedAtMin()) {
             let thirdPart: string;
             if (!this.inclusiveLeft && this.got === this.min) thirdPart = `${this.got} == ${this.min}`;
             else thirdPart = `${this.got} < ${this.min}`;
 
-            return `${this.name}: ${this.message}; Got: [${this.got}]; Expected: [${rangeStr}]; ${thirdPart}`;
+            return `${message}; Got: [${this.got}]; Expected: [${rangeStr}]; ${thirdPart}`;
         } else {
             let thirdPart: string;
             if (!this.inclusiveRight && this.got === this.max) thirdPart = `${this.got} == ${this.max}`;
             else thirdPart = `${this.got} > ${this.max}`;
 
-            return `${this.name}: ${this.message}; Got: [${this.got}]; Expected: [${rangeStr}]; ${thirdPart}`;
+            return `${message}; Got: [${this.got}]; Expected: [${rangeStr}]; ${thirdPart}`;
         }
     }
 }

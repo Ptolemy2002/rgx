@@ -10,7 +10,10 @@ type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 type RGXConvertibleToken = { toRgx: () => RGXToken, readonly rgxGroupWrap?: boolean };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
+
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
+type RGXGroupedToken = RGXToken[] | RGXLiteralToken | (RGXClassToken & { isGroup: true }) | RGXGroupedConvertibleToken;
+type RGXGroupedConvertibleToken = { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true };
 
 const validRegexSymbol = Symbol('rgx.ValidRegex');
 type ValidRegexBrandSymbol = typeof validRegexSymbol;
@@ -83,6 +86,9 @@ constructor(message: string, code?: RGXErrorCode)
 #### Properties
 - `code` (`RGXErrorCode`): The error code associated with the error, which can be used to identify the type of error that occurred.
 
+#### Methods
+- `toString() => string`: Returns a formatted string in the format `${name}: ${message}`. Subclasses customize the message portion via internal formatting rather than overriding `toString()` directly, so all `RGXError` subclasses produce consistently formatted strings through this single method.
+
 ### RGXInvalidTokenError extends RGXError
 A specific error class for invalid RGX tokens. This error is thrown when a value fails validation as a specific RGX token type. The error code is set to `INVALID_RGX_TOKEN` on instantiation.
 
@@ -137,9 +143,6 @@ constructor(functionality: string, message?: string | null)
 #### Properties
 - `functionality` (`string`): The description of the unimplemented functionality.
 
-#### Methods
-- `toString() => string`: Returns a formatted string indicating the unimplemented functionality and any additional message.
-
 ### RGXInvalidIdentifierError extends RGXError
 A specific error class for invalid identifiers. This error is thrown when a string fails validation as a valid identifier. The error code is set to `INVALID_IDENTIFIER` on instantiation.
 
@@ -152,9 +155,6 @@ constructor(message: string, got: string)
 
 #### Properties
 - `got` (`string`): The actual string that was received, which failed validation.
-
-#### Methods
-- `toString() => string`: Returns a formatted string indicating the invalid identifier and the reason for failure.
 
 ### RGXInvalidRegexFlagsError extends RGXError
 A specific error class for invalid regex flags (including both vanilla and custom registered flags). This error is thrown when a string fails validation as valid regex flags. The error code is set to `INVALID_REGEX_FLAGS` on instantiation.
@@ -169,9 +169,6 @@ constructor(message: string, got: string)
 #### Properties
 - `got` (`string`): The actual string that was received, which failed validation.
 
-#### Methods
-- `toString() => string`: Returns a formatted string indicating the invalid flags and the reason for failure.
-
 ### RGXInvalidFlagTransformerKeyError extends RGXError
 A specific error class for invalid flag transformer keys. This error is thrown when an invalid key is provided to `registerFlagTransformer` (e.g., a key that is not a single character). The error code is set to `INVALID_FLAG_TRANSFORMER_KEY` on instantiation.
 
@@ -185,9 +182,6 @@ constructor(message: string, got: string)
 #### Properties
 - `got` (`string`): The actual key string that was received, which failed validation.
 
-#### Methods
-- `toString() => string`: Returns a formatted string indicating the invalid key and the reason for failure.
-
 ### RGXFlagTransformerConflictError extends RGXError
 A specific error class for flag transformer conflicts. This error is thrown when attempting to register a flag transformer with a key that conflicts with an existing vanilla regex flag or an already-registered transformer. The error code is set to `FLAG_TRANSFORMER_CONFLICT` on instantiation.
 
@@ -200,9 +194,6 @@ constructor(message: string, got: string)
 
 #### Properties
 - `got` (`string`): The conflicting key string.
-
-#### Methods
-- `toString() => string`: Returns a formatted string indicating the conflict and the reason for failure.
 
 ### RGXOutOfBoundsError extends RGXError
 A specific error class for out-of-bounds values. This error is thrown when a numeric value falls outside an expected range. The error code is set to `OUT_OF_BOUNDS` on instantiation.
@@ -229,7 +220,6 @@ constructor(message: string, got: number, { min, max, inclusiveLeft, inclusiveRi
 - `failedAtMin() => boolean`: Returns `true` if the `got` value is below the minimum bound (respecting `inclusiveLeft`), otherwise `false`. Returns `false` if `min` is `null`.
 - `failedAtMax() => boolean`: Returns `true` if the `got` value is above the maximum bound (respecting `inclusiveRight`), otherwise `false`. Returns `false` if `max` is `null`.
 - `failedAtAny() => boolean`: Returns `true` if the value failed at either the minimum or maximum bound.
-- `toString() => string`: Returns a formatted string indicating the out-of-bounds value, the expected range, and which bound was violated.
 
 ### RGXTokenCollection
 A class representing a collection of RGX tokens. This class manages collections of RGX tokens like an array, but with additional metadata about the collection mode (union or concat). Since `toRgx()` returns a `RegExp`, instances of this class satisfy the `RGXConvertibleToken` interface and can be used directly as tokens in `rgx`, `rgxa`, and other token-accepting functions.
@@ -326,8 +316,8 @@ constructor(args?: RGXGroupTokenArgs, tokens?: RGXTokenCollectionInput)
 - `tokens` (`RGXTokenCollection`): The internal collection of tokens managed in 'concat' mode.
 - `name` (`string | null`): The name of the group. Setting this to a non-null value validates it as a valid identifier via `assertValidIdentifier`.
 - `capturing` (`boolean`): Whether the group is capturing. Any named group is automatically capturing (returns `true` when `name` is not `null`). Setting this to `false` also clears `name` to `null`.
-- `isGroup` (`boolean`): Returns `true`, indicating this token represents a group.
-- `rgxGroupWrap` (`boolean`): Returns `false`, since the group already wraps itself, preventing the resolver from double-wrapping.
+- `isGroup` (`true`): Returns `true` as a constant, indicating this token represents a group.
+- `rgxGroupWrap` (`false`): Returns `false` as a constant, since the group already wraps itself, preventing the resolver from double-wrapping.
 
 #### Methods
 - `toRgx() => RegExp`: Resolves the group by concatenating the internal tokens and wrapping the result in the appropriate group syntax: `(?<name>...)` for named groups, `(?:...)` for non-capturing groups, or `(...)` for capturing groups.
@@ -345,16 +335,16 @@ A function `rgxRepeat` is provided with the same parameters as this class' const
 ```typescript
 constructor(token: RGXToken, min?: number, max?: number | null)
 ```
-- `token` (`RGXToken`): The token to repeat. If the token is not already a group (i.e., not an array, `RegExp`, or an `RGXClassToken` with `isGroup` set to `true`), it will be automatically wrapped in an `RGXGroupToken` that is non-capturing.
+- `token` (`RGXToken`): The token to repeat. If the token is not already a grouped token, it will be automatically wrapped in a non-capturing `RGXGroupToken`.
 - `min` (`number`, optional): The minimum number of repetitions. Must be >= 0 and <= `max` (when `max` is not `null`). Non-integer values are floored. Defaults to `1`.
 - `max` (`number | null`, optional): The maximum number of repetitions. Must be >= `min` when not `null`. Non-integer values are floored. Pass `null` for unlimited repetitions. Defaults to `min`.
 
 #### Properties
-- `token` (`RGXToken`): The token being repeated. Setting this will automatically wrap non-group tokens in an `RGXGroupToken`.
+- `token` (`RGXGroupedToken`): The token being repeated. Setting this will automatically wrap non-grouped tokens in a non-capturing `RGXGroupToken`.
 - `min` (`number`): The minimum number of repetitions. Setting this validates that the value is >= 0 and <= `max` (when `max` is not `null`), and floors non-integer values. Throws `RGXOutOfBoundsError` if validation fails.
 - `max` (`number | null`): The maximum number of repetitions. Setting this validates that the value is >= `min` when not `null`, and floors non-integer values. Pass `null` for unlimited. Throws `RGXOutOfBoundsError` if validation fails.
 - `repeaterSuffix` (`string`): Returns the regex quantifier suffix based on the current `min` and `max` values: `*` for `{0,}`, `+` for `{1,}`, `?` for `{0,1}`, `{n}` for exact repetitions, `{n,}` for minimum-only, `{n,m}` for a range, or an empty string for `{1,1}` (exactly once, no quantifier needed).
-- `rgxGroupWrap` (`boolean`): Returns `false`, since the quantifier suffix binds tightly to the preceding group and does not need additional wrapping.
+- `rgxGroupWrap` (`false`): Returns `false` as a constant, since the quantifier suffix binds tightly to the preceding group and does not need additional wrapping.
 
 #### Methods
 - `toRgx() => RGXToken`: Resolves the repeat token to a `RegExp` by resolving the inner token and appending the `repeaterSuffix`. Returns `null` (a no-op) when both `min` and `max` are `0`.
@@ -635,6 +625,34 @@ Asserts that the given value is a valid RGX token, optionally narrowed to a spec
   - `value` (`unknown`): The value to assert.
   - `type` (`T`, optional): The token type to assert against. Can be a token type string, `null` (checks against all token types), an `RGXClassTokenConstructor` (checks via `instanceof`), or an array of these. Defaults to `null`.
   - `matchLength` (`boolean`, optional): When `type` is an array, whether to require that the value array has the same length as the type array. Defaults to `true`.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an error if the assertion fails.
+
+### isRGXGroupedToken
+```typescript
+function isRGXGroupedToken(value: unknown, contentCheck?: boolean): value is RGXGroupedToken
+```
+
+Checks if the given value is a grouped token — a token that is implicitly or explicitly a group. Arrays and literal tokens (`RegExp`) are implicitly groups. Class tokens are only groups if they have the `isGroup` property set to `true`. Convertible tokens are groups if they have `rgxGroupWrap` set to `true` and their `toRgx()` method returns a grouped token.
+
+#### Parameters
+  - `value` (`unknown`): The value to check.
+  - `contentCheck` (`boolean`, optional): Whether to validate the contents of array tokens and the return values of convertible tokens. Defaults to `true`. When `false`, arrays are accepted without checking their elements, and convertible tokens with `rgxGroupWrap` set to `true` are accepted without checking their `toRgx()` return value.
+
+#### Returns
+- `boolean`: `true` if the value is a grouped token, otherwise `false`.
+
+### assertRGXGroupedToken
+```typescript
+function assertRGXGroupedToken(value: unknown, contentCheck?: boolean): asserts value is RGXGroupedToken
+```
+
+Asserts that the given value is a grouped token. Uses the same logic as `isRGXGroupedToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Parameters
+  - `value` (`unknown`): The value to assert.
+  - `contentCheck` (`boolean`, optional): Whether to validate the contents of array tokens and the return values of convertible tokens. Defaults to `true`. When `false`, arrays are accepted without checking their elements, and convertible tokens with `rgxGroupWrap` set to `true` are accepted without checking their `toRgx()` return value.
 
 #### Returns
 - `void`: This function does not return a value, but will throw an error if the assertion fails.

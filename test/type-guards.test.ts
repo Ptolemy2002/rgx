@@ -7,7 +7,8 @@ import {
     RGXClassToken,
     isValidIdentifier, assertValidIdentifier,
     RGXInvalidIdentifierError, ExtRegExp,
-    RGXTokenCollection
+    RGXTokenCollection, isRGXGroupedToken, assertRGXGroupedToken,
+    extRegExp
 } from 'src/index';
 
 class TestClassToken1 extends RGXClassToken {
@@ -17,6 +18,16 @@ class TestClassToken1 extends RGXClassToken {
 }
 
 class TestClassToken2 extends RGXClassToken {
+    toRgx() {
+        return "test";
+    }
+}
+
+class TestClassToken3 extends RGXClassToken {
+    get isGroup() {
+        return true as const;
+    }
+
     toRgx() {
         return "test";
     }
@@ -272,6 +283,118 @@ describe('Type Guards', () => {
         it('rejects non-array values', () => {
             expect(isRGXArrayToken('not an array')).toBe(false);
             expect(() => assertRGXArrayToken('not an array')).toThrow(RGXInvalidTokenError);
+        });
+    });
+
+    describe('isRGXGroupedToken', () => {
+        it('accepts array tokens with valid content when contentCheck is true', () => {
+            const token: RGXToken = ['foo', { toRgx: () => 14 }, null, /foo/, ['nested array']];
+            expect(isRGXGroupedToken(token, true)).toBe(true);
+            expect(() => assertRGXGroupedToken(token, true)).not.toThrow();
+        });
+
+        it('rejects array tokens containing invalid tokens when contentCheck is true', () => {
+            const token = ['foo', { invalid: true }];
+            expect(isRGXGroupedToken(token, true)).toBe(false);
+            expect(() => assertRGXGroupedToken(token, true)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('accepts array tokens containing invalid tokens when contentCheck is false', () => {
+            const token = ['foo', { invalid: true }];
+            expect(isRGXGroupedToken(token, false)).toBe(true);
+            expect(() => assertRGXGroupedToken(token, false)).not.toThrow();
+        });
+
+        it('accepts literal tokens', () => {
+            const token1 = /foo/;
+            const token2 = extRegExp('bar');
+
+            expect(isRGXGroupedToken(token1)).toBe(true);
+            expect(isRGXGroupedToken(token2)).toBe(true);
+
+            expect(() => assertRGXGroupedToken(token1)).not.toThrow();
+            expect(() => assertRGXGroupedToken(token2)).not.toThrow();
+        });
+
+        it('accepts class tokens with isGroup property set to true', () => {
+            const token = new TestClassToken3();
+            expect(isRGXGroupedToken(token)).toBe(true);
+            expect(() => assertRGXGroupedToken(token)).not.toThrow();
+        });
+
+        it('rejects class tokens without isGroup property set to true', () => {
+            const token1 = new TestClassToken1();
+            const token2 = new TestClassToken2();
+
+            expect(isRGXGroupedToken(token1)).toBe(false);
+            expect(isRGXGroupedToken(token2)).toBe(false);
+
+            expect(() => assertRGXGroupedToken(token1)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXGroupedToken(token2)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('accepts convertible tokens with rgxGroupWrap set to true and returning a grouped token when contentCheck is true', () => {
+            const token1 = { toRgx: () => ['foo', 'bar'], rgxGroupWrap: true };
+            const token2 = { toRgx: () => /foo/, rgxGroupWrap: true };
+
+            expect(isRGXGroupedToken(token1, true)).toBe(true);
+            expect(isRGXGroupedToken(token2, true)).toBe(true);
+
+            expect(() => assertRGXGroupedToken(token1, true)).not.toThrow();
+            expect(() => assertRGXGroupedToken(token2, true)).not.toThrow();
+        });
+
+        it('rejects convertible tokens with rgxGroupWrap set to true and not returning a grouped token when contentCheck is true', () => {
+            const token1 = { toRgx: () => 'foo', rgxGroupWrap: true };
+            const token2 = { toRgx: () => 'bar', rgxGroupWrap: true };
+
+            expect(isRGXGroupedToken(token1, true)).toBe(false);
+            expect(isRGXGroupedToken(token2, true)).toBe(false);
+
+            expect(() => assertRGXGroupedToken(token1, true)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXGroupedToken(token2, true)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('accepts convertible tokens with rgxGroupWrap set to true and not returning a grouped token when contentCheck is false', () => {
+            const token1 = { toRgx: () => 'foo', rgxGroupWrap: true };
+            const token2 = { toRgx: () => 'bar', rgxGroupWrap: true };
+
+            expect(isRGXGroupedToken(token1, false)).toBe(true);
+            expect(isRGXGroupedToken(token2, false)).toBe(true);
+
+            expect(() => assertRGXGroupedToken(token1, false)).not.toThrow();
+            expect(() => assertRGXGroupedToken(token2, false)).not.toThrow();
+        });
+
+        it('rejects convertible tokens with rgxGroupWrap set to false', () => {
+            const token1 = { toRgx: () => 'foo', rgxGroupWrap: false };
+            const token2 = { toRgx: () => 'bar', rgxGroupWrap: false };
+
+            expect(isRGXGroupedToken(token1, false)).toBe(false);
+            expect(isRGXGroupedToken(token2, false)).toBe(false);
+
+            expect(() => assertRGXGroupedToken(token1, false)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXGroupedToken(token2, false)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('rejects convertible tokens with rgxGroupWrap not set', () => {
+            const token = { toRgx: () => 'foo' };
+            expect(isRGXGroupedToken(token)).toBe(false);
+            expect(() => assertRGXGroupedToken(token)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('rejects non-array, non-literal, non-class, non-convertible tokens', () => {
+            expect(isRGXGroupedToken({invalid: true})).toBe(false);
+            expect(isRGXGroupedToken('foo')).toBe(false);
+            expect(isRGXGroupedToken(42)).toBe(false);
+            expect(isRGXGroupedToken(null)).toBe(false);
+            expect(isRGXGroupedToken(true)).toBe(false);
+
+            expect(() => assertRGXGroupedToken({invalid: true})).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXGroupedToken('foo')).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXGroupedToken(42)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXGroupedToken(null)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXGroupedToken(true)).toThrow(RGXInvalidTokenError);
         });
     });
 

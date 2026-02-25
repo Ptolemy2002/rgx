@@ -5,11 +5,12 @@ export class RGXFlagTransformerConflictError extends RGXError {
 
     constructor(message: string, got: string) {
         super(message, 'FLAG_TRANSFORMER_CONFLICT');
+
         this.name = 'RGXFlagTransformerConflictError';
         this.got = got;
     }
 
-    toString() {
-        return `${this.name}: ${this.message}; Got: ${JSON.stringify(this.got)}`;
+    calcMessage(message: string) {
+        return `${message}; Got: ${JSON.stringify(this.got)}`;
     }
 }

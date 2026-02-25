@@ -5,11 +5,12 @@ export class RGXInvalidFlagTransformerKeyError extends RGXError {
 
     constructor(message: string, got: string) {
         super(message, 'INVALID_FLAG_TRANSFORMER_KEY');
+
         this.name = 'RGXInvalidFlagTransformerKeyError';
         this.got = got;
     }
 
-    toString() {
-        return `${this.name}: ${this.message}; Got: ${JSON.stringify(this.got)}`;
+    calcMessage(message: string) {
+        return `${message}; Got: ${JSON.stringify(this.got)}`;
     }
 }

@@ -9,9 +9,9 @@ export class RGXNotImplementedError extends RGXError {
         this.name = "RGXNotImplementedError";
     }
 
-    toString() {
-        const result = `${this.name}: ${this.functionality} is not implemented yet.`;
-        if (this.message) return result + ` Additional info: ${this.message}`;
+    calcMessage(message: string) {
+        const result = `${this.functionality} is not implemented yet.`;
+        if (message) return result + ` Additional info: ${message}`;
         else return result;
     }
 }

@@ -12,13 +12,32 @@ export type RGXErrorCode =
 ;
 
 export class RGXError extends Error {
+    _message: string;
     code: RGXErrorCode = 'UNKNOWN';
 
+    get message() {
+        return this.calcMessage(this._message);
+    }
+
+    set message(value: string) {
+        this._message = value;
+    }
+
     constructor(message: string, code?: RGXErrorCode) {
-        super(message);
+        super();
         this.name = 'RGXError';
+        this.message = message;
+
         if (code) {
             this.code = code;
         }
+    }
+
+    calcMessage(message: string) {
+        return message;
+    }
+
+    toString() {
+        return `${this.name}: ${this.message}`;
     }
 }

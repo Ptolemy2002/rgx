@@ -57,7 +57,7 @@ describe('RGXInvalidTokenError', () => {
 
     it('exposes the expected property', () => {
         const error = new RGXInvalidTokenError('Invalid token', { type: 'tokenType', values: ['literal'] }, 123);
-        expect(error.expected).toBe('[RegExp]');
+        expect(error.expected).toBe('[RegExp or ExtRegExp]');
     });
 
     it('is an instance of RGXError', () => {
@@ -72,7 +72,7 @@ describe('RGXInvalidTokenError', () => {
 
     it('formats the error message correctly with expected value of "literal"', () => {
         const error = new RGXInvalidTokenError('Invalid token', { type: 'tokenType', values: ['literal'] }, 123);
-        expect(error.toString()).toBe('RGXInvalidTokenError: Invalid token; Expected: [RegExp]; Got: [123]');
+        expect(error.toString()).toBe('RGXInvalidTokenError: Invalid token; Expected: [RegExp or ExtRegExp]; Got: [123]');
     });
 
     it('formats the error message correctly with expected value of "native"', () => {
@@ -97,7 +97,7 @@ describe('RGXInvalidTokenError', () => {
 
     it('formats the error message correctly with expected value of multiple token types', () => {
         const error = new RGXInvalidTokenError('Invalid token', { type: 'tokenType', values: ['literal', 'native'] }, 123);
-        expect(error.toString()).toBe('RGXInvalidTokenError: Invalid token; Expected: [RegExp, string, number, boolean, null, or undefined]; Got: [123]');
+        expect(error.toString()).toBe('RGXInvalidTokenError: Invalid token; Expected: [RegExp, ExtRegExp, string, number, boolean, null, or undefined]; Got: [123]');
     });
 
     it('formats the error message correctly with custom expected values', () => {
@@ -114,7 +114,7 @@ describe('RGXInvalidTokenError', () => {
         const error = new RGXInvalidTokenError('Invalid token', null, 123);
         expect(error.toString()).toBe(
             'RGXInvalidTokenError: Invalid token; Expected: '
-            + '[null, undefined, RegExp, string, number, boolean,'
+            + '[null, undefined, RegExp, ExtRegExp, string, number, boolean,'
             + ' object with a toRgx method that returns a valid native/literal token or an array of valid native/literal tokens,'
             + ' array of native/literal/convertible tokens,'
             + ' or instance of RGXClassToken]; Got: [123]'
