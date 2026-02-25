@@ -226,5 +226,26 @@ describe("RGXRepeatToken", () => {
             const instance = new RGXRepeatToken("a", 2, 4);
             expect(instance.toRgx()).toBeInstanceOf(RegExp);
         });
+
+        it("group wraps array tokens", () => {
+            const instance = new RGXRepeatToken(["a", "b"], 2, 4);
+            const rgx = instance.toRgx();
+            expect(rgx).toBeInstanceOf(RegExp);
+            expect((rgx as RegExp).source).toBe("(?:a|b){2,4}");
+        });
+
+        it("group wraps literal tokens", () => {
+            const instance = new RGXRepeatToken(/abc/, 2, 4);
+            const rgx = instance.toRgx();
+            expect(rgx).toBeInstanceOf(RegExp);
+            expect((rgx as RegExp).source).toBe("(?:abc){2,4}");
+        });
+
+        it("group wraps non-group tokens", () => {
+            const instance = new RGXRepeatToken("a", 2, 4);
+            const rgx = instance.toRgx();
+            expect(rgx).toBeInstanceOf(RegExp);
+            expect((rgx as RegExp).source).toBe("(?:a){2,4}");
+        });
     });
 });

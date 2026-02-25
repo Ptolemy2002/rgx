@@ -51,11 +51,11 @@ export class RGXRepeatToken extends RGXClassToken {
 
         // Make sure we are always working with a group token.
         if (isGroup) this._token = value;
-        else this._token = new RGXGroupToken({}, value);
+        else this._token = new RGXGroupToken({capturing: false}, value);
     }
 
     // We don't need to group wrap this token because the repeater has no
-    // semantics that would be lost if there are other tokens to the right.
+    // semantics that would change if there are other tokens to the right.
     get rgxGroupWrap(): boolean {
         return false;
     }

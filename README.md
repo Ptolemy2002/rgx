@@ -345,7 +345,7 @@ A function `rgxRepeat` is provided with the same parameters as this class' const
 ```typescript
 constructor(token: RGXToken, min?: number, max?: number | null)
 ```
-- `token` (`RGXToken`): The token to repeat. If the token is not already a group (i.e., not an array, `RegExp`, or an `RGXClassToken` with `isGroup` set to `true`), it will be automatically wrapped in an `RGXGroupToken`.
+- `token` (`RGXToken`): The token to repeat. If the token is not already a group (i.e., not an array, `RegExp`, or an `RGXClassToken` with `isGroup` set to `true`), it will be automatically wrapped in an `RGXGroupToken` that is non-capturing.
 - `min` (`number`, optional): The minimum number of repetitions. Must be >= 0 and <= `max` (when `max` is not `null`). Non-integer values are floored. Defaults to `1`.
 - `max` (`number | null`, optional): The maximum number of repetitions. Must be >= `min` when not `null`. Non-integer values are floored. Pass `null` for unlimited repetitions. Defaults to `min`.
 
