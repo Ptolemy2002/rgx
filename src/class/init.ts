@@ -3,6 +3,10 @@ import { expandRgxUnionTokens, RGXClassUnionToken } from "./union";
 import { RGXGroupToken, RGXGroupTokenArgs } from "./group";
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 import { RGXRepeatToken } from "./repeat";
+import { RGXLookaroundToken } from "./lookaround";
+import { RGXNotSupportedError } from "src/errors";
+import { RGXLookaheadToken } from "./lookahead";
+import { RGXLookbehindToken } from "./lookbehind";
 
 export function rgxClassInit() {
     // Patch RGXClassToken here, Since classes like RGXClassUnionToken are instances of RGXClassToken
@@ -27,6 +31,17 @@ export function rgxClassInit() {
     }
 
     RGXClassToken.prototype.repeat = function (this: RGXClassToken, min: number = 1, max: number | null = min): RGXRepeatToken {
+        if (RGXLookaroundToken.check(this)) throw new RGXNotSupportedError("RGXLookaroundToken.repeat()", "Lookaround tokens cannot be repeated or made optional.");
         return new RGXRepeatToken(this, min, max);
+    }
+
+    RGXClassToken.prototype.asLookahead = function (this: RGXClassToken, positive: boolean = true): RGXLookaheadToken {
+        if (RGXLookaheadToken.check(this)) return this;
+        return new RGXLookaheadToken([this], positive);
+    }
+
+    RGXClassToken.prototype.asLookbehind = function (this: RGXClassToken, positive: boolean = true): RGXLookbehindToken {
+        if (RGXLookbehindToken.check(this)) return this;
+        return new RGXLookbehindToken([this], positive);
     }
 }

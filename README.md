@@ -44,7 +44,7 @@ type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     // ... see source for full definition
 ;
 
-type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_REGEX_FLAGS' | 'INVALID_VANILLA_REGEX_FLAGS' | 'NOT_IMPLEMENTED' | 'INVALID_IDENTIFIER' | 'OUT_OF_BOUNDS' | 'INVALID_FLAG_TRANSFORMER_KEY' | 'FLAG_TRANSFORMER_CONFLICT';
+type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_REGEX_FLAGS' | 'INVALID_VANILLA_REGEX_FLAGS' | 'NOT_IMPLEMENTED' | 'NOT_SUPPORTED' | 'INVALID_IDENTIFIER' | 'OUT_OF_BOUNDS' | 'INVALID_FLAG_TRANSFORMER_KEY' | 'FLAG_TRANSFORMER_CONFLICT';
 
 type RangeObject = {
     min?: number | null;
@@ -142,6 +142,19 @@ constructor(functionality: string, message?: string | null)
 
 #### Properties
 - `functionality` (`string`): The description of the unimplemented functionality.
+
+### RGXNotSupportedError extends RGXError
+A specific error class for unsupported functionality. This error is thrown when a feature or method is intentionally not supported (as opposed to simply not yet implemented). The error code is set to `NOT_SUPPORTED` on instantiation.
+
+#### Constructor
+```typescript
+constructor(functionality: string, message?: string | null)
+```
+- `functionality` (`string`): A description of the functionality that is not supported.
+- `message` (`string | null`, optional): An optional additional message providing more context. Defaults to `null`.
+
+#### Properties
+- `functionality` (`string`): The description of the unsupported functionality.
 
 ### RGXInvalidIdentifierError extends RGXError
 A specific error class for invalid identifiers. This error is thrown when a string fails validation as a valid identifier. The error code is set to `INVALID_IDENTIFIER` on instantiation.
@@ -262,14 +275,17 @@ An abstract base class for creating custom RGX token classes. Subclasses must im
 
 #### Properties
 - `isGroup` (`boolean`): Returns `false` by default. Subclasses can override this to indicate whether the token represents a group.
+- `isRepeatable` (`boolean`): Returns `true` by default. Subclasses can override this to indicate that the token cannot be wrapped in an `RGXRepeatToken`. When `false`, attempting to set this token as the `token` property of an `RGXRepeatToken` (including via `repeat()` or `optional()`) will throw an `RGXNotSupportedError`.
 - `rgxGroupWrap` (`boolean`): Returns `true` by default. Controls whether the resolver wraps this token's resolved output in a non-capturing group. Subclasses can override this to prevent double-wrapping (e.g., when the token already wraps itself in a group).
 
 #### Methods
 - `or(...others: RGXTokenCollectionInput[]) => RGXClassUnionToken`: Creates an `RGXClassUnionToken` that represents a union (alternation) of this token with the provided others. If any of the `others` are `RGXClassUnionToken` instances, their tokens are flattened into the union rather than nested. If `this` is already an `RGXClassUnionToken`, its existing tokens are preserved and the others are appended.
 - `group(args?: RGXGroupTokenArgs) => RGXGroupToken`: Wraps this token in an `RGXGroupToken` with the provided arguments. The `args` parameter defaults to `{}`, which creates a capturing group with no name. This is a convenience method that creates a new `RGXGroupToken` with `this` as the sole token.
-- `repeat(min?: number, max?: number | null) => RGXRepeatToken`: Wraps this token in an `RGXRepeatToken` with the given repetition bounds. `min` defaults to `1`, `max` defaults to `min`. Pass `null` for `max` to allow unlimited repetitions. This is a convenience method that creates a new `RGXRepeatToken` with `this` as the token.
-- `optional() => RGXRepeatToken`: Shorthand for `repeat(0, 1)`. Wraps this token in an `RGXRepeatToken` that matches the token zero or one times.
-- `resolve() => ValidRegexString`: A convenience method that resolves this token by calling `resolveRGXToken(this)`, returning the resolved regex string representation. Since this method is defined on `RGXClassToken`, it is available on all subclasses including `RGXClassUnionToken`, `RGXGroupToken`, and `RGXRepeatToken`.
+- `repeat(min?: number, max?: number | null) => RGXRepeatToken`: Wraps this token in an `RGXRepeatToken` with the given repetition bounds. `min` defaults to `1`, `max` defaults to `min`. Pass `null` for `max` to allow unlimited repetitions. This is a convenience method that creates a new `RGXRepeatToken` with `this` as the token. Throws `RGXNotSupportedError` if called on an `RGXLookaroundToken`, as lookaround assertions cannot be repeated.
+- `optional() => RGXRepeatToken`: Shorthand for `repeat(0, 1)`. Wraps this token in an `RGXRepeatToken` that matches the token zero or one times. Throws `RGXNotSupportedError` if called on an `RGXLookaroundToken`, as lookaround assertions cannot be made optional.
+- `asLookahead(positive?: boolean) => RGXLookaheadToken`: Wraps this token in an `RGXLookaheadToken`. `positive` defaults to `true`. If this token is already an `RGXLookaheadToken`, it is returned as-is without re-wrapping.
+- `asLookbehind(positive?: boolean) => RGXLookbehindToken`: Wraps this token in an `RGXLookbehindToken`. `positive` defaults to `true`. If this token is already an `RGXLookbehindToken`, it is returned as-is without re-wrapping.
+- `resolve() => ValidRegexString`: A convenience method that resolves this token by calling `resolveRGXToken(this)`, returning the resolved regex string representation. Since this method is defined on `RGXClassToken`, it is available on all subclasses including `RGXClassUnionToken`, `RGXGroupToken`, `RGXRepeatToken`, and `RGXLookaroundToken`.
 
 ### RGXClassUnionToken extends RGXClassToken
 A class representing a union (alternation) of RGX tokens. This is typically created via the `or()` method on `RGXClassToken`, but can also be instantiated directly.
@@ -340,7 +356,7 @@ constructor(token: RGXToken, min?: number, max?: number | null)
 - `max` (`number | null`, optional): The maximum number of repetitions. Must be >= `min` when not `null`. Non-integer values are floored. Pass `null` for unlimited repetitions. Defaults to `min`.
 
 #### Properties
-- `token` (`RGXGroupedToken`): The token being repeated. Setting this will automatically wrap non-grouped tokens in a non-capturing `RGXGroupToken`.
+- `token` (`RGXGroupedToken`): The token being repeated. Setting this will throw `RGXNotSupportedError` if the value is a class token with `isRepeatable` set to `false`, and will automatically wrap non-grouped tokens in a non-capturing `RGXGroupToken`.
 - `min` (`number`): The minimum number of repetitions. Setting this validates that the value is >= 0 and <= `max` (when `max` is not `null`), and floors non-integer values. Throws `RGXOutOfBoundsError` if validation fails.
 - `max` (`number | null`): The maximum number of repetitions. Setting this validates that the value is >= `min` when not `null`, and floors non-integer values. Pass `null` for unlimited. Throws `RGXOutOfBoundsError` if validation fails.
 - `repeaterSuffix` (`string`): Returns the regex quantifier suffix based on the current `min` and `max` values: `*` for `{0,}`, `+` for `{1,}`, `?` for `{0,1}`, `{n}` for exact repetitions, `{n,}` for minimum-only, `{n,m}` for a range, or an empty string for `{1,1}` (exactly once, no quantifier needed).
@@ -348,6 +364,60 @@ constructor(token: RGXToken, min?: number, max?: number | null)
 
 #### Methods
 - `toRgx() => RGXToken`: Resolves the repeat token to a `RegExp` by resolving the inner token and appending the `repeaterSuffix`. Returns `null` (a no-op) when both `min` and `max` are `0`.
+
+### RGXLookaroundToken extends RGXClassToken (abstract)
+An abstract base class for lookaround assertion tokens (lookahead and lookbehind). Lookaround assertions match a pattern without consuming characters in the string. Subclasses must implement the `toRgx()`, `negate()`, and `reverse()` methods.
+
+#### Static Properties
+- `check(value: unknown): value is RGXLookaroundToken`: A type guard that checks if the given value is an instance of `RGXLookaroundToken`.
+- `assert(value: unknown): asserts value is RGXLookaroundToken`: An assertion that checks if the given value is an instance of `RGXLookaroundToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Constructor
+```typescript
+constructor(tokens?: RGXTokenCollectionInput, positive?: boolean)
+```
+- `tokens` (`RGXTokenCollectionInput`, optional): The tokens to include in the lookaround. Internally stored as an `RGXTokenCollection` in 'concat' mode. Defaults to an empty array.
+- `positive` (`boolean`, optional): Whether the lookaround is positive (matches if the pattern is present) or negative (matches if the pattern is absent). Defaults to `true`.
+
+#### Properties
+- `tokens` (`RGXTokenCollection`): The internal collection of tokens managed in 'concat' mode.
+- `positive` (`boolean`): Whether the lookaround is positive. Setting this updates `negative` accordingly.
+- `negative` (`boolean`): Whether the lookaround is negative. Setting this updates `positive` accordingly.
+- `isGroup` (`true`): Returns `true` as a constant, indicating this token represents a group.
+- `isRepeatable` (`false`): Returns `false` as a constant, since lookaround assertions cannot be repeated.
+- `rgxGroupWrap` (`false`): Returns `false` as a constant, since the lookaround already wraps itself in a group.
+
+#### Abstract Methods
+- `negate() => RGXLookaroundToken`: Returns a new lookaround token of the same type with the opposite positivity, preserving the original tokens.
+- `reverse() => RGXLookaroundToken`: Returns a new lookaround token of the opposite direction (lookahead becomes lookbehind and vice versa), preserving the original tokens and positivity.
+
+### RGXLookaheadToken extends RGXLookaroundToken
+A class representing a lookahead assertion. Positive lookaheads (`(?=...)`) match if the pattern is present ahead, while negative lookaheads (`(?!...)`) match if the pattern is absent. This is typically created via the `asLookahead()` method on `RGXClassToken`, but can also be instantiated directly.
+
+A function `rgxLookahead` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
+
+#### Static Properties
+- `check(value: unknown): value is RGXLookaheadToken`: A type guard that checks if the given value is an instance of `RGXLookaheadToken`.
+- `assert(value: unknown): asserts value is RGXLookaheadToken`: An assertion that checks if the given value is an instance of `RGXLookaheadToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Methods
+- `negate() => RGXLookaheadToken`: Returns a new `RGXLookaheadToken` with the opposite positivity, preserving the original tokens.
+- `reverse() => RGXLookbehindToken`: Returns a new `RGXLookbehindToken` with the same tokens and positivity.
+- `toRgx() => RegExp`: Resolves the lookahead to a `RegExp`. Positive lookaheads produce `(?=...)` and negative lookaheads produce `(?!...)`.
+
+### RGXLookbehindToken extends RGXLookaroundToken
+A class representing a lookbehind assertion. Positive lookbehinds (`(?<=...)`) match if the pattern is present behind, while negative lookbehinds (`(?<!...)`) match if the pattern is absent. This is typically created via the `asLookbehind()` method on `RGXClassToken`, but can also be instantiated directly.
+
+A function `rgxLookbehind` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
+
+#### Static Properties
+- `check(value: unknown): value is RGXLookbehindToken`: A type guard that checks if the given value is an instance of `RGXLookbehindToken`.
+- `assert(value: unknown): asserts value is RGXLookbehindToken`: An assertion that checks if the given value is an instance of `RGXLookbehindToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Methods
+- `negate() => RGXLookbehindToken`: Returns a new `RGXLookbehindToken` with the opposite positivity, preserving the original tokens.
+- `reverse() => RGXLookaheadToken`: Returns a new `RGXLookaheadToken` with the same tokens and positivity.
+- `toRgx() => RegExp`: Resolves the lookbehind to a `RegExp`. Positive lookbehinds produce `(?<=...)` and negative lookbehinds produce `(?<!...)`.
 
 ### ExtRegExp extends RegExp
 A subclass of `RegExp` that supports custom flag transformers in addition to the standard vanilla regex flags (g, i, m, s, u, y). When constructed, custom flags are extracted, their corresponding transformers are applied to the pattern and vanilla flags, and the resulting transformed `RegExp` is created. The `flags` getter returns both the vanilla flags and any custom flags.
@@ -850,7 +920,7 @@ Removes duplicate tokens from the provided list using `Set` equality and returns
 function rgxClassInit(): void
 ```
 
-Initializes internal method patches required for `RGXClassToken` subclass methods (such as `or`, `group`, and `repeat`) to work correctly. This function is called automatically when importing from the main module entry point, so you typically do not need to call it yourself. It only needs to be called manually if you import directly from sub-modules.
+Initializes internal method patches required for `RGXClassToken` subclass methods (such as `or`, `group`, `repeat`, `asLookahead`, and `asLookbehind`) to work correctly. This function is called automatically when importing from the main module entry point, so you typically do not need to call it yourself. It only needs to be called manually if you import directly from sub-modules.
 
 ### isInRange
 ```typescript

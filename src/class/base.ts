@@ -5,6 +5,8 @@ import { resolveRGXToken } from "src/resolve";
 import type { RGXClassUnionToken } from "./union";
 import type { RGXGroupToken, RGXGroupTokenArgs } from "./group";
 import type { RGXRepeatToken } from "./repeat";
+import type { RGXLookaheadToken } from "./lookahead";
+import type { RGXLookbehindToken } from "./lookbehind";
 
 export abstract class RGXClassToken {
     abstract toRgx(): RGXToken
@@ -20,6 +22,10 @@ export abstract class RGXClassToken {
 
     get isGroup() {
         return false;
+    }
+
+    get isRepeatable() {
+        return true;
     }
 
     get rgxGroupWrap() {
@@ -40,6 +46,14 @@ export abstract class RGXClassToken {
 
     optional(): RGXRepeatToken {
         return this.repeat(0, 1);
+    }
+
+    asLookahead(positive: boolean = true): RGXLookaheadToken {
+        throw new RGXNotImplementedError('RGXClassToken.asLookahead(positive)', 'call rgxClassInit() first.');
+    }
+
+    asLookbehind(positive: boolean = true): RGXLookbehindToken {
+        throw new RGXNotImplementedError('RGXClassToken.asLookbehind(positive)', 'call rgxClassInit() first.');
     }
 
     resolve(): ValidRegexString {

@@ -2,7 +2,7 @@ import {
     RGXError, RGXInvalidTokenError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError,
     RGXNotImplementedError, RGXClassToken, RGXInvalidIdentifierError, RGXOutOfBoundsError,
     RGXInvalidRegexFlagsError, isInRange, assertInRange, RGXInvalidFlagTransformerKeyError,
-    RGXFlagTransformerConflictError
+    RGXFlagTransformerConflictError, RGXNotSupportedError
 } from 'src/index';
 
 class TestClassToken extends RGXClassToken {
@@ -233,6 +233,40 @@ describe('RGXNotImplementedError', () => {
         const error = new RGXNotImplementedError('Some functionality', 'This will be implemented in the future.');
         expect(error.toString()).toBe(
             'RGXNotImplementedError: Some functionality is not implemented yet. Additional info: This will be implemented in the future.'
+        );
+    });
+});
+
+describe('RGXNotSupportedError', () => {
+    it('has the correct name', () => {
+        const error = new RGXNotSupportedError('Some functionality');
+        expect(error.name).toBe('RGXNotSupportedError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXNotSupportedError('Some functionality');
+        expect(error.code).toBe('NOT_SUPPORTED');
+    });
+
+    it('exposes the functionality property', () => {
+        const error = new RGXNotSupportedError('Some functionality');
+        expect(error.functionality).toBe('Some functionality');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXNotSupportedError('Some functionality');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly without additional info', () => {
+        const error = new RGXNotSupportedError('Some functionality');
+        expect(error.toString()).toBe('RGXNotSupportedError: Some functionality is not supported.');
+    });
+
+    it('formats the error message correctly with additional info', () => {
+        const error = new RGXNotSupportedError('Some functionality', 'This will be supported in the future.');
+        expect(error.toString()).toBe(
+            'RGXNotSupportedError: Some functionality is not supported. Additional info: This will be supported in the future.'
         );
     });
 });

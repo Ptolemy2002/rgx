@@ -1,8 +1,18 @@
 import { RGXRepeatToken, RGXGroupToken, rgxRepeat, RGXClassToken } from "src/class";
-import { RGXInvalidTokenError, RGXOutOfBoundsError } from "src/errors";
+import { RGXInvalidTokenError, RGXOutOfBoundsError, RGXNotSupportedError } from "src/errors";
 import { ConstructFunction } from "src/internal";
 
-class TestClassToken extends RGXClassToken {
+class TestClassToken1 extends RGXClassToken {
+    toRgx() {
+        return "test";
+    }
+}
+
+class TestClassToken2 extends RGXClassToken {
+    get isRepeatable() {
+        return false as const;
+    }
+
     toRgx() {
         return "test";
     }
@@ -56,6 +66,11 @@ function constructionTest(constructor: ConstructFunction<typeof RGXRepeatToken>)
         expect(instance.token).toBeInstanceOf(RGXGroupToken);
         expect((instance.token as RGXGroupToken).tokens.toArray()).toEqual([nonGroupToken]);
     });
+
+    it("rejects non-repeatable tokens", () => {
+        const nonRepeatableToken = new TestClassToken2();
+        expect(() => constructor(nonRepeatableToken)).toThrow(RGXNotSupportedError);
+    });
 }
 
 const isRgxRepeatToken = RGXRepeatToken.check;
@@ -70,7 +85,7 @@ describe("RGXRepeatToken", () => {
         });
 
         it("rejects non-instances of RGXRepeatToken", () => {
-            const instance = new TestClassToken();
+            const instance = new TestClassToken1();
 
             expect(isRgxRepeatToken({})).toBe(false);
             expect(isRgxRepeatToken("test")).toBe(false);

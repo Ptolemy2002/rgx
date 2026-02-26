@@ -1,5 +1,5 @@
-import { rgxClassInit, RGXClassToken, RGXClassUnionToken, RGXGroupToken, RGXRepeatToken } from "src/class";
-import { RGXNotImplementedError, RGXInvalidTokenError } from "src/errors";
+import { rgxClassInit, RGXClassToken, RGXClassUnionToken, RGXGroupToken, RGXLookaheadToken, RGXLookbehindToken, RGXRepeatToken } from "src/class";
+import { RGXNotImplementedError, RGXInvalidTokenError, RGXNotSupportedError } from "src/errors";
 
 class TestClassToken extends RGXClassToken {
     toRgx() {
@@ -9,10 +9,10 @@ class TestClassToken extends RGXClassToken {
 
 const testToken1 = new TestClassToken();
 
-const isRgxClassToken = RGXClassToken.check;
-const assertRgxClassToken = RGXClassToken.assert;
+export const isRgxClassToken = RGXClassToken.check;
+export const assertRgxClassToken = RGXClassToken.assert;
 
-describe("type guards", () => {
+describe("RGXClassToken type guards", () => {
     it("accepts instances of RGXClassToken", () => {
         expect(isRgxClassToken(testToken1)).toBe(true);
         expect(() => assertRgxClassToken(testToken1)).not.toThrow();
@@ -47,6 +47,14 @@ describe("rgxClassInit", () => {
         expect(testToken1.repeat).toThrow(RGXNotImplementedError);
     });
 
+    it("doesn't implement the asLookahead method before being called", () => {
+        expect(testToken1.asLookahead).toThrow(RGXNotImplementedError);
+    });
+
+    it("doesn't implement the asLookbehind method before being called", () => {
+        expect(testToken1.asLookbehind).toThrow(RGXNotImplementedError);
+    });
+
     it("implements the or method after being called", () => {
         rgxClassInit();
         expect(testToken1.or).toBeDefined();
@@ -58,6 +66,24 @@ describe("rgxClassInit", () => {
         expect(testToken1.group).toBeDefined();
         expect(typeof testToken1.group).toBe("function");
     });
+
+    it("implements the repeat method after being called", () => {
+        rgxClassInit();
+        expect(testToken1.repeat).toBeDefined();
+        expect(typeof testToken1.repeat).toBe("function");
+    });
+
+    it("implements the asLookahead method after being called", () => {
+        rgxClassInit();
+        expect(testToken1.asLookahead).toBeDefined();
+        expect(typeof testToken1.asLookahead).toBe("function");
+    });
+
+    it("implements the asLookbehind method after being called", () => {
+        rgxClassInit();
+        expect(testToken1.asLookbehind).toBeDefined();
+        expect(typeof testToken1.asLookbehind).toBe("function");
+    });
 });
 
 describe("RGXClassToken", () => {
@@ -67,6 +93,10 @@ describe("RGXClassToken", () => {
 
     it("has rgxGroupWrap as true by default", () => {
         expect(testToken1.rgxGroupWrap).toBe(true);
+    });
+
+    it("is repeatable by default", () => {
+        expect(testToken1.isRepeatable).toBe(true);
     });
 
     it("resolves to a valid regex string via resolve()", () => {
@@ -205,6 +235,14 @@ describe("RGXClassToken", () => {
             expect(result.min).toBe(1);
             expect(result.max).toBe(4);
         });
+
+        it("doesn't support lookaround tokens", () => {
+            const lookaheadToken = new RGXLookaheadToken([testToken1]);
+            const lookbehindToken = new RGXLookbehindToken([testToken1]);
+
+            expect(() => lookaheadToken.repeat(2)).toThrow(RGXNotSupportedError);
+            expect(() => lookbehindToken.repeat(2)).toThrow(RGXNotSupportedError);
+        });
     });
 
     describe("optional", () => {
@@ -221,6 +259,70 @@ describe("RGXClassToken", () => {
 
             expect(result.min).toBe(0);
             expect(result.max).toBe(1);
+        });
+
+        it("doesn't support lookaround tokens", () => {
+            const lookaheadToken = new RGXLookaheadToken([testToken1]);
+            const lookbehindToken = new RGXLookbehindToken([testToken1]);
+
+            expect(() => lookaheadToken.optional()).toThrow(RGXNotSupportedError);
+            expect(() => lookbehindToken.optional()).toThrow(RGXNotSupportedError);
+        });
+    });
+
+    describe("asLookahead", () => {
+        beforeAll(() => {
+            rgxClassInit();
+        });
+
+        it("wraps in a lookahead token with correct positivity", () => {
+            const result = testToken1.asLookahead(false);
+            expect(result).toBeInstanceOf(RGXLookaheadToken);
+
+            expect(result.tokens.toArray()).toEqual([testToken1]);
+            expect(result.positive).toBe(false);
+        });
+
+        it("handles default positivity correctly", () => {
+            const result = testToken1.asLookahead();
+            expect(result).toBeInstanceOf(RGXLookaheadToken);
+
+            expect(result.tokens.toArray()).toEqual([testToken1]);
+            expect(result.positive).toBe(true);
+        });
+
+        it("does not wrap if already a lookahead token", () => {
+            const lookaheadToken = testToken1.asLookahead();
+            const result = lookaheadToken.asLookahead();
+            expect(result).toBe(lookaheadToken);
+        });
+    });
+
+    describe("asLookbehind", () => {
+        beforeAll(() => {
+            rgxClassInit();
+        });
+
+        it("wraps in a lookbehind token with correct positivity", () => {
+            const result = testToken1.asLookbehind(false);
+            expect(result).toBeInstanceOf(RGXLookbehindToken);
+
+            expect(result.tokens.toArray()).toEqual([testToken1]);
+            expect(result.positive).toBe(false);
+        });
+
+        it("handles default positivity correctly", () => {
+            const result = testToken1.asLookbehind();
+            expect(result).toBeInstanceOf(RGXLookbehindToken);
+
+            expect(result.tokens.toArray()).toEqual([testToken1]);
+            expect(result.positive).toBe(true);
+        });
+
+        it("does not wrap if already a lookbehind token", () => {
+            const lookbehindToken = testToken1.asLookbehind();
+            const result = lookbehindToken.asLookbehind();
+            expect(result).toBe(lookbehindToken);
         });
     });
 });

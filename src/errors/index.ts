@@ -8,3 +8,4 @@ export * from './invalidIdentifier';
 export * from './outOfBounds';
 export * from './invalidFlagTransformerKey';
 export * from './flagTransformerConflict';
+export * from './notSupported';

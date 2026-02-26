@@ -2,7 +2,7 @@ import { RGXGroupedToken, RGXToken } from "src/types";
 import { RGXClassToken } from "./base";
 import { RGXGroupToken } from "./group";
 import { isRGXGroupedToken, isRGXToken } from "src/typeGuards";
-import { assertInRange } from "src/errors";
+import { assertInRange, RGXNotSupportedError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
 import { createAssertClassGuardFunction, createClassGuardFunction, createConstructFunction } from "src/internal";
 
@@ -42,6 +42,10 @@ export class RGXRepeatToken extends RGXClassToken {
     }
 
     set token(value: RGXToken) {
+        if (isRGXToken(value, "class") && !value.isRepeatable) {
+            throw new RGXNotSupportedError(`Repeating ${value.constructor.name} tokens`, "The token was manually marked as non-repeatable.");
+        }
+
         // Make sure we are always working with a grouped token.
         if (isRGXGroupedToken(value)) this._token = value;
         else this._token = new RGXGroupToken({capturing: false}, value);
