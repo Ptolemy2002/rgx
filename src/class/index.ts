@@ -6,3 +6,5 @@ export * from "./repeat";
 export * from "./lookaround";
 export * from "./lookahead";
 export * from "./lookbehind";
+export * from "./wrapper";
+export * from "./toRGXClassToken";

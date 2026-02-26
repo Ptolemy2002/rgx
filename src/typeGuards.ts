@@ -182,7 +182,7 @@ export function assertValidRegexString(value: string): asserts value is t.ValidR
 }
 
 export function isValidVanillaRegexFlags(value: string): value is t.ValidVanillaRegexFlags {
-    const patternMatch = /^[gimsuy]*$/.test(value);
+    const patternMatch = /^[gimsuydv]*$/.test(value);
     if (!patternMatch) return false;
 
     // No repeated flags allowed

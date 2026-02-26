@@ -1,0 +1,180 @@
+import { RGXClassToken, RGXClassWrapperToken, rgxClassWrapper } from "src/class";
+import { ConstructFunction } from "src/internal";
+import { RGXInvalidTokenError } from "src/errors";
+
+class TestClassToken1 extends RGXClassToken {
+    toRgx() {
+        return "test";
+    }
+}
+
+class TestClassToken2 extends RGXClassToken {
+    get isGroup() {
+        return true as const;
+    }
+
+    get isRepeatable() {
+        return false as const;
+    }
+
+    toRgx() {
+        return "test";
+    }
+}
+
+function constructorTest(constructor: ConstructFunction<typeof RGXClassWrapperToken>) {
+    it("constructs an instance of RGXClassWrapperToken", () => {
+        const instance = constructor("test");
+        expect(instance).toBeInstanceOf(RGXClassWrapperToken);
+    });
+
+    it("correctly initializes with a token", () => {
+        const token = "test";
+        const instance = constructor(token);
+        expect(instance.token).toBe(token);
+    });
+}
+
+const isRgxClassWrapperToken = RGXClassWrapperToken.check;
+const assertRgxClassWrapperToken = RGXClassWrapperToken.assert;
+
+describe("RGXClassWrapperToken", () => {
+    describe("constructor", () => {
+        constructorTest((...args) => new RGXClassWrapperToken(...args));
+    });
+
+    describe("construct function", () => {
+        constructorTest(rgxClassWrapper);
+    });
+
+    describe("type guards", () => {
+        it("accepts instances of RGXClassWrapperToken", () => {
+            const instance = new RGXClassWrapperToken("test");
+            expect(isRgxClassWrapperToken(instance)).toBe(true);
+            expect(() => assertRgxClassWrapperToken(instance)).not.toThrow();
+        });
+
+        it("rejects non-instances of RGXClassWrapperToken", () => {
+            const instance = new TestClassToken1();
+
+            expect(isRgxClassWrapperToken({})).toBe(false);
+            expect(isRgxClassWrapperToken("test")).toBe(false);
+            expect(isRgxClassWrapperToken(123)).toBe(false);
+            expect(isRgxClassWrapperToken(null)).toBe(false);
+            expect(isRgxClassWrapperToken(undefined)).toBe(false);
+            expect(isRgxClassWrapperToken(instance)).toBe(false);
+
+            expect(() => assertRgxClassWrapperToken({})).toThrow(RGXInvalidTokenError);
+            expect(() => assertRgxClassWrapperToken("test")).toThrow(RGXInvalidTokenError);
+            expect(() => assertRgxClassWrapperToken(123)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRgxClassWrapperToken(null)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRgxClassWrapperToken(undefined)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRgxClassWrapperToken(instance)).toThrow(RGXInvalidTokenError);
+        });
+    });
+
+    describe("isGroup", () => {
+        it("is true for array tokens", () => {
+            const instance = new RGXClassWrapperToken(["a", "b"]);
+            expect(instance.isGroup).toBe(true);
+        });
+
+        it("is true for literal tokens", () => {
+            const instance = new RGXClassWrapperToken("test");
+            expect(instance.isGroup).toBe(false);
+        });
+
+        it("is true for class tokens with isGroup true", () => {
+            const instance = new RGXClassWrapperToken(new TestClassToken2());
+            expect(instance.isGroup).toBe(true);
+        });
+
+        it("is false for class tokens with isGroup false", () => {
+            const instance = new RGXClassWrapperToken(new TestClassToken1());
+            expect(instance.isGroup).toBe(false);
+        });
+
+        it("is true for convertible tokens with rgxGroupWrap true that return other group tokens", () => {
+            const convertibleToken = {
+                rgxGroupWrap: true,
+                toRgx() {
+                    return ["a", "b"];
+                }
+            };
+            const instance = new RGXClassWrapperToken(convertibleToken);
+            expect(instance.isGroup).toBe(true);
+        });
+
+        it("is false for convertible tokens with rgxGroupWrap true that return non-group tokens", () => {
+            const convertibleToken = {
+                rgxGroupWrap: true,
+                toRgx() {
+                    return "test";
+                }
+            };
+            const instance = new RGXClassWrapperToken(convertibleToken);
+            expect(instance.isGroup).toBe(false);
+        });
+
+        it("is false for convertible tokens with rgxGroupWrap false", () => {
+            const convertibleToken = {
+                rgxGroupWrap: false,
+                toRgx() {
+                    return ["a", "b"];
+                }
+            };
+            const instance = new RGXClassWrapperToken(convertibleToken);
+            expect(instance.isGroup).toBe(false);
+        });
+
+        it("is false for non-group tokens", () => {
+            expect(new RGXClassWrapperToken("test").isGroup).toBe(false);
+            expect(new RGXClassWrapperToken(123).isGroup).toBe(false);
+            expect(new RGXClassWrapperToken(null).isGroup).toBe(false);
+            expect(new RGXClassWrapperToken(undefined).isGroup).toBe(false);
+        });
+    });
+
+    describe("isRepeatable", () => {
+        it("is true for class tokens with isRepeatable true", () => {
+            const instance = new RGXClassWrapperToken(new TestClassToken1());
+            expect(instance.isRepeatable).toBe(true);
+        });
+
+        it("is false for class tokens with isRepeatable false", () => {
+            const instance = new RGXClassWrapperToken(new TestClassToken2());
+            expect(instance.isRepeatable).toBe(false);
+        });
+
+        it("is true for non-class tokens", () => {
+            const instance1 = new RGXClassWrapperToken("test");
+            expect(instance1.isRepeatable).toBe(true);
+
+            const instance2 = new RGXClassWrapperToken(["a", "b"]);
+            expect(instance2.isRepeatable).toBe(true);
+        });
+    });
+
+    describe("unwrap", () => {
+        it("returns the original token", () => {
+            const token = "test";
+            const instance = new RGXClassWrapperToken(token);
+            expect(instance.unwrap()).toBe(token);
+        });
+    });
+
+    describe("toRgx", () => {
+        it("returns the original token", () => {
+            const token = "test";
+            const instance = new RGXClassWrapperToken(token);
+            expect(instance.toRgx()).toBe(token);
+        });
+    });
+
+    describe("resolve", () => {
+        it("doesn't double-wrap group tokens", () => {
+            const instance = new RGXClassWrapperToken(["a", "b"]);
+            expect(instance.resolve()).toBe("(?:a|b)");
+        });
+    });
+});

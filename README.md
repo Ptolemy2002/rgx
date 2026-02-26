@@ -419,6 +419,30 @@ A function `rgxLookbehind` is provided with the same parameters as this class' c
 - `reverse() => RGXLookaheadToken`: Returns a new `RGXLookaheadToken` with the same tokens and positivity.
 - `toRgx() => RegExp`: Resolves the lookbehind to a `RegExp`. Positive lookbehinds produce `(?<=...)` and negative lookbehinds produce `(?<!...)`.
 
+### RGXClassWrapperToken extends RGXClassToken
+A class that wraps any `RGXToken` as an `RGXClassToken`, giving you access to the extended API class tokens provide. It delegates `isGroup` and `isRepeatable` to the wrapped token where possible.
+
+A function `rgxClassWrapper` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
+
+#### Static Properties
+- `check(value: unknown): value is RGXClassWrapperToken`: A type guard that checks if the given value is an instance of `RGXClassWrapperToken`.
+- `assert(value: unknown): asserts value is RGXClassWrapperToken`: An assertion that checks if the given value is an instance of `RGXClassWrapperToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Constructor
+```typescript
+constructor(token: RGXToken)
+```
+- `token` (`RGXToken`): The token to wrap.
+
+#### Properties
+- `token` (`RGXToken`): The wrapped token.
+- `isGroup` (`boolean`): Delegates to the wrapped token's group status via `isRGXGroupedToken`. Returns `true` if the wrapped token is a grouped token, otherwise `false`.
+- `isRepeatable` (`boolean`): If the wrapped token is an `RGXClassToken`, delegates to its `isRepeatable` property. Otherwise, returns `true`.
+
+#### Methods
+- `unwrap() => RGXToken`: Returns the original wrapped token.
+- `toRgx() => RGXToken`: Returns the original wrapped token (alias for `unwrap()`).
+
 ### ExtRegExp extends RegExp
 A subclass of `RegExp` that supports custom flag transformers in addition to the standard vanilla regex flags (g, i, m, s, u, y). When constructed, custom flags are extracted, their corresponding transformers are applied to the pattern and vanilla flags, and the resulting transformed `RegExp` is created. The `flags` getter returns both the vanilla flags and any custom flags.
 
@@ -921,6 +945,22 @@ function rgxClassInit(): void
 ```
 
 Initializes internal method patches required for `RGXClassToken` subclass methods (such as `or`, `group`, `repeat`, `asLookahead`, and `asLookbehind`) to work correctly. This function is called automatically when importing from the main module entry point, so you typically do not need to call it yourself. It only needs to be called manually if you import directly from sub-modules.
+
+### toRGXClassToken
+```typescript
+function toRGXClassToken(token: RGXToken): RGXClassToken
+```
+
+Converts any `RGXToken` into an appropriate `RGXClassToken` subclass, giving you access to the extended API that class tokens provide. Tokens that are already class tokens are returned as-is. Array tokens and `RGXTokenCollection` instances in union mode are converted to `RGXClassUnionToken`. `RGXTokenCollection` instances in concat mode are converted to a non-capturing `RGXGroupToken`. All other tokens are wrapped in an `RGXClassWrapperToken`.
+
+#### Parameters
+  - `token` (`RGXToken`): The token to convert.
+
+#### Returns
+- `RGXClassToken`: The corresponding class token:
+  - `RGXClassUnionToken` for array tokens and union-mode `RGXTokenCollection` instances.
+  - `RGXGroupToken` (non-capturing) for concat-mode `RGXTokenCollection` instances.
+  - `RGXClassWrapperToken` for all other tokens.
 
 ### isInRange
 ```typescript
