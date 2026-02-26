@@ -840,24 +840,27 @@ Escapes special regex characters in the given string and brands the result as a 
 
 ### resolveRGXToken
 ```typescript
-function resolveRGXToken(token: RGXToken, groupWrap?: boolean, topLevel?: boolean): ValidRegexString
+function resolveRGXToken(token: RGXToken, groupWrap?: boolean, topLevel?: boolean, currentFlags?: string): ValidRegexString
 ```
 
 Resolves an RGX token to a string. No-op tokens resolve to an empty string, literal tokens are included as-is (wrapped in a non-capturing group when `groupWrap` is `true`), native tokens are converted to strings and escaped, convertible tokens are converted using their `toRgx` method and then resolved recursively, and arrays of tokens are resolved as unions of their resolved elements (repeats removed, placed in a non-capturing group when `groupWrap` is `true`).
+
+For literal tokens (`RegExp` instances), if the token's flags differ from `currentFlags` in any of the localizable flags (`i`, `m`, `s`), the token is wrapped in an inline modifier group (e.g., `(?i:...)`, `(?-i:...)`, `(?ms-i:...)`) instead of a plain non-capturing group. Non-localizable flags (such as `g`, `u`, `y`, `d`, `v`) are ignored when computing the diff. When an inline modifier group is used, it always wraps the token regardless of the `groupWrap` setting, since the modifier group itself serves as a group.
 
 For convertible tokens, if the token has an `rgxGroupWrap` property, that value always takes precedence. If `rgxGroupWrap` is not present, the behavior depends on whether the call is top-level: at the top level, the `groupWrap` parameter is passed through; in recursive calls, it falls back to `true` regardless of the `groupWrap` parameter. This ensures that the caller's `groupWrap` preference only affects the outermost convertible token and does not leak into deeply nested resolution.
 
 #### Parameters
   - `token` (`RGXToken`): The RGX token to resolve.
-  - `groupWrap` (`boolean`, optional): Whether to wrap literal tokens and array unions in non-capturing groups (`(?:...)`). Defaults to `true`. When `false`, literals use their raw source and array unions omit the wrapping group. For convertible tokens, the token's `rgxGroupWrap` property always takes precedence; otherwise, this value is only passed through at the top level (in recursive calls it falls back to `true`). Array union elements always use `groupWrap=true` internally.
+  - `groupWrap` (`boolean`, optional): Whether to wrap literal tokens and array unions in non-capturing groups (`(?:...)`). Defaults to `true`. When `false`, literals use their raw source and array unions omit the wrapping group. For convertible tokens, the token's `rgxGroupWrap` property always takes precedence; otherwise, this value is only passed through at the top level (in recursive calls it falls back to `true`). Array union elements always use `groupWrap=true` internally. Note that when a literal token requires an inline modifier group due to a localizable flag diff, it is always wrapped regardless of this setting.
   - `topLevel` (`boolean`, optional): Tracks whether the current call is the initial (top-level) invocation. Defaults to `true`. **Warning**: This parameter is intended for internal use by the resolver's own recursion. External callers should not set this parameter, as doing so may produce unexpected wrapping behavior.
+  - `currentFlags` (`string`, optional): The flags of the current regex context, used to compute inline modifier groups for literal tokens. Defaults to `''`. When a literal token's localizable flags (`i`, `m`, `s`) differ from this value, the resolver wraps the token in an inline modifier group that adds or removes the differing flags locally.
 
 #### Returns
 - `ValidRegexString`: The resolved string representation of the RGX token. This is guaranteed to be a valid regex string, as convertible tokens are validated to only produce valid regex strings or arrays of valid regex strings.
 
 ### rgxConcat
 ```typescript
-function rgxConcat(tokens: RGXToken[], groupWrap?: boolean): ValidRegexString
+function rgxConcat(tokens: RGXToken[], groupWrap?: boolean, currentFlags?: string): ValidRegexString
 ```
 
 A helper function that resolves an array of RGX tokens and concatenates their resolved string representations together. This is useful for cases where you want to concatenate multiple tokens without creating a union between them.
@@ -865,6 +868,7 @@ A helper function that resolves an array of RGX tokens and concatenates their re
 #### Parameters
   - `tokens` (`RGXToken[]`): The array of RGX tokens to resolve and concatenate.
   - `groupWrap` (`boolean`, optional): Whether to wrap individual resolved tokens in non-capturing groups. Passed through to `resolveRGXToken`. Defaults to `true`.
+  - `currentFlags` (`string`, optional): The flags of the current regex context, passed through to `resolveRGXToken` as its `currentFlags` parameter. Used to compute inline modifier groups for literal tokens whose localizable flags differ. Defaults to `''`.
 
 #### Returns
 - `ValidRegexString`: The concatenated string representation of the resolved RGX tokens. This is guaranteed to be a valid regex string, as it is composed of the resolved forms of RGX tokens, which are all valid regex strings.
@@ -875,6 +879,8 @@ function rgx(flags?: string): (strings: TemplateStringsArray, ...tokens: RGXToke
 ```
 
 Creates and returns a template tag function that constructs an `ExtRegExp` object from the provided template literal with the provided flags. The template literal can contain RGX tokens, which will be resolved and concatenated with the literal parts to form the final regex pattern.
+
+The provided `flags` are passed as `currentFlags` to the resolver, enabling inline modifier groups for any `RegExp` literal tokens whose localizable flags (`i`, `m`, `s`) differ from the parent flags. For example, embedding `/foo/i` in a no-flag context produces `(?i:foo)`, while embedding `/bar/` in an `i`-flag context produces `(?-i:bar)`.
 
 Example usages:
 ```typescript
@@ -887,6 +893,9 @@ const optionalDigit = /\d?/;
 const pattern2 = rgx()`${beginning}optional digit: ${optionalDigit}${end}`; // /^optional digit: \d?$/ - matches the string "optional digit: " followed by an optional digit, anchored to the start and end of the string
 
 const pattern3 = rgx()`${beginning}value: ${[word, optionalDigit]}${end}`; // /^value: (?:\w+|\d?)$/ - matches the string "value: " followed by either a word or an optional digit, anchored to the start and end of the string
+
+const caseInsensitiveWord = /hello/i;
+const pattern4 = rgx()`${beginning}${caseInsensitiveWord} world${end}`; // /^(?i:hello) world$/ - "hello" matches case-insensitively via an inline modifier group, while " world" remains case-sensitive
 ```
 
 #### Parameters
@@ -904,7 +913,7 @@ const pattern3 = rgx()`${beginning}value: ${[word, optionalDigit]}${end}`; // /^
 ```typescript
 function rgxa(tokens: RGXToken[], flags?: string): ExtRegExp
 ```
-As an alternative to using the `rgx` template tag, you can directly call `rgxa` with an array of RGX tokens and optional flags to get an `ExtRegExp` object. This is useful in cases where you don't want to use a template literal.
+As an alternative to using the `rgx` template tag, you can directly call `rgxa` with an array of RGX tokens and optional flags to get an `ExtRegExp` object. This is useful in cases where you don't want to use a template literal. Like `rgx`, the provided `flags` are passed as `currentFlags` to the resolver, enabling inline modifier groups for `RegExp` literal tokens whose localizable flags differ.
 
 #### Parameters
   - `tokens` (`RGXToken[]`): The RGX tokens to be resolved and concatenated to form the regex pattern.

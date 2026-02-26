@@ -23,7 +23,7 @@ registerCustomFlagTransformers();
 
 export function rgxa(tokens: t.RGXToken[], flags: string = ''): ExtRegExp {
     assertValidRegexFlags(flags);
-    const pattern = rgxConcat(tokens);
+    const pattern = rgxConcat(tokens, true, flags);
     return extRegExp(pattern, flags);
 }
 

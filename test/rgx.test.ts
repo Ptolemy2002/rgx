@@ -156,6 +156,55 @@ describe('rgx', () => {
         expectRegexpEqual(regex2Concat, 'foobarbazqux');
     });
 
+    it('creates inline modifier groups when a RegExp literal adds localizable flags', () => {
+        const regex1 = rgx()`foo${/bar/i}baz`;
+        const regex2 = rgxa(['foo', /bar/i, 'baz']);
+
+        expectRegexpEqual(regex1, 'foo(?i:bar)baz');
+        expectRegexpEqual(regex2, 'foo(?i:bar)baz');
+    });
+
+    it('creates inline modifier groups that remove flags when a RegExp literal lacks parent flags', () => {
+        const regex1 = rgx('i')`foo${/bar/}baz`;
+        const regex2 = rgxa(['foo', /bar/, 'baz'], 'i');
+
+        expectRegexpEqual(regex1, 'foo(?-i:bar)baz');
+        expectRegexpEqual(regex2, 'foo(?-i:bar)baz');
+    });
+
+    it('does not create inline modifier groups when localizable flags match', () => {
+        const regex1 = rgx('i')`foo${/bar/i}baz`;
+        const regex2 = rgxa(['foo', /bar/i, 'baz'], 'i');
+
+        expectRegexpEqual(regex1, 'foo(?:bar)baz');
+        expectRegexpEqual(regex2, 'foo(?:bar)baz');
+    });
+
+    it('creates inline modifier groups with both added and removed flags', () => {
+        const regex1 = rgx('i')`foo${/bar/ms}baz`;
+        const regex2 = rgxa(['foo', /bar/ms, 'baz'], 'i');
+
+        expectRegexpEqual(regex1, 'foo(?ms-i:bar)baz');
+        expectRegexpEqual(regex2, 'foo(?ms-i:bar)baz');
+    });
+
+    it('ignores non-localizable flags when computing inline modifier groups', () => {
+        const regex1 = rgx('gi')`foo${/bar/gi}baz`;
+        const regex2 = rgxa(['foo', /bar/gi, 'baz'], 'gi');
+
+        // g is non-localizable and i matches on both sides, so no modifier needed
+        expectRegexpEqual(regex1, 'foo(?:bar)baz');
+        expectRegexpEqual(regex2, 'foo(?:bar)baz');
+    });
+
+    it('creates separate inline modifier groups for multiple RegExp literals', () => {
+        const regex1 = rgx()`${/foo/i}${/bar/m}`;
+        const regex2 = rgxa([/foo/i, /bar/m]);
+
+        expectRegexpEqual(regex1, '(?i:foo)(?m:bar)');
+        expectRegexpEqual(regex2, '(?i:foo)(?m:bar)');
+    });
+
     it('Applies valid flags correctly', () => {
         const regex1 = rgx('gi')`foo${'bar'}baz`;
         const regex2 = rgxa(['foo', 'bar', 'baz'], 'gi');
@@ -261,5 +310,15 @@ describe('rgxConcat', () => {
     it('passes groupWrap=false through to resolveRGXToken', () => {
         const result = rgxConcat([/\d+/, 'abc', /\w/], false);
         expect(result).toBe('\\d+abc\\w');
+    });
+
+    it('creates inline modifier groups based on currentFlags', () => {
+        const result = rgxConcat([/foo/, 'bar'], true, 'i');
+        expect(result).toBe('(?-i:foo)bar');
+    });
+
+    it('creates inline modifier groups even when groupWrap is false', () => {
+        const result = rgxConcat([/bar/i], false);
+        expect(result).toBe('(?i:bar)');
     });
 });
