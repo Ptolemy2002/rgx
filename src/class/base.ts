@@ -1,4 +1,4 @@
-import { RGXConvertibleToken, RGXToken, ValidRegexString } from "src/types";
+import { RGXConvertibleToken, RGXToken, ValidRegexFlags, ValidRegexString } from "src/types";
 import { RGXTokenCollectionInput } from "src/collection";
 import { RGXInvalidTokenError, RGXNotImplementedError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
@@ -12,6 +12,10 @@ import type { RGXLookbehindToken } from "./lookbehind";
 export abstract class RGXClassToken implements RGXConvertibleToken {
     abstract toRgx(): RGXToken
     abstract clone(depth?: CloneDepth): ThisType<this>;
+
+    rgxAcceptInsertion(tokens: RGXToken[], flags: ValidRegexFlags): string | boolean {
+        return true;
+    }
 
     // The createClassGuard function only accepts non-abstract classes, so we 
     // manually define the guard and assertion functions for RGXClassToken here.

@@ -12,12 +12,18 @@ import { CloneDepth } from "@ptolemy2002/immutability-utils";
 type RGXNoOpToken = null | undefined;
 type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
-type RGXConvertibleToken = { toRgx: () => RGXToken, readonly rgxGroupWrap?: boolean, readonly rgxIsGroup?: boolean, readonly rgxIsRepeatable?: boolean };
+type RGXConvertibleToken = {
+    toRgx: () => RGXToken,
+    rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
+    readonly rgxGroupWrap?: boolean,
+    readonly rgxIsGroup?: boolean,
+    readonly rgxIsRepeatable?: boolean
+};
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken;
-type RGXGroupedConvertibleToken = (RGXConvertibleToken & { readonly rgxIsGroup: true }) | (Omit<RGXConvertibleToken, "toRGX"> & { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true  });
+type RGXGroupedConvertibleToken = (RGXConvertibleToken & { readonly rgxIsGroup: true }) | (Omit<RGXConvertibleToken, "toRgx"> & { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true  });
 
 const validRegexSymbol = Symbol('rgx.ValidRegex');
 type ValidRegexBrandSymbol = typeof validRegexSymbol;
@@ -48,7 +54,7 @@ type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     // ... see source for full definition
 ;
 
-type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_REGEX_FLAGS' | 'INVALID_VANILLA_REGEX_FLAGS' | 'NOT_IMPLEMENTED' | 'NOT_SUPPORTED' | 'INVALID_IDENTIFIER' | 'OUT_OF_BOUNDS' | 'INVALID_FLAG_TRANSFORMER_KEY' | 'FLAG_TRANSFORMER_CONFLICT';
+type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_REGEX_FLAGS' | 'INVALID_VANILLA_REGEX_FLAGS' | 'NOT_IMPLEMENTED' | 'NOT_SUPPORTED' | 'INVALID_IDENTIFIER' | 'OUT_OF_BOUNDS' | 'INVALID_FLAG_TRANSFORMER_KEY' | 'FLAG_TRANSFORMER_CONFLICT' | 'INSERTION_REJECTED';
 
 type RangeObject = {
     min?: number | null;
@@ -212,6 +218,19 @@ constructor(message: string, got: string)
 #### Properties
 - `got` (`string`): The conflicting key string.
 
+### RGXInsertionRejectedError extends RGXError
+A specific error class for token insertion rejection. This error is thrown when a convertible token's `rgxAcceptInsertion` method returns `false` or a string (rejection reason) during pattern construction via `rgx`, `rgxa`, or `rgxConcat`. The error code is set to `INSERTION_REJECTED` on instantiation.
+
+#### Constructor
+```typescript
+constructor(reason?: string | null, message?: string | null)
+```
+- `reason` (`string | null`, optional): The reason the insertion was rejected. Defaults to `null`.
+- `message` (`string | null`, optional): An optional additional message providing more context. Defaults to `null`.
+
+#### Properties
+- `reason` (`string | null`): The reason the insertion was rejected, or `null` if no reason was provided.
+
 ### RGXOutOfBoundsError extends RGXError
 A specific error class for out-of-bounds values. This error is thrown when a numeric value falls outside an expected range. The error code is set to `OUT_OF_BOUNDS` on instantiation.
 
@@ -284,6 +303,7 @@ An abstract base class for creating custom RGX token classes. Subclasses must im
 - `rgxGroupWrap` (`boolean`): Returns `true` by default. Controls whether the resolver wraps this token's resolved output in a non-capturing group. Subclasses can override this to prevent double-wrapping (e.g., when the token already wraps itself in a group).
 
 #### Methods
+- `rgxAcceptInsertion(tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean`: Called during pattern construction (via `rgx`, `rgxa`, or `rgxConcat`) to allow the token to reject its own insertion based on the surrounding tokens and the pattern's flags. Returns `true` to accept insertion (the default), `false` to reject with no reason, or a string to reject with a reason message. When a token rejects insertion, an `RGXInsertionRejectedError` is thrown. Subclasses can override this to enforce constraints such as requiring certain flags to be present.
 - `or(...others: RGXTokenCollectionInput[]) => RGXClassUnionToken`: Creates an `RGXClassUnionToken` that represents a union (alternation) of this token with the provided others. If any of the `others` are `RGXClassUnionToken` instances, their tokens are flattened into the union rather than nested. If `this` is already an `RGXClassUnionToken`, its existing tokens are preserved and the others are appended.
 - `group(args?: RGXGroupTokenArgs) => RGXGroupToken`: Wraps this token in an `RGXGroupToken` with the provided arguments. The `args` parameter defaults to `{}`, which creates a capturing group with no name. This is a convenience method that creates a new `RGXGroupToken` with `this` as the sole token.
 - `repeat(min?: number, max?: number | null, lazy?: boolean) => RGXRepeatToken`: Wraps this token in an `RGXRepeatToken` with the given repetition bounds. `min` defaults to `1`, `max` defaults to `min`, `lazy` defaults to `false`. Pass `null` for `max` to allow unlimited repetitions. When `lazy` is `true`, the resulting quantifier will be non-greedy. This is a convenience method that creates a new `RGXRepeatToken` with `this` as the token. Throws `RGXNotSupportedError` if called on a token with `rgxIsRepeatable` set to `false` (e.g., `RGXLookaroundToken`).
@@ -576,11 +596,11 @@ Asserts that the given value is a native token (string, number, boolean, or no-o
 function isRGXConvertibleToken(value: unknown, returnCheck?: boolean): value is RGXConvertibleToken
 ```
 
-Checks if the given value is a convertible token (an object with a `toRgx` method). If the `rgxGroupWrap`, `rgxIsRepeatable`, or `rgxIsGroup` properties are present, they must be booleans; otherwise, the check fails. When `returnCheck` is `true` (the default), also validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures).
+Checks if the given value is a convertible token (an object with a `toRgx` method). If the `rgxGroupWrap`, `rgxIsRepeatable`, or `rgxIsGroup` properties are present, they must be booleans; otherwise, the check fails. If the `rgxAcceptInsertion` property is present, it must be a callable that returns a `string` or `boolean`; otherwise, the check fails. Validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). When `returnCheck` is `false`, only checks for the presence and callability of function properties instead of also checking their return values.
 
 #### Parameters
   - `value` (`unknown`): The value to check.
-  - `returnCheck` (`boolean`, optional): Whether to validate the return value of the `toRgx` method. Defaults to `true`. When `false`, only checks that `toRgx` exists and is callable. **Note**: Setting this to `false` makes the type guard assertion strictly unsafe, as it doesn't verify that the `toRgx` method actually returns a valid `RGXToken`. However, depending on the type of the value you're checking, you might not need that safety (e.g., when checking values that you know are valid based on other context).
+  - `returnCheck` (`boolean`, optional): Whether to validate the return value of the `toRgx` method. Defaults to `true`. When `false`, only checks that `toRgx` exists and is callable. **Note**: Setting this to `false` makes the type guard assertion strictly unsafe, as it doesn't verify that the methods actually return valid values. However, depending on the type of the value you're checking, you might not need that safety (e.g., when checking values that you know are valid based on other context).
 
 #### Returns
 - `boolean`: `true` if the value is a convertible token, otherwise `false`.
@@ -589,7 +609,7 @@ Checks if the given value is a convertible token (an object with a `toRgx` metho
 ```typescript
 function assertRGXConvertibleToken(value: unknown, returnCheck?: boolean): asserts value is RGXConvertibleToken
 ```
-Asserts that the given value is a convertible token (an object with a `toRgx` method). If the `rgxGroupWrap`, `rgxIsRepeatable`, or `rgxIsGroup` properties are present, they must be booleans; otherwise, the assertion fails. When `returnCheck` is `true` (the default), also validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+Asserts that the given value is a convertible token (an object with a `toRgx` method). If the `rgxGroupWrap`, `rgxIsRepeatable`, or `rgxIsGroup` properties are present, they must be booleans; otherwise, the assertion fails. If the `rgxAcceptInsertion` property is present, it must be a callable that returns a `string` or `boolean`; otherwise, the assertion fails. When `returnCheck` is `true` (the default), also validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). If the assertion fails, an `RGXInvalidTokenError` will be thrown.
 
 #### Parameters
   - `value` (`unknown`): The value to assert.
@@ -892,7 +912,7 @@ For convertible tokens, if the token has an `rgxGroupWrap` property, that value 
 function rgxConcat(tokens: RGXToken[], groupWrap?: boolean, currentFlags?: string): ValidRegexString
 ```
 
-A helper function that resolves an array of RGX tokens and concatenates their resolved string representations together. This is useful for cases where you want to concatenate multiple tokens without creating a union between them.
+A helper function that resolves an array of RGX tokens and concatenates their resolved string representations together. This is useful for cases where you want to concatenate multiple tokens without creating a union between them. Before returning, any convertible token in the array that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown.
 
 #### Parameters
   - `tokens` (`RGXToken[]`): The array of RGX tokens to resolve and concatenate.
@@ -907,7 +927,7 @@ A helper function that resolves an array of RGX tokens and concatenates their re
 function rgx(flags?: string): (strings: TemplateStringsArray, ...tokens: RGXToken[]) => ExtRegExp
 ```
 
-Creates and returns a template tag function that constructs an `ExtRegExp` object from the provided template literal with the provided flags. The template literal can contain RGX tokens, which will be resolved and concatenated with the literal parts to form the final regex pattern.
+Creates and returns a template tag function that constructs an `ExtRegExp` object from the provided template literal with the provided flags. The template literal can contain RGX tokens, which will be resolved and concatenated with the literal parts to form the final regex pattern. Before constructing the pattern, any convertible token that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown.
 
 The provided `flags` are passed as `currentFlags` to the resolver, enabling inline modifier groups for any `RegExp` literal tokens whose localizable flags (`i`, `m`, `s`) differ from the parent flags. For example, embedding `/foo/i` in a no-flag context produces `(?i:foo)`, while embedding `/bar/` in an `i`-flag context produces `(?-i:bar)`.
 
@@ -942,7 +962,7 @@ const pattern4 = rgx()`${beginning}${caseInsensitiveWord} world${end}`; // /^(?i
 ```typescript
 function rgxa(tokens: RGXToken[], flags?: string): ExtRegExp
 ```
-As an alternative to using the `rgx` template tag, you can directly call `rgxa` with an array of RGX tokens and optional flags to get an `ExtRegExp` object. This is useful in cases where you don't want to use a template literal. Like `rgx`, the provided `flags` are passed as `currentFlags` to the resolver, enabling inline modifier groups for `RegExp` literal tokens whose localizable flags differ.
+As an alternative to using the `rgx` template tag, you can directly call `rgxa` with an array of RGX tokens and optional flags to get an `ExtRegExp` object. This is useful in cases where you don't want to use a template literal. Like `rgx`, the provided `flags` are passed as `currentFlags` to the resolver, enabling inline modifier groups for `RegExp` literal tokens whose localizable flags differ. Before constructing the pattern, any convertible token in the array that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown.
 
 #### Parameters
   - `tokens` (`RGXToken[]`): The RGX tokens to be resolved and concatenated to form the regex pattern.

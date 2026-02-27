@@ -2,7 +2,7 @@ import * as t from "./types";
 import { rgxClassInit } from "./class";
 import { registerCustomFlagTransformers } from "./flag-transformer";
 import { rgxConcat } from "./concat";
-import { taggedTemplateToArray } from "./internal";
+import { assureAcceptance, taggedTemplateToArray } from "./internal";
 import { assertValidRegexFlags, ExtRegExp, extRegExp } from "./ExtRegExp";
 
 export * from "./errors";
@@ -24,6 +24,7 @@ registerCustomFlagTransformers();
 
 export function rgxa(tokens: t.RGXToken[], flags: string = ''): ExtRegExp {
     assertValidRegexFlags(flags);
+    assureAcceptance(tokens, flags);
     const pattern = rgxConcat(tokens, true, flags);
     return extRegExp(pattern, flags);
 }

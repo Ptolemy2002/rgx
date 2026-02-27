@@ -2,7 +2,7 @@ import {
     RGXError, RGXInvalidTokenError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError,
     RGXNotImplementedError, RGXClassToken, RGXInvalidIdentifierError, RGXOutOfBoundsError,
     RGXInvalidRegexFlagsError, isInRange, assertInRange, RGXInvalidFlagTransformerKeyError,
-    RGXFlagTransformerConflictError, RGXNotSupportedError
+    RGXFlagTransformerConflictError, RGXNotSupportedError, RGXInsertionRejectedError
 } from 'src/index';
 
 class TestClassToken extends RGXClassToken {
@@ -272,6 +272,45 @@ describe('RGXNotSupportedError', () => {
         expect(error.toString()).toBe(
             'RGXNotSupportedError: Some functionality is not supported. Additional info: This will be supported in the future.'
         );
+    });
+});
+
+describe('RGXInsertionRejectedError', () => {
+    it('has the correct name', () => {
+        const error = new RGXInsertionRejectedError('Some reason');
+        expect(error.name).toBe('RGXInsertionRejectedError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXInsertionRejectedError('Some reason');
+        expect(error.code).toBe('INSERTION_REJECTED');
+    });
+
+    it('exposes the reason property', () => {
+        const error = new RGXInsertionRejectedError('Some reason');
+        expect(error.reason).toBe('Some reason');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInsertionRejectedError('Some reason');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly without additional info', () => {
+        const error = new RGXInsertionRejectedError('Some reason');
+        expect(error.toString()).toBe('RGXInsertionRejectedError: Insertion rejected; Reason: Some reason');
+    });
+
+    it('formats the error message correctly with additional info', () => {
+        const error = new RGXInsertionRejectedError('Some reason', 'This will be resolved in the future.');
+        expect(error.toString()).toBe(
+            'RGXInsertionRejectedError: Insertion rejected; Reason: Some reason; Additional info: This will be resolved in the future.'
+        );
+    });
+    
+    it('formats the error message correctly with no reason and no additional info', () => {
+        const error = new RGXInsertionRejectedError();
+        expect(error.toString()).toBe('RGXInsertionRejectedError: Insertion rejected');
     });
 });
 

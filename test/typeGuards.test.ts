@@ -301,6 +301,30 @@ describe('Type Guards', () => {
             expect(isRGXConvertibleToken(token)).toBe(false);
             expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
         });
+
+        it('accepts objects with an rgxAcceptInsertion property that is a function returning a string', () => {
+            const token = { toRgx: () => 'foo', rgxAcceptInsertion: () => 'accepted' };
+            expect(isRGXConvertibleToken(token)).toBe(true);
+            expect(() => assertRGXConvertibleToken(token)).not.toThrow();
+        });
+
+        it('accepts objects with an rgxAcceptInsertion property that is a function returning a boolean', () => {
+            const token = { toRgx: () => 'foo', rgxAcceptInsertion: () => true };
+            expect(isRGXConvertibleToken(token)).toBe(true);
+            expect(() => assertRGXConvertibleToken(token)).not.toThrow();
+        });
+
+        it('rejects objects with an rgxAcceptInsertion property that is not a function', () => {
+            const token = { toRgx: () => 'foo', rgxAcceptInsertion: 'not a function' };
+            expect(isRGXConvertibleToken(token)).toBe(false);
+            expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('rejects objects with an rgxAcceptInsertion property that is a function not returning a string or boolean', () => {
+            const token = { toRgx: () => 'foo', rgxAcceptInsertion: () => 42 };
+            expect(isRGXConvertibleToken(token)).toBe(false);
+            expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
+        });
     });
 
     describe('isRGXArrayToken', () => {

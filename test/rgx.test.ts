@@ -1,4 +1,4 @@
-import rgx, { rgxa, rgxConcat, RGXInvalidRegexFlagsError, RGXTokenCollection } from 'src/index';
+import rgx, { rgxa, rgxConcat, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXTokenCollection } from 'src/index';
 
 function expectRegexpEqual(received: RegExp, expected: RegExp | string) {
     const expectedPattern = typeof expected === 'string' ? expected : expected.source;
@@ -220,6 +220,20 @@ describe('rgx', () => {
         expect(() => rgxa(['foo'], 'invalid')).toThrow(RGXInvalidRegexFlagsError);
     });
 
+    it('Throws the correct error for a convertible token that rejects insertion', () => {
+        const token = { toRgx: () => "foo", rgxAcceptInsertion: () => false };
+
+        expect(() => rgx()`bar${token}baz`).toThrow(RGXInsertionRejectedError);
+        expect(() => rgxa(['bar', token, 'baz'])).toThrow(RGXInsertionRejectedError);
+    });
+
+    it('Throws the correct error for a convertible token that rejects insertion with a message', () => {
+        const token = { toRgx: () => "foo", rgxAcceptInsertion: () => "Always rejects" };
+
+        expect(() => rgx()`bar${token}baz`).toThrow(RGXInsertionRejectedError);
+        expect(() => rgxa(['bar', token, 'baz'])).toThrow(RGXInsertionRejectedError);
+    });
+
     it('Handles an RGXTokenCollection in union mode correctly', () => {
         const collection = new RGXTokenCollection(['foo', 'bar', 'baz'], "union");
         const regex1 = rgx()`qux${collection}quux`;
@@ -320,5 +334,15 @@ describe('rgxConcat', () => {
     it('creates inline modifier groups even when groupWrap is false', () => {
         const result = rgxConcat([/bar/i], false);
         expect(result).toBe('(?i:bar)');
+    });
+
+    it('Throws the correct error for a convertible token that rejects insertion', () => {
+        const token = { toRgx: () => "foo", rgxAcceptInsertion: () => false };
+        expect(() => rgxConcat(['bar', token, 'baz'])).toThrow(RGXInsertionRejectedError);
+    });
+
+    it('Throws the correct error for a convertible token that rejects insertion with a message', () => {
+        const token = { toRgx: () => "foo", rgxAcceptInsertion: () => "Always rejects" };
+        expect(() => rgxConcat(['bar', token, 'baz'])).toThrow(RGXInsertionRejectedError);
     });
 });

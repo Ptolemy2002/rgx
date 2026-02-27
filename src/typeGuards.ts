@@ -41,6 +41,16 @@ export function isRGXConvertibleToken(value: unknown, returnCheck: boolean = tru
         if ('rgxIsRepeatable' in value && typeof value.rgxIsRepeatable !== 'boolean') return false;
         if ('rgxIsGroup' in value && typeof value.rgxIsGroup !== 'boolean') return false;
 
+        // If the rgxAcceptInsertion property exists, it must be a function that returns a string or boolean.
+        if ('rgxAcceptInsertion' in value) {
+            if (!isCallable(value.rgxAcceptInsertion)) return false;
+
+            if (returnCheck) {
+                const acceptResult = value.rgxAcceptInsertion([], '' as t.ValidRegexFlags);
+                if (typeof acceptResult !== 'string' && typeof acceptResult !== 'boolean') return false;
+            }
+        }
+
         if (isCallable(value.toRgx)) {
             if (!returnCheck) return true;
             const rv = value.toRgx();

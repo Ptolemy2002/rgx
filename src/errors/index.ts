@@ -9,3 +9,4 @@ export * from './outOfBounds';
 export * from './invalidFlagTransformerKey';
 export * from './flagTransformerConflict';
 export * from './notSupported';
+export * from './insertionRejected';

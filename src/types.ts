@@ -6,13 +6,19 @@ import type { RGXTokenCollection } from "./collection";
 export type RGXNoOpToken = null | undefined;
 export type RGXLiteralToken = RegExp;
 export type RGXNativeToken = string | number | boolean | RGXNoOpToken;
-export type RGXConvertibleToken = { toRgx: () => RGXToken, readonly rgxGroupWrap?: boolean, readonly rgxIsGroup?: boolean, readonly rgxIsRepeatable?: boolean };
+export type RGXConvertibleToken = {
+    toRgx: () => RGXToken,
+    rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
+    readonly rgxGroupWrap?: boolean,
+    readonly rgxIsGroup?: boolean,
+    readonly rgxIsRepeatable?: boolean
+};
 export type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 
 export type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 
 export type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken;
-export type RGXGroupedConvertibleToken = (RGXConvertibleToken & { readonly rgxIsGroup: true }) | (Omit<RGXConvertibleToken, "toRGX"> & { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true  });
+export type RGXGroupedConvertibleToken = (RGXConvertibleToken & { readonly rgxIsGroup: true }) | (Omit<RGXConvertibleToken, "toRgx"> & { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true  });
 
 export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
 export type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";

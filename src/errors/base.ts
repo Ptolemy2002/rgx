@@ -9,7 +9,8 @@ export type RGXErrorCode =
     'INVALID_IDENTIFIER' |
     'OUT_OF_BOUNDS' |
     'INVALID_FLAG_TRANSFORMER_KEY' |
-    'FLAG_TRANSFORMER_CONFLICT'
+    'FLAG_TRANSFORMER_CONFLICT' |
+    'INSERTION_REJECTED'
 ;
 
 export class RGXError extends Error {
