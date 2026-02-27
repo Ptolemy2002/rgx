@@ -7,4 +7,5 @@ export * from "./lookaround";
 export * from "./lookahead";
 export * from "./lookbehind";
 export * from "./wrapper";
+export * from "./subpattern";
 export * from "./toRGXClassToken";

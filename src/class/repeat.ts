@@ -12,6 +12,7 @@ export class RGXRepeatToken extends RGXClassToken {
     _token: RGXGroupedToken;
     _min: number;
     _max: number | null = null;
+    lazy: boolean = false;
 
     static check = createClassGuardFunction(RGXRepeatToken);
     static assert = createAssertClassGuardFunction(RGXRepeatToken);
@@ -64,25 +65,32 @@ export class RGXRepeatToken extends RGXClassToken {
     }
 
     // By default, repeat a fixed number of times.
-    constructor(token: RGXToken, min: number = 1, max: number | null = min) {
+    constructor(token: RGXToken, min: number = 1, max: number | null = min, lazy=false) {
         super();
         this.token = token;
         this.min = min;
         this.max = max;
+        this.lazy = lazy;
     }
 
     get repeaterSuffix() {
-        if (this.min === 0 && this.max === null) return '*';
-        if (this.min === 1 && this.max === null) return '+';
-        if (this.min === 0 && this.max === 1) return '?';
-        if (this.max === null) return `{${this.min},}`;
-        if (this.min === this.max) {
-            // No need for a repeater suffix if we're repeating exactly once.
-            if (this.min === 1) return '';
-            return `{${this.min}}`;
-        }
+        const result = (() => {
+            if (this.min === 0 && this.max === null) return '*';
+            if (this.min === 1 && this.max === null) return '+';
+            if (this.min === 0 && this.max === 1) return '?';
+            if (this.max === null) return `{${this.min},}`;
 
-        return `{${this.min},${this.max}}`;
+            if (this.min === this.max) {
+                // No need for a repeater suffix if we're repeating exactly once.
+                if (this.min === 1) return '';
+                return `{${this.min}}`;
+            }
+
+            return `{${this.min},${this.max}}`;
+        })();
+
+        if (this.lazy && result.length > 0 && result !== "?") return result + '?';
+        else return result;
     }
 
     toRgx(): RGXToken {

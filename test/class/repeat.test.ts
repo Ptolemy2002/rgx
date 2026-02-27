@@ -2,7 +2,7 @@ import { RGXRepeatToken, RGXGroupToken, rgxRepeat, RGXClassToken } from "src/cla
 import { RGXInvalidTokenError, RGXOutOfBoundsError, RGXNotSupportedError } from "src/errors";
 import { ConstructFunction } from "src/internal";
 
-class TestClassToken1 extends RGXClassToken {
+export class TestClassToken1 extends RGXClassToken {
     toRgx() {
         return "test";
     }
@@ -42,6 +42,13 @@ function constructionTest(constructor: ConstructFunction<typeof RGXRepeatToken>)
         const instance = constructor(null, 2, 5);
         expect(instance.min).toBe(2);
         expect(instance.max).toBe(5);
+    });
+
+    it("correctly initializes with min, max, and lazy", () => {
+        const instance = constructor(null, 2, 5, true);
+        expect(instance.min).toBe(2);
+        expect(instance.max).toBe(5);
+        expect(instance.lazy).toBe(true);
     });
 
     it("correctly initializes with min as a number and max as null", () => {
@@ -86,8 +93,8 @@ function constructionTest(constructor: ConstructFunction<typeof RGXRepeatToken>)
     });
 }
 
-const isRgxRepeatToken = RGXRepeatToken.check;
-const assertRgxRepeatToken = RGXRepeatToken.assert;
+export const isRgxRepeatToken = RGXRepeatToken.check;
+export const assertRgxRepeatToken = RGXRepeatToken.assert;
 
 describe("RGXRepeatToken", () => {
     describe("type guards", () => {
@@ -208,39 +215,66 @@ describe("RGXRepeatToken", () => {
     });
 
     describe("repeaterSuffix", () => {
-        it("returns '*' for min 0 and max null", () => {
+        it("returns '*' for min 0 max null and lazy false", () => {
             const instance = new RGXRepeatToken(null, 0, null);
             expect(instance.repeaterSuffix).toBe('*');
         });
 
-        it("returns '+' for min 1 and max null", () => {
+        it("returns '+' for min 1 max null and lazy false", () => {
             const instance = new RGXRepeatToken(null, 1, null);
             expect(instance.repeaterSuffix).toBe('+');
         });
 
-        it("returns '?' for min 0 and max 1", () => {
+        it("returns '?' for min 0 max 1 and lazy false", () => {
             const instance = new RGXRepeatToken(null, 0, 1);
             expect(instance.repeaterSuffix).toBe('?');
         });
 
-        it("returns '{min,}' for min with max null", () => {
+        it("returns '{min,}' for min with max null and lazy false", () => {
             const instance = new RGXRepeatToken(null, 2, null);
             expect(instance.repeaterSuffix).toBe('{2,}');
         });
 
-        it("returns '{min}' for min with max equal to min", () => {
+        it("returns '{min}' for min with max equal to min and lazy false", () => {
             const instance = new RGXRepeatToken(null, 3, 3);
             expect(instance.repeaterSuffix).toBe('{3}');
         });
 
-        it("returns an empty string for min 1 and max 1", () => {
+        it("returns an empty string for min 1 and max 1 and lazy false", () => {
             const instance = new RGXRepeatToken(null, 1, 1);
             expect(instance.repeaterSuffix).toBe('');
         });
 
-        it("returns '{min,max}' for different values of min and max when both are > 1", () => {
+        it("returns '{min,max}' for different values of min and max when both are > 1 and lazy false", () => {
             const instance = new RGXRepeatToken(null, 2, 5);
             expect(instance.repeaterSuffix).toBe('{2,5}');
+        });
+
+        it("appends '?' to the suffix when lazy is true", () => {
+            let instance = new RGXRepeatToken(null, 0, null, true);
+            expect(instance.repeaterSuffix).toBe('*?');
+
+            instance = new RGXRepeatToken(null, 1, null, true);
+            expect(instance.repeaterSuffix).toBe('+?');
+
+            instance = new RGXRepeatToken(null, 2, null, true);
+            expect(instance.repeaterSuffix).toBe('{2,}?');
+
+            instance = new RGXRepeatToken(null, 3, 3, true);
+            expect(instance.repeaterSuffix).toBe('{3}?');
+
+            instance = new RGXRepeatToken(null, 2, 5, true);
+            expect(instance.repeaterSuffix).toBe('{2,5}?');
+        });
+
+        it("does not append '?' to the suffix when lazy is true but the range is [0,1]", () => {
+            const instance = new RGXRepeatToken(null, 0, 1, true);
+            expect(instance.repeaterSuffix).toBe('?');
+        });
+
+        it("does not append '?' to the suffix when lazy is true but the range is [1,1]", () => {
+            const instance = new RGXRepeatToken(null, 1, 1, true);
+            expect(instance.repeaterSuffix).toBe('');
         });
     });
 

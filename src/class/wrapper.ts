@@ -21,7 +21,7 @@ export class RGXClassWrapperToken extends RGXClassToken {
     }
 
     get rgxIsRepeatable(): boolean {
-        if (isRGXToken(this.token, 'class')) return this.token.rgxIsRepeatable;
+        if (isRGXToken(this.token, 'convertible')) return this.token.rgxIsRepeatable ?? true;
         // Assume any other token is repeatable, since we don't know its implementation.
         return true;
     }

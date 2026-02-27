@@ -286,8 +286,8 @@ An abstract base class for creating custom RGX token classes. Subclasses must im
 #### Methods
 - `or(...others: RGXTokenCollectionInput[]) => RGXClassUnionToken`: Creates an `RGXClassUnionToken` that represents a union (alternation) of this token with the provided others. If any of the `others` are `RGXClassUnionToken` instances, their tokens are flattened into the union rather than nested. If `this` is already an `RGXClassUnionToken`, its existing tokens are preserved and the others are appended.
 - `group(args?: RGXGroupTokenArgs) => RGXGroupToken`: Wraps this token in an `RGXGroupToken` with the provided arguments. The `args` parameter defaults to `{}`, which creates a capturing group with no name. This is a convenience method that creates a new `RGXGroupToken` with `this` as the sole token.
-- `repeat(min?: number, max?: number | null) => RGXRepeatToken`: Wraps this token in an `RGXRepeatToken` with the given repetition bounds. `min` defaults to `1`, `max` defaults to `min`. Pass `null` for `max` to allow unlimited repetitions. This is a convenience method that creates a new `RGXRepeatToken` with `this` as the token. Throws `RGXNotSupportedError` if called on a token with `rgxIsRepeatable` set to `false` (e.g., `RGXLookaroundToken`).
-- `optional() => RGXRepeatToken`: Shorthand for `repeat(0, 1)`. Wraps this token in an `RGXRepeatToken` that matches the token zero or one times. Throws `RGXNotSupportedError` if called on a token with `rgxIsRepeatable` set to `false` (e.g., `RGXLookaroundToken`).
+- `repeat(min?: number, max?: number | null, lazy?: boolean) => RGXRepeatToken`: Wraps this token in an `RGXRepeatToken` with the given repetition bounds. `min` defaults to `1`, `max` defaults to `min`, `lazy` defaults to `false`. Pass `null` for `max` to allow unlimited repetitions. When `lazy` is `true`, the resulting quantifier will be non-greedy. This is a convenience method that creates a new `RGXRepeatToken` with `this` as the token. Throws `RGXNotSupportedError` if called on a token with `rgxIsRepeatable` set to `false` (e.g., `RGXLookaroundToken`).
+- `optional(lazy?: boolean) => RGXRepeatToken`: Shorthand for `repeat(0, 1, lazy)`. Wraps this token in an `RGXRepeatToken` that matches the token zero or one times. `lazy` defaults to `false`. Throws `RGXNotSupportedError` if called on a token with `rgxIsRepeatable` set to `false` (e.g., `RGXLookaroundToken`).
 - `asLookahead(positive?: boolean) => RGXLookaheadToken`: Wraps this token in an `RGXLookaheadToken`. `positive` defaults to `true`. If this token is already an `RGXLookaheadToken`, it is returned as-is without re-wrapping.
 - `asLookbehind(positive?: boolean) => RGXLookbehindToken`: Wraps this token in an `RGXLookbehindToken`. `positive` defaults to `true`. If this token is already an `RGXLookbehindToken`, it is returned as-is without re-wrapping.
 - `resolve() => ValidRegexString`: A convenience method that resolves this token by calling `resolveRGXToken(this)`, returning the resolved regex string representation. Since this method is defined on `RGXClassToken`, it is available on all subclasses including `RGXClassUnionToken`, `RGXGroupToken`, `RGXRepeatToken`, and `RGXLookaroundToken`.
@@ -354,17 +354,19 @@ A function `rgxRepeat` is provided with the same parameters as this class' const
 
 #### Constructor
 ```typescript
-constructor(token: RGXToken, min?: number, max?: number | null)
+constructor(token: RGXToken, min?: number, max?: number | null, lazy?: boolean)
 ```
 - `token` (`RGXToken`): The token to repeat. If the token is not already a grouped token, it will be automatically wrapped in a non-capturing `RGXGroupToken`.
 - `min` (`number`, optional): The minimum number of repetitions. Must be >= 0 and <= `max` (when `max` is not `null`). Non-integer values are floored. Defaults to `1`.
 - `max` (`number | null`, optional): The maximum number of repetitions. Must be >= `min` when not `null`. Non-integer values are floored. Pass `null` for unlimited repetitions. Defaults to `min`.
+- `lazy` (`boolean`, optional): Whether the quantifier should be non-greedy (lazy). Defaults to `false`.
 
 #### Properties
 - `token` (`RGXGroupedToken`): The token being repeated. Setting this will throw `RGXNotSupportedError` if the value is a convertible token with `rgxIsRepeatable` set to `false`, and will automatically wrap non-grouped tokens in a non-capturing `RGXGroupToken`.
 - `min` (`number`): The minimum number of repetitions. Setting this validates that the value is >= 0 and <= `max` (when `max` is not `null`), and floors non-integer values. Throws `RGXOutOfBoundsError` if validation fails.
 - `max` (`number | null`): The maximum number of repetitions. Setting this validates that the value is >= `min` when not `null`, and floors non-integer values. Pass `null` for unlimited. Throws `RGXOutOfBoundsError` if validation fails.
-- `repeaterSuffix` (`string`): Returns the regex quantifier suffix based on the current `min` and `max` values: `*` for `{0,}`, `+` for `{1,}`, `?` for `{0,1}`, `{n}` for exact repetitions, `{n,}` for minimum-only, `{n,m}` for a range, or an empty string for `{1,1}` (exactly once, no quantifier needed).
+- `lazy` (`boolean`): Whether the quantifier is non-greedy (lazy). When `true`, a `?` is appended to the `repeaterSuffix` (except when the suffix is `?` or empty, since those cases don't benefit from a lazy modifier). Defaults to `false`.
+- `repeaterSuffix` (`string`): Returns the regex quantifier suffix based on the current `min`, `max`, and `lazy` values: `*` for `{0,}`, `+` for `{1,}`, `?` for `{0,1}`, `{n}` for exact repetitions, `{n,}` for minimum-only, `{n,m}` for a range, or an empty string for `{1,1}` (exactly once, no quantifier needed). When `lazy` is `true`, a `?` is appended to the suffix (e.g., `*?`, `+?`, `{2,5}?`), except when the suffix is already `?` or empty.
 - `rgxGroupWrap` (`false`): Returns `false` as a constant, since the quantifier suffix binds tightly to the preceding group and does not need additional wrapping.
 
 #### Methods
@@ -424,6 +426,28 @@ A function `rgxLookbehind` is provided with the same parameters as this class' c
 - `reverse() => RGXLookaheadToken`: Returns a new `RGXLookaheadToken` with the same tokens and positivity.
 - `toRgx() => RegExp`: Resolves the lookbehind to a `RegExp`. Positive lookbehinds produce `(?<=...)` and negative lookbehinds produce `(?<!...)`.
 
+### RGXSubpatternToken extends RGXClassToken
+A class representing a backreference to a previously captured group, either by name or by group number. Named backreferences produce `\k<name>` and numbered backreferences produce `\N` (where N is the group number). This is useful for matching the same text that was captured by a previous group.
+
+A function `rgxSubpattern` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
+
+#### Static Properties
+- `check(value: unknown): value is RGXSubpatternToken`: A type guard that checks if the given value is an instance of `RGXSubpatternToken`.
+- `assert(value: unknown): asserts value is RGXSubpatternToken`: An assertion that checks if the given value is an instance of `RGXSubpatternToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Constructor
+```typescript
+constructor(pattern: string | number)
+```
+- `pattern` (`string | number`): The backreference pattern. If a string, it must be a valid identifier (validated via `assertValidIdentifier`) and produces a named backreference (`\k<name>`). If a number, it must be a positive integer (>= 1, as groups are 1-indexed) and produces a numbered backreference (`\N`). Non-integer numbers are floored.
+
+#### Properties
+- `pattern` (`string | number`): The backreference pattern. Setting this validates the value: strings must be valid identifiers, numbers must be positive integers (>= 1). Non-integer numbers are floored.
+
+#### Methods
+- `toRgx() => RegExp`: Resolves the backreference to a `RegExp`. Named patterns produce `/\k<name>/` and numbered patterns produce `/\N/`.
+- `clone(depth: CloneDepth = "max") => RGXSubpatternToken`: Creates a clone of this token. When `depth` is `0`, returns `this`; otherwise, returns a new `RGXSubpatternToken` with the same pattern.
+
 ### RGXClassWrapperToken extends RGXClassToken
 A class that wraps any `RGXToken` as an `RGXClassToken`, giving you access to the extended API class tokens provide. It delegates `rgxIsGroup` and `rgxIsRepeatable` to the wrapped token where possible.
 
@@ -442,7 +466,7 @@ constructor(token: RGXToken)
 #### Properties
 - `token` (`RGXToken`): The wrapped token.
 - `rgxIsGroup` (`boolean`): Delegates to the wrapped token's group status via `isRGXGroupedToken`. Returns `true` if the wrapped token is a grouped token, otherwise `false`.
-- `rgxIsRepeatable` (`boolean`): If the wrapped token is an `RGXClassToken`, delegates to its `rgxIsRepeatable` property. Otherwise, returns `true`.
+- `rgxIsRepeatable` (`boolean`): If the wrapped token is an `RGXConvertibleToken`, delegates to its `rgxIsRepeatable` property (defaulting to `true` if not present). Otherwise, returns `true`.
 
 #### Methods
 - `unwrap() => RGXToken`: Returns the original wrapped token.

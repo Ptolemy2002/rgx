@@ -42,12 +42,12 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
         throw new RGXNotImplementedError('RGXClassToken.group(args)', 'call rgxClassInit() first.')
     }
 
-    repeat(min: number = 1, max: number | null = min): RGXRepeatToken {
-        throw new RGXNotImplementedError('RGXClassToken.repeat(min, max)', 'call rgxClassInit() first.')
+    repeat(min: number = 1, max: number | null = min, lazy: boolean = false): RGXRepeatToken {
+        throw new RGXNotImplementedError('RGXClassToken.repeat(min, max, lazy)', 'call rgxClassInit() first.')
     }
 
-    optional(): RGXRepeatToken {
-        return this.repeat(0, 1);
+    optional(lazy: boolean = false): RGXRepeatToken {
+        return this.repeat(0, 1, lazy);
     }
 
     asLookahead(positive: boolean = true): RGXLookaheadToken {

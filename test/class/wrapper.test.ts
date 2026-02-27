@@ -144,12 +144,17 @@ describe("RGXClassWrapperToken", () => {
     });
 
     describe("rgxIsRepeatable", () => {
-        it("is true for class tokens with rgxIsRepeatable true", () => {
+        it("is true for tokens with rgxIsRepeatable true", () => {
             const instance = new RGXClassWrapperToken(new TestClassToken1());
             expect(instance.rgxIsRepeatable).toBe(true);
         });
 
-        it("is false for class tokens with rgxIsRepeatable false", () => {
+        it("is true for convertible tokens with no rgxIsRepeatable property", () => {
+            const instance = new RGXClassWrapperToken({ toRgx: () => "test" });
+            expect(instance.rgxIsRepeatable).toBe(true);
+        });
+
+        it("is false for tokens with rgxIsRepeatable false", () => {
             const instance = new RGXClassWrapperToken(new TestClassToken2());
             expect(instance.rgxIsRepeatable).toBe(false);
         });

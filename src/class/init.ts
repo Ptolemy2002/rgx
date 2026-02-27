@@ -30,9 +30,9 @@ export function rgxClassInit() {
         return new RGXGroupToken(args, [this]);
     }
 
-    RGXClassToken.prototype.repeat = function (this: RGXClassToken, min: number = 1, max: number | null = min): RGXRepeatToken {
+    RGXClassToken.prototype.repeat = function (this: RGXClassToken, min: number = 1, max: number | null = min, lazy: boolean = false): RGXRepeatToken {
         if (RGXLookaroundToken.check(this)) throw new RGXNotSupportedError("RGXLookaroundToken.repeat()", "Lookaround tokens cannot be repeated or made optional.");
-        return new RGXRepeatToken(this, min, max);
+        return new RGXRepeatToken(this, min, max, lazy);
     }
 
     RGXClassToken.prototype.asLookahead = function (this: RGXClassToken, positive: boolean = true): RGXLookaheadToken {

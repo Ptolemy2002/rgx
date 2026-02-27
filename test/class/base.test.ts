@@ -1,4 +1,4 @@
-import { rgxClassInit, RGXClassToken, RGXClassUnionToken, RGXGroupToken, RGXLookaheadToken, RGXLookbehindToken, RGXRepeatToken } from "src/class";
+import { rgxClassInit, RGXClassToken, RGXClassUnionToken, RGXClassWrapperToken, RGXGroupToken, RGXLookaheadToken, RGXLookbehindToken, RGXRepeatToken } from "src/class";
 import { RGXNotImplementedError, RGXInvalidTokenError, RGXNotSupportedError } from "src/errors";
 
 class TestClassToken extends RGXClassToken {
@@ -206,8 +206,8 @@ describe("RGXClassToken", () => {
             rgxClassInit();
         });
 
-        it("wraps in a repeat token with correct min and max", () => {
-            const result = testToken1.repeat(2, 5);
+        it("wraps in a repeat token with correct min max and lazy", () => {
+            const result = testToken1.repeat(2, 5, true);
             expect(result).toBeInstanceOf(RGXRepeatToken);
 
             // The test token should be wrapped in a group token
@@ -216,6 +216,7 @@ describe("RGXClassToken", () => {
 
             expect(result.min).toBe(2);
             expect(result.max).toBe(5);
+            expect(result.lazy).toBe(true);
         });
 
         it("handles default max correctly", () => {
@@ -240,12 +241,30 @@ describe("RGXClassToken", () => {
             expect(result.max).toBe(4);
         });
 
+        it("handles default lazy correctly", () => {
+            const result = testToken1.repeat(2, 5);
+            expect(result).toBeInstanceOf(RGXRepeatToken);
+            
+            expect(result.token).toBeInstanceOf(RGXGroupToken);
+            expect((result.token as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+            
+            expect(result.min).toBe(2);
+            expect(result.max).toBe(5);
+            expect(result.lazy).toBe(false);
+        });
+
         it("doesn't support lookaround tokens", () => {
             const lookaheadToken = new RGXLookaheadToken([testToken1]);
             const lookbehindToken = new RGXLookbehindToken([testToken1]);
 
             expect(() => lookaheadToken.repeat(2)).toThrow(RGXNotSupportedError);
             expect(() => lookbehindToken.repeat(2)).toThrow(RGXNotSupportedError);
+        });
+
+        it("doesn't support non-repeatable tokens", () => {
+            const nonRepeatableToken = new RGXClassWrapperToken({ toRgx: () => "nonRepeatable", rgxIsRepeatable: false });
+            
+            expect(() => nonRepeatableToken.repeat(2)).toThrow(RGXNotSupportedError);
         });
     });
 
