@@ -9,6 +9,10 @@ class TestClassToken extends RGXClassToken {
     toRgx() {
         return "test";
     }
+
+    clone() {
+        return new TestClassToken();
+    }
 }
 
 describe('RGXError', () => {

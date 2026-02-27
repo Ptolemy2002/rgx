@@ -10,6 +10,10 @@ class TestClassToken extends RGXClassToken {
     toRgx() {
         return "test";
     }
+
+    clone() {
+        return new TestClassToken();
+    }
 }
 
 function constructionTest<T extends typeof RGXLookaroundToken>(constructor: ConstructFunction<T>) {
@@ -193,6 +197,27 @@ describe("RGXLookaheadToken", () => {
             expect(rgx).toEqual(/(?!test)/);
         });
     });
+
+    describe("clone", () => {
+        it("does nothing when depth is 0", () => {
+            const token = new TestClassToken();
+            const instance = new RGXLookaheadToken([token], false);
+            const clone = instance.clone(0);
+
+            expect(clone).toBe(instance);
+        });
+
+        it("preserves properties", () => {
+            const token = new TestClassToken();
+            const instance = new RGXLookaheadToken([token], false);
+            const clone = instance.clone();
+
+            expect(clone).not.toBe(instance);
+            expect(clone.positive).toBe(instance.positive);
+            expect(clone.negative).toBe(instance.negative);
+            expect(clone.tokens.toArray()).toEqual(instance.tokens.toArray());
+        });
+    });
 });
 
 describe("RGXLookbehindToken", () => {
@@ -264,6 +289,27 @@ describe("RGXLookbehindToken", () => {
             const rgx = instance.toRgx();
 
             expect(rgx).toEqual(/(?<!test)/);
+        });
+    });
+
+    describe("clone", () => {
+        it("does nothing when depth is 0", () => {
+            const token = new TestClassToken();
+            const instance = new RGXLookbehindToken([token], false);
+            const clone = instance.clone(0);
+            
+            expect(clone).toBe(instance);
+        });
+        
+        it("preserves properties", () => {
+            const token = new TestClassToken();
+            const instance = new RGXLookbehindToken([token], false);
+            const clone = instance.clone();
+            
+            expect(clone).not.toBe(instance);
+            expect(clone.positive).toBe(instance.positive);
+            expect(clone.negative).toBe(instance.negative);
+            expect(clone.tokens.toArray()).toEqual(instance.tokens.toArray());
         });
     });
 });

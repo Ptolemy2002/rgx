@@ -2,6 +2,7 @@ import { createAssertClassGuardFunction, createClassGuardFunction, createConstru
 import { RGXToken } from "src/types";
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 import { RGXClassToken } from "./base";
+import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 
 export type RGXUnionInsertionPosition = 'prefix' | 'suffix';
 export class RGXClassUnionToken extends RGXClassToken {
@@ -47,6 +48,11 @@ export class RGXClassUnionToken extends RGXClassToken {
 
     toRgx() {
         return this.tokens.toRgx();
+    }
+
+    clone(depth: CloneDepth="max") {
+        if (depth === 0) return this;
+        return new RGXClassUnionToken(this.tokens.clone(depthDecrement(depth, 1)));
     }
 }
 

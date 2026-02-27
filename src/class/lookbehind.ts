@@ -1,9 +1,8 @@
-import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
-import { RGXClassToken } from "./base";
 import { RGXToken } from "src/types";
 import { createAssertClassGuardFunction, createClassGuardFunction, createConstructFunction } from "src/internal";
 import { RGXLookaheadToken } from "./lookahead";
 import { RGXLookaroundToken } from "./lookaround";
+import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 
 export class RGXLookbehindToken extends RGXLookaroundToken {
     static check = createClassGuardFunction(RGXLookbehindToken);
@@ -22,6 +21,11 @@ export class RGXLookbehindToken extends RGXLookaroundToken {
         if (this.positive) result = `(?<=${result})`;
         else result = `(?<!${result})`;
         return new RegExp(result);
+    }
+
+    clone(depth: CloneDepth="max") {
+        if (depth === 0) return this;
+        return new RGXLookbehindToken(this.tokens.clone(depthDecrement(depth, 1)), this.positive);
     }
 }
 

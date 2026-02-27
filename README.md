@@ -1,9 +1,13 @@
 # RGX
 A library for easy construction and validation of regular expressions in TypeScript. You can use `rgx` to concatenate various types of tokens into a valid regular expression string, with type safety and validation.
 
+**Note**: This library is tested with nearly 100% coverage, but any override of `RGXClassToken.clone()` does not have the depth parameter fully tested, as that is ultimately part of `@ptolemy2002/immutability-utils`, which is tested, and setting up tests for that functionality is exceedingly complex.
+
 ## Type Reference
 ```typescript
 import { Branded } from "@ptolemy2002/ts-brand-utils";
+import { CloneDepth } from "@ptolemy2002/immutability-utils";
+// type CloneDepth = number | "max";
 
 type RGXNoOpToken = null | undefined;
 type RGXLiteralToken = RegExp;
@@ -253,7 +257,7 @@ constructor(tokens: RGXTokenCollectionInput = [], mode: RGXTokenCollectionMode =
 - `toRgx() => RegExp`: A method that resolves the collection to a `RegExp` object based on the collection mode. In 'union' mode, the tokens are resolved as alternatives (using the `|` operator), while in 'concat' mode, the tokens are resolved as concatenated together. No flags are applied to the resulting `RegExp`. Since this method returns a `RegExp` (which is `RGXLiteralToken`), `RGXTokenCollection` instances satisfy the `RGXConvertibleToken` interface and can be used directly as tokens in `rgx`, `rgxa`, and other token-accepting functions.
 - `getTokens() => RGXToken[]`: A method that returns a copy of the array of RGX tokens managed by the collection. This is used to prevent external mutation of the internal `tokens` array.
 - `toArray() => RGXToken[]`: An alias for `getTokens()`, provided for convenience.
-- `clone() => RGXTokenCollection`: A method that creates and returns a deep clone of the RGXTokenCollection instance. This is useful for creating a new collection with the same tokens and mode without affecting the original collection.
+- `clone(depth: CloneDepth = "max") => RGXTokenCollection`: A method that creates and returns a deep clone of the RGXTokenCollection instance. This is useful for creating a new collection with the same tokens and mode without affecting the original collection. The `depth` parameter controls how deeply nested collections are cloned: `0` for no clone, `1` for a shallow clone of the top-level collection, any other number for that many levels down, and `"max"` (the default) for a full deep clone.
 - `asConcat() => RGXTokenCollection`: If this collection is in 'union' mode, this method returns a new RGXTokenCollection instance with the same tokens but in 'concat' mode. If the collection is already in 'concat' mode, it simply returns itself.
 - `asUnion() => RGXTokenCollection`: If this collection is in 'concat' mode, this method returns a new RGXTokenCollection instance with the same tokens but in 'union' mode. If the collection is already in 'union' mode, it simply returns itself.
 
@@ -272,6 +276,7 @@ An abstract base class for creating custom RGX token classes. Subclasses must im
 
 #### Abstract Methods
 - `toRgx() => RGXToken`: Must be implemented by subclasses to return the token's regex representation as any valid RGX token (native, literal, convertible, or array of tokens).
+- `clone(depth: CloneDepth = "max") => RGXClassToken`: Must be implemented by subclasses to return a deep clone of the token instance. The `depth` parameter controls how deeply nested tokens are cloned: `0` for no clone, `1` for a shallow clone of the top-level token, any other number for that many levels down, and `"max"` (the default) for a full deep clone.
 
 #### Properties
 - `isGroup` (`boolean`): Returns `false` by default. Subclasses can override this to indicate whether the token represents a group.
@@ -1207,6 +1212,19 @@ Tests whether the given regular expression matches at a specific position in the
 
 #### Returns
 - `boolean`: `true` if the regex matches at the specified position, otherwise `false`.
+
+### cloneRGXToken
+```typescript
+function cloneRGXTokeN<T extends RGXToken>(token: T, depth: CloneDepth="max"): T
+```
+Creates a clone of the given RGX token to the given depth, provided that the token is not a no-op or native token.
+
+#### Parameters
+  - `token` (`T`): The RGX token to clone. Must not be a no-op or native token, or an error will be thrown.
+  - `depth` (`CloneDepth`, optional): The depth to which to clone the token. Can be a number (with 0 resulting in no clone at all and 1 resulting in a shallow clone) or the string `"max"` for a full deep clone. Defaults to `"max"`.
+
+#### Returns
+- `T`: The cloned token.
 
 ## Peer Dependencies
 - `@ptolemy2002/immutability-utils` ^2.0.0

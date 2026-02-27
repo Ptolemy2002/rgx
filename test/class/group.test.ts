@@ -3,9 +3,13 @@ import { RGXTokenCollection } from "src/collection";
 import { RGXInvalidTokenError } from "src/errors";
 import { ConstructFunction } from "src/internal";
 
-class TestClassToken extends RGXClassToken {
+class TestClassToken1 extends RGXClassToken {
     toRgx() {
         return "test";
+    }
+
+    clone() {
+        return new TestClassToken1();
     }
 }
 
@@ -55,14 +59,14 @@ function constructionTest(constructor: ConstructFunction<typeof RGXGroupToken>) 
     });
 
     it("correctly initializes with a token array", () => {
-        const token = new TestClassToken();
+        const token = new TestClassToken1();
         const instance = constructor({}, [token]);
 
         expect(instance.tokens.toArray()).toEqual([token]);
     });
 
     it("correctly initializes with a token collection in concat mode", () => {
-        const token = new TestClassToken();
+        const token = new TestClassToken1();
         const collection = new RGXTokenCollection([token], 'concat');
         const instance = constructor({}, collection);
 
@@ -70,7 +74,7 @@ function constructionTest(constructor: ConstructFunction<typeof RGXGroupToken>) 
     });
 
     it("correctly initializes with a token collection in union mode", () => {
-        const token = new TestClassToken();
+        const token = new TestClassToken1();
         const collection = new RGXTokenCollection([token], 'union');
         const instance = constructor({}, collection);
 
@@ -95,7 +99,7 @@ describe("RGXGroupToken", () => {
         });
 
         it("rejects non-instances of RGXGroupToken", () => {
-            const instance = new TestClassToken();
+            const instance = new TestClassToken1();
 
             expect(isRgxGroupToken({})).toBe(false);
             expect(isRgxGroupToken("test")).toBe(false);
@@ -122,22 +126,22 @@ describe("RGXGroupToken", () => {
 
     describe("resolve", () => {
         it("resolves correctly with no name and capturing true", () => {
-            const instance = new RGXGroupToken({}, [new TestClassToken()]);
+            const instance = new RGXGroupToken({}, [new TestClassToken1()]);
             expect(instance.resolve()).toEqual("(test)");
         });
 
         it("resolves correctly with a name", () => {
-            const instance = new RGXGroupToken({ name: "test" }, [new TestClassToken()]);
+            const instance = new RGXGroupToken({ name: "test" }, [new TestClassToken1()]);
             expect(instance.resolve()).toEqual("(?<test>test)");
         });
 
         it("resolves correctly with capturing false", () => {
-            const instance = new RGXGroupToken({ capturing: false }, [new TestClassToken()]);
+            const instance = new RGXGroupToken({ capturing: false }, [new TestClassToken1()]);
             expect(instance.resolve()).toEqual("(?:test)");
         });
 
         it("resolves correctly with a name and capturing false (name is ignored)", () => {
-            const instance = new RGXGroupToken({ name: "test", capturing: false }, [new TestClassToken()]);
+            const instance = new RGXGroupToken({ name: "test", capturing: false }, [new TestClassToken1()]);
             expect(instance.resolve()).toEqual("(?:test)");
         });
     });
@@ -178,6 +182,27 @@ describe("RGXGroupToken", () => {
             const instance = new RGXGroupToken({ name: "test" });
             instance._capturing = false; // Forcefully set internal capturing value to false
             expect(instance.capturing).toBe(true);
+        });
+    });
+
+    describe("clone", () => {
+        it("does nothing when depth is 0", () => {
+            const token = new TestClassToken1();
+            const instance = new RGXGroupToken({ name: "test", capturing: false }, [token]);
+            const clone = instance.clone(0);
+
+            expect(clone).toBe(instance);
+        });
+
+        it("preserves properties", () => {
+            const token = new TestClassToken1();
+            const instance = new RGXGroupToken({ name: "test", capturing: false }, [token]);
+            const clone = instance.clone();
+
+            expect(clone).not.toBe(instance);
+            expect(clone.name).toBe(instance.name);
+            expect(clone.capturing).toBe(instance.capturing);
+            expect(clone.tokens.toArray()).toEqual(instance.tokens.toArray());
         });
     });
 });

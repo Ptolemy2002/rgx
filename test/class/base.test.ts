@@ -5,6 +5,10 @@ class TestClassToken extends RGXClassToken {
     toRgx() {
         return "test";
     }
+
+    clone() {
+        return new TestClassToken();
+    }
 }
 
 const testToken1 = new TestClassToken();
@@ -296,6 +300,17 @@ describe("RGXClassToken", () => {
             const result = lookaheadToken.asLookahead();
             expect(result).toBe(lookaheadToken);
         });
+
+        it("simply negates if a lookbehind token", () => {
+            const lookbehindToken = testToken1.asLookbehind();
+            const negateSpy = jest.spyOn(lookbehindToken, "negate");
+            const result = lookbehindToken.asLookahead();
+            
+            expect(result.tokens.toArray()).toEqual(lookbehindToken.tokens.toArray());
+            expect(negateSpy).toHaveBeenCalledTimes(1);
+
+            jest.restoreAllMocks();
+        });
     });
 
     describe("asLookbehind", () => {
@@ -323,6 +338,17 @@ describe("RGXClassToken", () => {
             const lookbehindToken = testToken1.asLookbehind();
             const result = lookbehindToken.asLookbehind();
             expect(result).toBe(lookbehindToken);
+        });
+
+        it("simply negates if a lookahead token", () => {
+            const lookaheadToken = testToken1.asLookahead();
+            const negateSpy = jest.spyOn(lookaheadToken, "negate");
+            const result = lookaheadToken.asLookbehind();
+            
+            expect(result.tokens.toArray()).toEqual(lookaheadToken.tokens.toArray());
+            expect(negateSpy).toHaveBeenCalledTimes(1);
+
+            jest.restoreAllMocks();
         });
     });
 });

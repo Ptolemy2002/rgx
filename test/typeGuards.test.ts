@@ -15,11 +15,19 @@ class TestClassToken1 extends RGXClassToken {
     toRgx() {
         return "test";
     }
+
+    clone() {
+        return new TestClassToken1();
+    }
 }
 
 class TestClassToken2 extends RGXClassToken {
     toRgx() {
         return "test";
+    }
+
+    clone() {
+        return new TestClassToken2();
     }
 }
 
@@ -30,6 +38,10 @@ class TestClassToken3 extends RGXClassToken {
 
     toRgx() {
         return "test";
+    }
+
+    clone() {
+        return new TestClassToken3();
     }
 }
 

@@ -6,6 +6,10 @@ class TestClassToken1 extends RGXClassToken {
     toRgx() {
         return "test";
     }
+
+    clone() {
+        return new TestClassToken1();
+    }
 }
 
 class TestClassToken2 extends RGXClassToken {
@@ -19,6 +23,10 @@ class TestClassToken2 extends RGXClassToken {
 
     toRgx() {
         return "test";
+    }
+
+    clone() {
+        return new TestClassToken2();
     }
 }
 
@@ -175,6 +183,23 @@ describe("RGXClassWrapperToken", () => {
         it("doesn't double-wrap group tokens", () => {
             const instance = new RGXClassWrapperToken(["a", "b"]);
             expect(instance.resolve()).toBe("(?:a|b)");
+        });
+    });
+
+    describe("clone", () => {
+        it("does nothing when depth is 0", () => {
+            const token = "test";
+            const instance = new RGXClassWrapperToken(token);
+            const clone = instance.clone(0);
+            expect(clone).toBe(instance);
+        });
+
+        it("preserves properties", () => {
+            const token = /test/;
+            const instance = new RGXClassWrapperToken(token);
+            const clone = instance.clone();
+            expect(clone).not.toBe(instance);
+            expect(clone.token).toEqual(token);
         });
     });
 });

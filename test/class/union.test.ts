@@ -7,6 +7,10 @@ class TestClassToken extends RGXClassToken {
     toRgx() {
         return "test";
     }
+
+    clone() {
+        return new TestClassToken();
+    }
 }
 
 const isRgxClassUnionToken = RGXClassUnionToken.check;
@@ -291,6 +295,21 @@ describe("RGXClassUnionToken", () => {
             const result = token1.or(token2);
             expect(result).toBeInstanceOf(RGXClassUnionToken);
             expect((result as RGXClassUnionToken).tokens.toArray()).toEqual(["a", "b", "c"]);
+        });
+    });
+
+    describe("clone", () => {
+        it("does nothing when depth is 0", () => {
+            const instance = new RGXClassUnionToken(["a", "b"]);
+            const clone = instance.clone(0);
+            expect(clone).toBe(instance);
+        });
+
+        it("preserves properties", () => {
+            const instance = new RGXClassUnionToken(["a", "b"]);
+            const clone = instance.clone();
+            expect(clone).not.toBe(instance);
+            expect(clone.tokens.toArray()).toEqual(instance.tokens.toArray());
         });
     });
 });

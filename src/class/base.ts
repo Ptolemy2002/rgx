@@ -2,6 +2,7 @@ import { RGXToken, ValidRegexString } from "src/types";
 import { RGXTokenCollectionInput } from "src/collection";
 import { RGXInvalidTokenError, RGXNotImplementedError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
+import { CloneDepth } from "@ptolemy2002/immutability-utils";
 import type { RGXClassUnionToken } from "./union";
 import type { RGXGroupToken, RGXGroupTokenArgs } from "./group";
 import type { RGXRepeatToken } from "./repeat";
@@ -10,6 +11,7 @@ import type { RGXLookbehindToken } from "./lookbehind";
 
 export abstract class RGXClassToken {
     abstract toRgx(): RGXToken
+    abstract clone(depth?: CloneDepth): ThisType<this>;
 
     // The createClassGuard function only accepts non-abstract classes, so we 
     // manually define the guard and assertion functions for RGXClassToken here.
