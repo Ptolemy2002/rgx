@@ -92,7 +92,7 @@ describe("rgxClassInit", () => {
 
 describe("RGXClassToken", () => {
     it("is not a group by default", () => {
-        expect(testToken1.isGroup).toBe(false);
+        expect(testToken1.rgxIsGroup).toBe(false);
     });
 
     it("has rgxGroupWrap as true by default", () => {
@@ -100,7 +100,7 @@ describe("RGXClassToken", () => {
     });
 
     it("is repeatable by default", () => {
-        expect(testToken1.isRepeatable).toBe(true);
+        expect(testToken1.rgxIsRepeatable).toBe(true);
     });
 
     it("resolves to a valid regex string via resolve()", () => {

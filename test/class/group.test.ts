@@ -117,10 +117,10 @@ describe("RGXGroupToken", () => {
         });
     });
 
-    describe("isGroup", () => {
+    describe("rgxIsGroup", () => {
         it("is true", () => {
             const instance = new RGXGroupToken();
-            expect(instance.isGroup).toBe(true);
+            expect(instance.rgxIsGroup).toBe(true);
         });
     });
 

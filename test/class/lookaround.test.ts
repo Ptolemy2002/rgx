@@ -22,10 +22,10 @@ function constructionTest<T extends typeof RGXLookaroundToken>(constructor: Cons
         expect(instance).toBeInstanceOf(RGXLookaroundToken);
     });
 
-    describe("isGroup", () => {
+    describe("rgxIsGroup", () => {
         it("is true", () => {
             const instance = constructor() as RGXLookaroundToken;
-            expect(instance.isGroup).toBe(true);
+            expect(instance.rgxIsGroup).toBe(true);
         });
     });
 
@@ -147,7 +147,7 @@ describe("RGXLookaheadToken", () => {
 
     it("is not repeatable", () => {
         const instance = new RGXLookaheadToken();
-        expect(instance.isRepeatable).toBe(false);
+        expect(instance.rgxIsRepeatable).toBe(false);
     });
 
     describe("negate", () => {
@@ -241,7 +241,7 @@ describe("RGXLookbehindToken", () => {
 
     it("is not repeatable", () => {
         const instance = new RGXLookbehindToken();
-        expect(instance.isRepeatable).toBe(false);
+        expect(instance.rgxIsRepeatable).toBe(false);
     });
 
     describe("negate", () => {

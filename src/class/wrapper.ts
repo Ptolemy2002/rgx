@@ -16,12 +16,12 @@ export class RGXClassWrapperToken extends RGXClassToken {
         this.token = token;
     }
 
-    get isGroup(): boolean {
+    get rgxIsGroup(): boolean {
         return isRGXGroupedToken(this.token);
     }
 
-    get isRepeatable(): boolean {
-        if (isRGXToken(this.token, 'class')) return this.token.isRepeatable;
+    get rgxIsRepeatable(): boolean {
+        if (isRGXToken(this.token, 'class')) return this.token.rgxIsRepeatable;
         // Assume any other token is repeatable, since we don't know its implementation.
         return true;
     }

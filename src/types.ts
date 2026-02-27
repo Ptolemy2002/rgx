@@ -6,17 +6,17 @@ import type { RGXTokenCollection } from "./collection";
 export type RGXNoOpToken = null | undefined;
 export type RGXLiteralToken = RegExp;
 export type RGXNativeToken = string | number | boolean | RGXNoOpToken;
-export type RGXConvertibleToken = { toRgx: () => RGXToken, readonly rgxGroupWrap?: boolean };
+export type RGXConvertibleToken = { toRgx: () => RGXToken, readonly rgxGroupWrap?: boolean, readonly rgxIsGroup?: boolean, readonly rgxIsRepeatable?: boolean };
 export type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 
 export type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 
-export type RGXGroupedToken = RGXToken[] | RGXLiteralToken | (RGXClassToken & { isGroup: true }) | RGXGroupedConvertibleToken;
-export type RGXGroupedConvertibleToken = { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true };
+export type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken;
+export type RGXGroupedConvertibleToken = (RGXConvertibleToken & { readonly rgxIsGroup: true }) | (Omit<RGXConvertibleToken, "toRGX"> & { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true  });
 
 export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
 export type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
-export type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | typeof ExtRegExp | typeof RGXTokenCollection | RGXTokenTypeGuardInput[];
+export type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | typeof RegExp | typeof ExtRegExp | typeof RGXTokenCollection | RGXTokenTypeGuardInput[];
 export type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     T extends null ? RGXToken :
     T extends 'no-op' ? RGXNoOpToken :

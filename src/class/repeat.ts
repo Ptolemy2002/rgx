@@ -44,8 +44,12 @@ export class RGXRepeatToken extends RGXClassToken {
     }
 
     set token(value: RGXToken) {
-        if (isRGXToken(value, "class") && !value.isRepeatable) {
-            throw new RGXNotSupportedError(`Repeating ${value.constructor.name} tokens`, "The token was manually marked as non-repeatable.");
+        if (isRGXToken(value, "convertible") && !value.rgxIsRepeatable) {
+            if (isRGXToken(value, "class")) {
+                throw new RGXNotSupportedError(`Repeating ${value.constructor.name} tokens`, "The token was manually marked as non-repeatable.");
+            } else {
+                throw new RGXNotSupportedError("Repeating tokens with {rgxIsRepeatable: false}", "The token was manually marked as non-repeatable.");
+            }
         }
 
         // Make sure we are always working with a grouped token.

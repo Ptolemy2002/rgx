@@ -13,7 +13,7 @@ class TestClassToken1 extends RGXClassToken {
 }
 
 class TestClassToken2 extends RGXClassToken {
-    get isRepeatable() {
+    get rgxIsRepeatable() {
         return false as const;
     }
 
@@ -75,8 +75,13 @@ function constructionTest(constructor: ConstructFunction<typeof RGXRepeatToken>)
         expect((instance.token as RGXGroupToken).tokens.toArray()).toEqual([nonGroupToken]);
     });
 
-    it("rejects non-repeatable tokens", () => {
+    it("rejects non-repeatable class tokens", () => {
         const nonRepeatableToken = new TestClassToken2();
+        expect(() => constructor(nonRepeatableToken)).toThrow(RGXNotSupportedError);
+    });
+
+    it("rejects non-repeatable convertible tokens", () => {
+        const nonRepeatableToken = { toRgx: () => 'foo', rgxIsRepeatable: false };
         expect(() => constructor(nonRepeatableToken)).toThrow(RGXNotSupportedError);
     });
 }
@@ -119,10 +124,10 @@ describe("RGXRepeatToken", () => {
         constructionTest(rgxRepeat);
     });
 
-    describe("isGroup", () => {
+    describe("rgxIsGroup", () => {
         it("is false", () => {
             const instance = new RGXRepeatToken(null);
-            expect(instance.isGroup).toBe(false);
+            expect(instance.rgxIsGroup).toBe(false);
         });
     });
 

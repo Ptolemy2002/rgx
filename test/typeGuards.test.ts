@@ -32,7 +32,7 @@ class TestClassToken2 extends RGXClassToken {
 }
 
 class TestClassToken3 extends RGXClassToken {
-    get isGroup() {
+    get rgxIsGroup() {
         return true as const;
     }
 
@@ -271,6 +271,36 @@ describe('Type Guards', () => {
             expect(isRGXConvertibleToken(token)).toBe(false);
             expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
         });
+
+        it('accepts objects with an rgxIsGroup property that is a boolean', () => {
+            const token = { toRgx: () => 'foo', rgxIsGroup: true };
+            expect(isRGXConvertibleToken(token)).toBe(true);
+            expect(() => assertRGXConvertibleToken(token)).not.toThrow();
+        });
+
+        it('rejects objects with an rgxIsGroup property that is not a boolean', () => {
+            const token = { toRgx: () => 'foo', rgxIsGroup: 'not a boolean' };
+            expect(isRGXConvertibleToken(token)).toBe(false);
+            expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('rejects objects with an rgxIsGroup property that is not a boolean', () => {
+            const token = { toRgx: () => 'foo', rgxIsGroup: 'not a boolean' };
+            expect(isRGXConvertibleToken(token)).toBe(false);
+            expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('accepts objects with an rgxIsRepeatable property that is a boolean', () => {
+            const token = { toRgx: () => 'foo', rgxIsRepeatable: true };
+            expect(isRGXConvertibleToken(token)).toBe(true);
+            expect(() => assertRGXConvertibleToken(token)).not.toThrow();
+        });
+
+        it('rejects objects with an rgxIsRepeatable property that is not a boolean', () => {
+            const token = { toRgx: () => 'foo', rgxIsRepeatable: 'not a boolean' };
+            expect(isRGXConvertibleToken(token)).toBe(false);
+            expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
+        });
     });
 
     describe('isRGXArrayToken', () => {
@@ -328,13 +358,19 @@ describe('Type Guards', () => {
             expect(() => assertRGXGroupedToken(token2)).not.toThrow();
         });
 
-        it('accepts class tokens with isGroup property set to true', () => {
+        it('accepts class tokens with rgxIsGroup property set to true', () => {
             const token = new TestClassToken3();
             expect(isRGXGroupedToken(token)).toBe(true);
             expect(() => assertRGXGroupedToken(token)).not.toThrow();
         });
 
-        it('rejects class tokens without isGroup property set to true', () => {
+        it('accepts convertible tokens with rgxIsGroup property set to true', () => {
+            const token = { toRgx: () => 'foo', rgxIsGroup: true };
+            expect(isRGXGroupedToken(token)).toBe(true);
+            expect(() => assertRGXGroupedToken(token)).not.toThrow();
+        });
+
+        it('rejects class tokens without rgxIsGroup property set to true', () => {
             const token1 = new TestClassToken1();
             const token2 = new TestClassToken2();
 
@@ -343,6 +379,12 @@ describe('Type Guards', () => {
 
             expect(() => assertRGXGroupedToken(token1)).toThrow(RGXInvalidTokenError);
             expect(() => assertRGXGroupedToken(token2)).toThrow(RGXInvalidTokenError);
+        });
+
+        it('rejects convertible tokens without rgxIsGroup property set to true', () => {
+            const token = { toRgx: () => 'foo' };
+            expect(isRGXGroupedToken(token)).toBe(false);
+            expect(() => assertRGXGroupedToken(token)).toThrow(RGXInvalidTokenError);
         });
 
         it('accepts convertible tokens with rgxGroupWrap set to true and returning a grouped token when contentCheck is true', () => {
@@ -669,6 +711,12 @@ describe('Type Guards', () => {
             const token: RGXToken = ['foo', { toRgx: () => 14 }, null];
             expect(isRGXToken(token, ['native', 'convertible'] as const, false)).toBe(true);
             expect(() => assertRGXToken(token, ['native', 'convertible'] as const, false)).not.toThrow();
+        });
+
+        it('accepts the RegExp constructor', () => {
+            const token = /foo/;
+            expect(isRGXToken(token, RegExp)).toBe(true);
+            expect(() => assertRGXToken(token, RegExp)).not.toThrow();
         });
 
         it('accepts the ExtRegExp constructor', () => {

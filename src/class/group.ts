@@ -36,7 +36,7 @@ export class RGXGroupToken extends RGXClassToken {
         this._capturing = value;
     }
 
-    get isGroup() {
+    get rgxIsGroup() {
         return true as const;
     }
 

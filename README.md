@@ -12,12 +12,12 @@ import { CloneDepth } from "@ptolemy2002/immutability-utils";
 type RGXNoOpToken = null | undefined;
 type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
-type RGXConvertibleToken = { toRgx: () => RGXToken, readonly rgxGroupWrap?: boolean };
+type RGXConvertibleToken = { toRgx: () => RGXToken, readonly rgxGroupWrap?: boolean, readonly rgxIsGroup?: boolean, readonly rgxIsRepeatable?: boolean };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
-type RGXGroupedToken = RGXToken[] | RGXLiteralToken | (RGXClassToken & { isGroup: true }) | RGXGroupedConvertibleToken;
-type RGXGroupedConvertibleToken = { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true };
+type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken;
+type RGXGroupedConvertibleToken = (RGXConvertibleToken & { readonly rgxIsGroup: true }) | (Omit<RGXConvertibleToken, "toRGX"> & { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true  });
 
 const validRegexSymbol = Symbol('rgx.ValidRegex');
 type ValidRegexBrandSymbol = typeof validRegexSymbol;
@@ -39,7 +39,7 @@ type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;
 
 type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
 type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
-type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | typeof ExtRegExp | typeof RGXTokenCollection | RGXTokenTypeGuardInput[];
+type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | typeof RegExp | typeof ExtRegExp | typeof RGXTokenCollection | RGXTokenTypeGuardInput[];
 type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     // Maps token type strings to their corresponding types, e.g.:
     // 'no-op' -> RGXNoOpToken, 'literal' -> RGXLiteralToken, etc.
@@ -279,15 +279,15 @@ An abstract base class for creating custom RGX token classes. Subclasses must im
 - `clone(depth: CloneDepth = "max") => RGXClassToken`: Must be implemented by subclasses to return a deep clone of the token instance. The `depth` parameter controls how deeply nested tokens are cloned: `0` for no clone, `1` for a shallow clone of the top-level token, any other number for that many levels down, and `"max"` (the default) for a full deep clone.
 
 #### Properties
-- `isGroup` (`boolean`): Returns `false` by default. Subclasses can override this to indicate whether the token represents a group.
-- `isRepeatable` (`boolean`): Returns `true` by default. Subclasses can override this to indicate that the token cannot be wrapped in an `RGXRepeatToken`. When `false`, attempting to set this token as the `token` property of an `RGXRepeatToken` (including via `repeat()` or `optional()`) will throw an `RGXNotSupportedError`.
+- `rgxIsGroup` (`boolean`): Returns `false` by default. Subclasses can override this to indicate whether the token represents a group.
+- `rgxIsRepeatable` (`boolean`): Returns `true` by default. Subclasses can override this to indicate that the token cannot be wrapped in an `RGXRepeatToken`. When `false`, attempting to set this token as the `token` property of an `RGXRepeatToken` (including via `repeat()` or `optional()`) will throw an `RGXNotSupportedError`.
 - `rgxGroupWrap` (`boolean`): Returns `true` by default. Controls whether the resolver wraps this token's resolved output in a non-capturing group. Subclasses can override this to prevent double-wrapping (e.g., when the token already wraps itself in a group).
 
 #### Methods
 - `or(...others: RGXTokenCollectionInput[]) => RGXClassUnionToken`: Creates an `RGXClassUnionToken` that represents a union (alternation) of this token with the provided others. If any of the `others` are `RGXClassUnionToken` instances, their tokens are flattened into the union rather than nested. If `this` is already an `RGXClassUnionToken`, its existing tokens are preserved and the others are appended.
 - `group(args?: RGXGroupTokenArgs) => RGXGroupToken`: Wraps this token in an `RGXGroupToken` with the provided arguments. The `args` parameter defaults to `{}`, which creates a capturing group with no name. This is a convenience method that creates a new `RGXGroupToken` with `this` as the sole token.
-- `repeat(min?: number, max?: number | null) => RGXRepeatToken`: Wraps this token in an `RGXRepeatToken` with the given repetition bounds. `min` defaults to `1`, `max` defaults to `min`. Pass `null` for `max` to allow unlimited repetitions. This is a convenience method that creates a new `RGXRepeatToken` with `this` as the token. Throws `RGXNotSupportedError` if called on an `RGXLookaroundToken`, as lookaround assertions cannot be repeated.
-- `optional() => RGXRepeatToken`: Shorthand for `repeat(0, 1)`. Wraps this token in an `RGXRepeatToken` that matches the token zero or one times. Throws `RGXNotSupportedError` if called on an `RGXLookaroundToken`, as lookaround assertions cannot be made optional.
+- `repeat(min?: number, max?: number | null) => RGXRepeatToken`: Wraps this token in an `RGXRepeatToken` with the given repetition bounds. `min` defaults to `1`, `max` defaults to `min`. Pass `null` for `max` to allow unlimited repetitions. This is a convenience method that creates a new `RGXRepeatToken` with `this` as the token. Throws `RGXNotSupportedError` if called on a token with `rgxIsRepeatable` set to `false` (e.g., `RGXLookaroundToken`).
+- `optional() => RGXRepeatToken`: Shorthand for `repeat(0, 1)`. Wraps this token in an `RGXRepeatToken` that matches the token zero or one times. Throws `RGXNotSupportedError` if called on a token with `rgxIsRepeatable` set to `false` (e.g., `RGXLookaroundToken`).
 - `asLookahead(positive?: boolean) => RGXLookaheadToken`: Wraps this token in an `RGXLookaheadToken`. `positive` defaults to `true`. If this token is already an `RGXLookaheadToken`, it is returned as-is without re-wrapping.
 - `asLookbehind(positive?: boolean) => RGXLookbehindToken`: Wraps this token in an `RGXLookbehindToken`. `positive` defaults to `true`. If this token is already an `RGXLookbehindToken`, it is returned as-is without re-wrapping.
 - `resolve() => ValidRegexString`: A convenience method that resolves this token by calling `resolveRGXToken(this)`, returning the resolved regex string representation. Since this method is defined on `RGXClassToken`, it is available on all subclasses including `RGXClassUnionToken`, `RGXGroupToken`, `RGXRepeatToken`, and `RGXLookaroundToken`.
@@ -337,7 +337,7 @@ constructor(args?: RGXGroupTokenArgs, tokens?: RGXTokenCollectionInput)
 - `tokens` (`RGXTokenCollection`): The internal collection of tokens managed in 'concat' mode.
 - `name` (`string | null`): The name of the group. Setting this to a non-null value validates it as a valid identifier via `assertValidIdentifier`.
 - `capturing` (`boolean`): Whether the group is capturing. Any named group is automatically capturing (returns `true` when `name` is not `null`). Setting this to `false` also clears `name` to `null`.
-- `isGroup` (`true`): Returns `true` as a constant, indicating this token represents a group.
+- `rgxIsGroup` (`true`): Returns `true` as a constant, indicating this token represents a group.
 - `rgxGroupWrap` (`false`): Returns `false` as a constant, since the group already wraps itself, preventing the resolver from double-wrapping.
 
 #### Methods
@@ -361,7 +361,7 @@ constructor(token: RGXToken, min?: number, max?: number | null)
 - `max` (`number | null`, optional): The maximum number of repetitions. Must be >= `min` when not `null`. Non-integer values are floored. Pass `null` for unlimited repetitions. Defaults to `min`.
 
 #### Properties
-- `token` (`RGXGroupedToken`): The token being repeated. Setting this will throw `RGXNotSupportedError` if the value is a class token with `isRepeatable` set to `false`, and will automatically wrap non-grouped tokens in a non-capturing `RGXGroupToken`.
+- `token` (`RGXGroupedToken`): The token being repeated. Setting this will throw `RGXNotSupportedError` if the value is a convertible token with `rgxIsRepeatable` set to `false`, and will automatically wrap non-grouped tokens in a non-capturing `RGXGroupToken`.
 - `min` (`number`): The minimum number of repetitions. Setting this validates that the value is >= 0 and <= `max` (when `max` is not `null`), and floors non-integer values. Throws `RGXOutOfBoundsError` if validation fails.
 - `max` (`number | null`): The maximum number of repetitions. Setting this validates that the value is >= `min` when not `null`, and floors non-integer values. Pass `null` for unlimited. Throws `RGXOutOfBoundsError` if validation fails.
 - `repeaterSuffix` (`string`): Returns the regex quantifier suffix based on the current `min` and `max` values: `*` for `{0,}`, `+` for `{1,}`, `?` for `{0,1}`, `{n}` for exact repetitions, `{n,}` for minimum-only, `{n,m}` for a range, or an empty string for `{1,1}` (exactly once, no quantifier needed).
@@ -388,8 +388,8 @@ constructor(tokens?: RGXTokenCollectionInput, positive?: boolean)
 - `tokens` (`RGXTokenCollection`): The internal collection of tokens managed in 'concat' mode.
 - `positive` (`boolean`): Whether the lookaround is positive. Setting this updates `negative` accordingly.
 - `negative` (`boolean`): Whether the lookaround is negative. Setting this updates `positive` accordingly.
-- `isGroup` (`true`): Returns `true` as a constant, indicating this token represents a group.
-- `isRepeatable` (`false`): Returns `false` as a constant, since lookaround assertions cannot be repeated.
+- `rgxIsGroup` (`true`): Returns `true` as a constant, indicating this token represents a group.
+- `rgxIsRepeatable` (`false`): Returns `false` as a constant, since lookaround assertions cannot be repeated.
 - `rgxGroupWrap` (`false`): Returns `false` as a constant, since the lookaround already wraps itself in a group.
 
 #### Abstract Methods
@@ -425,7 +425,7 @@ A function `rgxLookbehind` is provided with the same parameters as this class' c
 - `toRgx() => RegExp`: Resolves the lookbehind to a `RegExp`. Positive lookbehinds produce `(?<=...)` and negative lookbehinds produce `(?<!...)`.
 
 ### RGXClassWrapperToken extends RGXClassToken
-A class that wraps any `RGXToken` as an `RGXClassToken`, giving you access to the extended API class tokens provide. It delegates `isGroup` and `isRepeatable` to the wrapped token where possible.
+A class that wraps any `RGXToken` as an `RGXClassToken`, giving you access to the extended API class tokens provide. It delegates `rgxIsGroup` and `rgxIsRepeatable` to the wrapped token where possible.
 
 A function `rgxClassWrapper` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
 
@@ -441,8 +441,8 @@ constructor(token: RGXToken)
 
 #### Properties
 - `token` (`RGXToken`): The wrapped token.
-- `isGroup` (`boolean`): Delegates to the wrapped token's group status via `isRGXGroupedToken`. Returns `true` if the wrapped token is a grouped token, otherwise `false`.
-- `isRepeatable` (`boolean`): If the wrapped token is an `RGXClassToken`, delegates to its `isRepeatable` property. Otherwise, returns `true`.
+- `rgxIsGroup` (`boolean`): Delegates to the wrapped token's group status via `isRGXGroupedToken`. Returns `true` if the wrapped token is a grouped token, otherwise `false`.
+- `rgxIsRepeatable` (`boolean`): If the wrapped token is an `RGXClassToken`, delegates to its `rgxIsRepeatable` property. Otherwise, returns `true`.
 
 #### Methods
 - `unwrap() => RGXToken`: Returns the original wrapped token.
@@ -552,7 +552,7 @@ Asserts that the given value is a native token (string, number, boolean, or no-o
 function isRGXConvertibleToken(value: unknown, returnCheck?: boolean): value is RGXConvertibleToken
 ```
 
-Checks if the given value is a convertible token (an object with a `toRgx` method). If the `rgxGroupWrap` property is present, it must be a boolean; otherwise, the check fails. When `returnCheck` is `true` (the default), also validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures).
+Checks if the given value is a convertible token (an object with a `toRgx` method). If the `rgxGroupWrap`, `rgxIsRepeatable`, or `rgxIsGroup` properties are present, they must be booleans; otherwise, the check fails. When `returnCheck` is `true` (the default), also validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures).
 
 #### Parameters
   - `value` (`unknown`): The value to check.
@@ -565,7 +565,7 @@ Checks if the given value is a convertible token (an object with a `toRgx` metho
 ```typescript
 function assertRGXConvertibleToken(value: unknown, returnCheck?: boolean): asserts value is RGXConvertibleToken
 ```
-Asserts that the given value is a convertible token (an object with a `toRgx` method). If the `rgxGroupWrap` property is present, it must be a boolean; otherwise, the assertion fails. When `returnCheck` is `true` (the default), also validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+Asserts that the given value is a convertible token (an object with a `toRgx` method). If the `rgxGroupWrap`, `rgxIsRepeatable`, or `rgxIsGroup` properties are present, they must be booleans; otherwise, the assertion fails. When `returnCheck` is `true` (the default), also validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). If the assertion fails, an `RGXInvalidTokenError` will be thrown.
 
 #### Parameters
   - `value` (`unknown`): The value to assert.
@@ -701,7 +701,7 @@ function isRGXToken<T extends RGXTokenTypeGuardInput = null>(value: unknown, typ
 
 Checks if the given value is a valid RGX token, optionally narrowed to a specific token type. When `type` is `null` (the default), it checks against all token types. When `type` is a specific token type string, it checks only against that type. The `'class'` type matches `RGXClassToken` instances specifically, while `'convertible'` also matches class tokens since they implement the convertible interface.
 
-When `type` is an `RGXClassTokenConstructor` (a constructor for an `RGXClassToken` subclass), it performs an `instanceof` check against that specific constructor, allowing you to narrow to a specific class token subclass rather than all class tokens. In this case, `RGXTokenFromType` resolves to `InstanceType<T>`, giving you the specific subclass type.
+When `type` is a constructor, it performs an `instanceof` check against that specific constructor, allowing you to narrow to a specific class token subclass rather than all class tokens. In this case, `RGXTokenFromType` resolves to `InstanceType<T>`, giving you the specific subclass type.
 
 When `type` is an array, it checks that every element of the value array is a valid RGX token matching the corresponding type in the `type` array. If `matchLength` is `true` (the default), it also requires that the value array has the same length as the type array; if `false`, it allows the value array to be longer than the type array, as long as all elements up to the length of the type array match and all elements after that are still valid RGX tokens of any type.
 
@@ -733,11 +733,11 @@ Asserts that the given value is a valid RGX token, optionally narrowed to a spec
 function isRGXGroupedToken(value: unknown, contentCheck?: boolean): value is RGXGroupedToken
 ```
 
-Checks if the given value is a grouped token — a token that is implicitly or explicitly a group. Arrays and literal tokens (`RegExp`) are implicitly groups. Class tokens are only groups if they have the `isGroup` property set to `true`. Convertible tokens are groups if they have `rgxGroupWrap` set to `true` and their `toRgx()` method returns a grouped token.
+Checks if the given value is a grouped token — a token that is implicitly or explicitly a group. Arrays and literal tokens (`RegExp`) are implicitly groups. Convertible tokens (including class tokens) are groups if they have `rgxIsGroup` set to `true`, or if they have `rgxGroupWrap` set to `true` and their `toRgx()` method returns a grouped token.
 
 #### Parameters
   - `value` (`unknown`): The value to check.
-  - `contentCheck` (`boolean`, optional): Whether to validate the contents of array tokens and the return values of convertible tokens. Defaults to `true`. When `false`, arrays are accepted without checking their elements, and convertible tokens with `rgxGroupWrap` set to `true` are accepted without checking their `toRgx()` return value.
+  - `contentCheck` (`boolean`, optional): Whether to validate the contents of array tokens and the return values of convertible tokens. Defaults to `true`. When `false`, arrays are accepted without checking their elements, and convertible tokens with `rgxGroupWrap` set to `true` are accepted without checking their `toRgx()` return value. This has no effect on the `rgxIsGroup` check, which always accepts the token as grouped regardless of `contentCheck`.
 
 #### Returns
 - `boolean`: `true` if the value is a grouped token, otherwise `false`.
@@ -751,7 +751,7 @@ Asserts that the given value is a grouped token. Uses the same logic as `isRGXGr
 
 #### Parameters
   - `value` (`unknown`): The value to assert.
-  - `contentCheck` (`boolean`, optional): Whether to validate the contents of array tokens and the return values of convertible tokens. Defaults to `true`. When `false`, arrays are accepted without checking their elements, and convertible tokens with `rgxGroupWrap` set to `true` are accepted without checking their `toRgx()` return value.
+  - `contentCheck` (`boolean`, optional): Whether to validate the contents of array tokens and the return values of convertible tokens. Defaults to `true`. When `false`, arrays are accepted without checking their elements, and convertible tokens with `rgxGroupWrap` set to `true` are accepted without checking their `toRgx()` return value. This has no effect on the `rgxIsGroup` check, which always accepts the token as grouped regardless of `contentCheck`.
 
 #### Returns
 - `void`: This function does not return a value, but will throw an error if the assertion fails.

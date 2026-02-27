@@ -36,8 +36,10 @@ export function assertRGXNativeToken(value: unknown): asserts value is t.RGXNati
 
 export function isRGXConvertibleToken(value: unknown, returnCheck: boolean = true): value is t.RGXConvertibleToken {
     if (typeof value === 'object' && value !== null && 'toRgx' in value) {
-        // The rgxGroupWrap property is optional, but if it exists it must be a boolean.
+        // The rgxGroupWrap, rgxIsRepeatable, and rgxIsGroup properties are optional, but if they exist they must be booleans.
         if ('rgxGroupWrap' in value && typeof value.rgxGroupWrap !== 'boolean') return false;
+        if ('rgxIsRepeatable' in value && typeof value.rgxIsRepeatable !== 'boolean') return false;
+        if ('rgxIsGroup' in value && typeof value.rgxIsGroup !== 'boolean') return false;
 
         if (isCallable(value.toRgx)) {
             if (!returnCheck) return true;
@@ -152,8 +154,14 @@ export function isRGXGroupedToken(value: unknown, contentCheck: boolean = true):
     return (
         isRGXArrayToken(value, contentCheck) ||
         isRGXToken(value, "literal") ||
-        (isRGXToken(value, "class") && value.isGroup) ||
-        (isRGXConvertibleToken(value, false) && value.rgxGroupWrap === true && (!contentCheck || isRGXGroupedToken(value.toRgx())))
+        (isRGXConvertibleToken(value, false) && (
+            value.rgxIsGroup || 
+            (
+                value.rgxGroupWrap === true && (
+                    !contentCheck || isRGXGroupedToken(value.toRgx())
+                )
+            )
+        ))
     );
 }
 

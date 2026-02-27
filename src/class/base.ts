@@ -1,4 +1,4 @@
-import { RGXToken, ValidRegexString } from "src/types";
+import { RGXConvertibleToken, RGXToken, ValidRegexString } from "src/types";
 import { RGXTokenCollectionInput } from "src/collection";
 import { RGXInvalidTokenError, RGXNotImplementedError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
@@ -9,7 +9,7 @@ import type { RGXRepeatToken } from "./repeat";
 import type { RGXLookaheadToken } from "./lookahead";
 import type { RGXLookbehindToken } from "./lookbehind";
 
-export abstract class RGXClassToken {
+export abstract class RGXClassToken implements RGXConvertibleToken {
     abstract toRgx(): RGXToken
     abstract clone(depth?: CloneDepth): ThisType<this>;
 
@@ -22,11 +22,11 @@ export abstract class RGXClassToken {
         }
     };
 
-    get isGroup() {
+    get rgxIsGroup() {
         return false;
     }
 
-    get isRepeatable() {
+    get rgxIsRepeatable() {
         return true;
     }
 

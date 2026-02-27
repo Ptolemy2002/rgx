@@ -15,11 +15,11 @@ export abstract class RGXLookaroundToken extends RGXClassToken {
         }
     };
 
-    get isGroup() {
+    get rgxIsGroup() {
         return true as const;
     }
 
-    get isRepeatable() {
+    get rgxIsRepeatable() {
         return false as const;
     }
 
