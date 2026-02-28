@@ -42,7 +42,7 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
         throw new RGXNotImplementedError('RGXClassToken.or(...others)', 'call rgxClassInit() first.')
     }
 
-    group(args: RGXGroupTokenArgs = {}): RGXGroupToken {
+    group(args: RGXGroupTokenArgs = {}, ...others: RGXTokenCollectionInput[]): RGXGroupToken {
         throw new RGXNotImplementedError('RGXClassToken.group(args)', 'call rgxClassInit() first.')
     }
 

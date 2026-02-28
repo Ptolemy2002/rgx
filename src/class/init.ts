@@ -26,8 +26,8 @@ export function rgxClassInit() {
         }
     };
 
-    RGXClassToken.prototype.group = function (this: RGXClassToken, args: RGXGroupTokenArgs = {}): RGXGroupToken {
-        return new RGXGroupToken(args, [this]);
+    RGXClassToken.prototype.group = function (this: RGXClassToken, args: RGXGroupTokenArgs = {}, ...others: RGXTokenCollectionInput[]): RGXGroupToken {
+        return new RGXGroupToken(args, [this, ...others]);
     }
 
     RGXClassToken.prototype.repeat = function (this: RGXClassToken, min: number = 1, max: number | null = min, lazy: boolean = false): RGXRepeatToken {

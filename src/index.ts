@@ -16,6 +16,7 @@ export * from "./utils";
 export * from "./ExtRegExp";
 export * from "./flag-transformer";
 export * from "./clone";
+export * from "./constants";
 
 // Call this for certain class methods to work correctly
 rgxClassInit();

@@ -10,3 +10,5 @@ export * from './invalidFlagTransformerKey';
 export * from './flagTransformerConflict';
 export * from './notSupported';
 export * from './insertionRejected';
+export * from './constantConflict';
+export * from './invalidConstantKey';

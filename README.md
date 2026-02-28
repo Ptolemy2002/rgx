@@ -54,7 +54,7 @@ type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     // ... see source for full definition
 ;
 
-type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_REGEX_FLAGS' | 'INVALID_VANILLA_REGEX_FLAGS' | 'NOT_IMPLEMENTED' | 'NOT_SUPPORTED' | 'INVALID_IDENTIFIER' | 'OUT_OF_BOUNDS' | 'INVALID_FLAG_TRANSFORMER_KEY' | 'FLAG_TRANSFORMER_CONFLICT' | 'INSERTION_REJECTED';
+type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_REGEX_FLAGS' | 'INVALID_VANILLA_REGEX_FLAGS' | 'NOT_IMPLEMENTED' | 'NOT_SUPPORTED' | 'INVALID_IDENTIFIER' | 'OUT_OF_BOUNDS' | 'INVALID_FLAG_TRANSFORMER_KEY' | 'FLAG_TRANSFORMER_CONFLICT' | 'CONSTANT_CONFLICT' | 'INVALID_CONSTANT_KEY' | 'INSERTION_REJECTED';
 
 type RangeObject = {
     min?: number | null;
@@ -218,6 +218,32 @@ constructor(message: string, got: string)
 #### Properties
 - `got` (`string`): The conflicting key string.
 
+### RGXInvalidConstantKeyError extends RGXError
+A specific error class for invalid constant keys. This error is thrown when attempting to access or assert an RGX constant with a name that does not exist. The error code is set to `INVALID_CONSTANT_KEY` on instantiation.
+
+#### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The constant name that was not found.
+
+#### Properties
+- `got` (`string`): The constant name that was not found.
+
+### RGXConstantConflictError extends RGXError
+A specific error class for constant name conflicts. This error is thrown when attempting to define an RGX constant with a name that is already in use. The error code is set to `CONSTANT_CONFLICT` on instantiation.
+
+#### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The conflicting constant name.
+
+#### Properties
+- `got` (`string`): The conflicting constant name.
+
 ### RGXInsertionRejectedError extends RGXError
 A specific error class for token insertion rejection. This error is thrown when a convertible token's `rgxAcceptInsertion` method returns `false` or a string (rejection reason) during pattern construction via `rgx`, `rgxa`, or `rgxConcat`. The error code is set to `INSERTION_REJECTED` on instantiation.
 
@@ -305,7 +331,7 @@ An abstract base class for creating custom RGX token classes. Subclasses must im
 #### Methods
 - `rgxAcceptInsertion(tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean`: Called during pattern construction (via `rgx`, `rgxa`, or `rgxConcat`) to allow the token to reject its own insertion based on the surrounding tokens and the pattern's flags. Returns `true` to accept insertion (the default), `false` to reject with no reason, or a string to reject with a reason message. When a token rejects insertion, an `RGXInsertionRejectedError` is thrown. Subclasses can override this to enforce constraints such as requiring certain flags to be present.
 - `or(...others: RGXTokenCollectionInput[]) => RGXClassUnionToken`: Creates an `RGXClassUnionToken` that represents a union (alternation) of this token with the provided others. If any of the `others` are `RGXClassUnionToken` instances, their tokens are flattened into the union rather than nested. If `this` is already an `RGXClassUnionToken`, its existing tokens are preserved and the others are appended.
-- `group(args?: RGXGroupTokenArgs) => RGXGroupToken`: Wraps this token in an `RGXGroupToken` with the provided arguments. The `args` parameter defaults to `{}`, which creates a capturing group with no name. This is a convenience method that creates a new `RGXGroupToken` with `this` as the sole token.
+- `group(args?: RGXGroupTokenArgs, ...others: RGXTokenCollectionInput[]) => RGXGroupToken`: Wraps this token in an `RGXGroupToken` with the provided arguments. The `args` parameter defaults to `{}`, which creates a capturing group with no name. Any additional `others` are included in the group alongside `this`. This is a convenience method that creates a new `RGXGroupToken` with `this` and the `others` as the tokens.
 - `repeat(min?: number, max?: number | null, lazy?: boolean) => RGXRepeatToken`: Wraps this token in an `RGXRepeatToken` with the given repetition bounds. `min` defaults to `1`, `max` defaults to `min`, `lazy` defaults to `false`. Pass `null` for `max` to allow unlimited repetitions. When `lazy` is `true`, the resulting quantifier will be non-greedy. This is a convenience method that creates a new `RGXRepeatToken` with `this` as the token. Throws `RGXNotSupportedError` if called on a token with `rgxIsRepeatable` set to `false` (e.g., `RGXLookaroundToken`).
 - `optional(lazy?: boolean) => RGXRepeatToken`: Shorthand for `repeat(0, 1, lazy)`. Wraps this token in an `RGXRepeatToken` that matches the token zero or one times. `lazy` defaults to `false`. Throws `RGXNotSupportedError` if called on a token with `rgxIsRepeatable` set to `false` (e.g., `RGXLookaroundToken`).
 - `asLookahead(positive?: boolean) => RGXLookaheadToken`: Wraps this token in an `RGXLookaheadToken`. `positive` defaults to `true`. If this token is already an `RGXLookaheadToken`, it is returned as-is without re-wrapping.
@@ -1269,6 +1295,140 @@ Creates a clone of the given RGX token to the given depth, provided that the tok
 
 #### Returns
 - `T`: The cloned token.
+
+### listRGXConstants
+```typescript
+function listRGXConstants(): string[]
+```
+
+Returns the names of all currently defined RGX constants.
+
+#### Returns
+- `string[]`: An array of constant names.
+
+### hasRGXConstant
+```typescript
+function hasRGXConstant(name: string): boolean
+```
+
+Checks if an RGX constant with the given name exists.
+
+#### Parameters
+  - `name` (`string`): The constant name to check.
+
+#### Returns
+- `boolean`: `true` if the constant exists, otherwise `false`.
+
+### assertHasRGXConstant
+```typescript
+function assertHasRGXConstant(name: string): void
+```
+
+Asserts that an RGX constant with the given name exists. If the assertion fails, an `RGXInvalidConstantKeyError` will be thrown.
+
+#### Parameters
+  - `name` (`string`): The constant name to assert.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an error if the assertion fails.
+
+### assertNotHasRGXConstant
+```typescript
+function assertNotHasRGXConstant(name: string): void
+```
+
+Asserts that an RGX constant with the given name does not exist. If the assertion fails, an `RGXConstantConflictError` will be thrown.
+
+#### Parameters
+  - `name` (`string`): The constant name to assert.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an error if the assertion fails.
+
+### defineRGXConstant
+```typescript
+function defineRGXConstant(name: string, value: RGXToken): RGXToken
+```
+
+Defines a new RGX constant with the given name and value. Throws an `RGXConstantConflictError` if a constant with the same name already exists.
+
+#### Parameters
+  - `name` (`string`): The name for the constant.
+  - `value` (`RGXToken`): The token value to associate with the name.
+
+#### Returns
+- `RGXToken`: The value that was defined.
+
+### rgxConstant
+```typescript
+function rgxConstant(name: string): RGXToken
+```
+
+Retrieves the value of an RGX constant by name. Throws an `RGXInvalidConstantKeyError` if no constant with the given name exists.
+
+#### Parameters
+  - `name` (`string`): The constant name to retrieve.
+
+#### Returns
+- `RGXToken`: The token value associated with the constant name.
+
+### deleteRGXConstant
+```typescript
+function deleteRGXConstant(name: string): void
+```
+
+Deletes an existing RGX constant by name. Throws an `RGXInvalidConstantKeyError` if no constant with the given name exists.
+
+#### Parameters
+  - `name` (`string`): The constant name to delete.
+
+#### Returns
+- `void`: This function does not return a value, but will throw an error if the constant does not exist.
+
+## Built-in Constants
+The library defines the following built-in constants, which are available immediately after import. Each can be retrieved via `rgxConstant(name)`.
+
+### Control Characters
+| Name | Resolves To | Description |
+| --- | --- | --- |
+| `"newline"` | `\n` | Newline character |
+| `"carriage-return"` | `\r` | Carriage return character |
+| `"tab"` | `\t` | Tab character |
+| `"null"` | `\0` | Null character |
+| `"form-feed"` | `\f` | Form feed character |
+
+### Special Characters
+| Name | Resolves To | Description |
+| --- | --- | --- |
+| `"any"` | `.` | Matches any single character (except newline by default) |
+| `"start"` | `^` | Start of string anchor |
+| `"end"` | `$` | End of string anchor |
+| `"word-bound"` | `\b` | Word boundary |
+| `"non-word-bound"` | `\B` | Non-word boundary |
+| `"word-bound-start"` | `(?<=\W)(?=\w)` | Start of a word |
+| `"word-bound-end"` | `(?<=\w)(?=\W)` | End of a word |
+
+### Character Sets
+| Name | Resolves To | Description |
+| --- | --- | --- |
+| `"letter"` | `[a-zA-Z]` | Any letter (uppercase or lowercase) |
+| `"lowercase-letter"` | `[a-z]` | Any lowercase letter |
+| `"uppercase-letter"` | `[A-Z]` | Any uppercase letter |
+| `"non-letter"` | `[^a-zA-Z]` | Any character that is not a letter |
+| `"alphanumeric"` | `[a-zA-Z0-9]` | Any letter or digit |
+| `"non-alphanumeric"` | `[^a-zA-Z0-9]` | Any character that is not a letter or digit |
+
+### Predefined Character Sets
+| Name | Resolves To | Description |
+| --- | --- | --- |
+| `"digit"` | `\d` | Any digit |
+| `"non-digit"` | `\D` | Any non-digit |
+| `"whitespace"` | `\s` | Any whitespace character |
+| `"non-whitespace"` | `\S` | Any non-whitespace character |
+| `"vertical-whitespace"` | `\v` | Vertical whitespace character |
+| `"word-char"` | `\w` | Any word character (letter, digit, or underscore) |
+| `"non-word-char"` | `\W` | Any non-word character |
+| `"backspace"` | `[\b]` | Backspace character |
 
 ## Peer Dependencies
 - `@ptolemy2002/immutability-utils` ^2.0.0

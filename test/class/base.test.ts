@@ -199,6 +199,13 @@ describe("RGXClassToken", () => {
             expect((result as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
             expect((result as RGXGroupToken).capturing).toBe(false);
         });
+
+        it("handles others correctly", () => {
+            const otherToken = ["other"];
+            const result = testToken1.group({}, otherToken);
+            expect(result).toBeInstanceOf(RGXGroupToken);
+            expect((result as RGXGroupToken).tokens.toArray()).toEqual([testToken1, otherToken]);
+        });
     });
 
     describe("repeat", () => {

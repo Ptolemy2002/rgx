@@ -2,7 +2,8 @@ import {
     RGXError, RGXInvalidTokenError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError,
     RGXNotImplementedError, RGXClassToken, RGXInvalidIdentifierError, RGXOutOfBoundsError,
     RGXInvalidRegexFlagsError, isInRange, assertInRange, RGXInvalidFlagTransformerKeyError,
-    RGXFlagTransformerConflictError, RGXNotSupportedError, RGXInsertionRejectedError
+    RGXFlagTransformerConflictError, RGXNotSupportedError, RGXInsertionRejectedError,
+    RGXConstantConflictError, RGXInvalidConstantKeyError
 } from 'src/index';
 
 class TestClassToken extends RGXClassToken {
@@ -368,6 +369,33 @@ describe('RGXInvalidFlagTransformerKeyError', () => {
     });
 });
 
+describe('RGXInvalidConstantKeyError', () => {
+    it('has the correct name', () => {
+        const error = new RGXInvalidConstantKeyError('Invalid constant key', 'CONSTANT_NAME');
+        expect(error.name).toBe('RGXInvalidConstantKeyError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXInvalidConstantKeyError('Invalid constant key', 'CONSTANT_NAME');
+        expect(error.code).toBe('INVALID_CONSTANT_KEY');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXInvalidConstantKeyError('Invalid constant key', 'CONSTANT_NAME');
+        expect(error.got).toBe('CONSTANT_NAME');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInvalidConstantKeyError('Invalid constant key', 'CONSTANT_NAME');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXInvalidConstantKeyError('Invalid constant key', 'CONSTANT_NAME');
+        expect(error.toString()).toBe('RGXInvalidConstantKeyError: Invalid constant key; Got: "CONSTANT_NAME"');
+    });
+});
+
 describe('RGXFlagTransformerConflictError', () => {
     it('has the correct name', () => {
         const error = new RGXFlagTransformerConflictError('Flag transformer conflict', 'g');
@@ -392,6 +420,33 @@ describe('RGXFlagTransformerConflictError', () => {
     it('formats the error message correctly', () => {
         const error = new RGXFlagTransformerConflictError('Flag transformer conflict', 'g');
         expect(error.toString()).toBe('RGXFlagTransformerConflictError: Flag transformer conflict; Got: "g"');
+    });
+});
+
+describe('RGXConstantConflictError', () => {
+    it('has the correct name', () => {
+        const error = new RGXConstantConflictError('Constant conflict', 'CONSTANT_NAME');
+        expect(error.name).toBe('RGXConstantConflictError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXConstantConflictError('Constant conflict', 'CONSTANT_NAME');
+        expect(error.code).toBe('CONSTANT_CONFLICT');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXConstantConflictError('Constant conflict', 'CONSTANT_NAME');
+        expect(error.got).toBe('CONSTANT_NAME');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXConstantConflictError('Constant conflict', 'CONSTANT_NAME');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXConstantConflictError('Constant conflict', 'CONSTANT_NAME');
+        expect(error.toString()).toBe('RGXConstantConflictError: Constant conflict; Got: "CONSTANT_NAME"');
     });
 });
 
