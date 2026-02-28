@@ -912,7 +912,7 @@ For convertible tokens, if the token has an `rgxGroupWrap` property, that value 
 function rgxConcat(tokens: RGXToken[], groupWrap?: boolean, currentFlags?: string): ValidRegexString
 ```
 
-A helper function that resolves an array of RGX tokens and concatenates their resolved string representations together. This is useful for cases where you want to concatenate multiple tokens without creating a union between them. Before returning, any convertible token in the array that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown.
+A helper function that resolves an array of RGX tokens and concatenates their resolved string representations together. This is useful for cases where you want to concatenate multiple tokens without creating a union between them. Before returning, any convertible token in the array that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown with details about the reason and exactly where the rejection occurred.
 
 #### Parameters
   - `tokens` (`RGXToken[]`): The array of RGX tokens to resolve and concatenate.
@@ -927,7 +927,7 @@ A helper function that resolves an array of RGX tokens and concatenates their re
 function rgx(flags?: string): (strings: TemplateStringsArray, ...tokens: RGXToken[]) => ExtRegExp
 ```
 
-Creates and returns a template tag function that constructs an `ExtRegExp` object from the provided template literal with the provided flags. The template literal can contain RGX tokens, which will be resolved and concatenated with the literal parts to form the final regex pattern. Before constructing the pattern, any convertible token that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown.
+Creates and returns a template tag function that constructs an `ExtRegExp` object from the provided template literal with the provided flags. The template literal can contain RGX tokens, which will be resolved and concatenated with the literal parts to form the final regex pattern. Before constructing the pattern, any convertible token that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown with details about the reason and exactly where the rejection occurred.
 
 The provided `flags` are passed as `currentFlags` to the resolver, enabling inline modifier groups for any `RegExp` literal tokens whose localizable flags (`i`, `m`, `s`) differ from the parent flags. For example, embedding `/foo/i` in a no-flag context produces `(?i:foo)`, while embedding `/bar/` in an `i`-flag context produces `(?-i:bar)`.
 
@@ -962,7 +962,7 @@ const pattern4 = rgx()`${beginning}${caseInsensitiveWord} world${end}`; // /^(?i
 ```typescript
 function rgxa(tokens: RGXToken[], flags?: string): ExtRegExp
 ```
-As an alternative to using the `rgx` template tag, you can directly call `rgxa` with an array of RGX tokens and optional flags to get an `ExtRegExp` object. This is useful in cases where you don't want to use a template literal. Like `rgx`, the provided `flags` are passed as `currentFlags` to the resolver, enabling inline modifier groups for `RegExp` literal tokens whose localizable flags differ. Before constructing the pattern, any convertible token in the array that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown.
+As an alternative to using the `rgx` template tag, you can directly call `rgxa` with an array of RGX tokens and optional flags to get an `ExtRegExp` object. This is useful in cases where you don't want to use a template literal. Like `rgx`, the provided `flags` are passed as `currentFlags` to the resolver, enabling inline modifier groups for `RegExp` literal tokens whose localizable flags differ. Before constructing the pattern, any convertible token in the array that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown with details about the reason and exactly where the rejection occurred.
 
 #### Parameters
   - `tokens` (`RGXToken[]`): The RGX tokens to be resolved and concatenated to form the regex pattern.

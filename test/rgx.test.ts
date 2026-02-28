@@ -1,8 +1,37 @@
-import rgx, { rgxa, rgxConcat, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXTokenCollection } from 'src/index';
+import rgx, { rgxa, RGXClassToken, rgxConcat, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXToken, RGXTokenCollection, ValidRegexFlags } from 'src/index';
+import { expectError } from './utils';
 
 function expectRegexpEqual(received: RegExp, expected: RegExp | string) {
     const expectedPattern = typeof expected === 'string' ? expected : expected.source;
     expect(received.source).toBe(expectedPattern);
+}
+
+class TestClassToken1 extends RGXClassToken {
+    rgxAcceptInsertion() {
+        return false;
+    }
+
+    toRgx(): RGXToken {
+        return 'test';
+    }
+
+    clone() {
+        return new TestClassToken1();
+    }
+}
+
+class TestClassToken2 extends RGXClassToken {
+    rgxAcceptInsertion() {
+        return "class: always rejects";
+    }
+
+    toRgx(): RGXToken {
+        return 'test';
+    }
+
+    clone() {
+        return new TestClassToken1();
+    }
 }
 
 describe('rgx', () => {
@@ -338,11 +367,29 @@ describe('rgxConcat', () => {
 
     it('Throws the correct error for a convertible token that rejects insertion', () => {
         const token = { toRgx: () => "foo", rgxAcceptInsertion: () => false };
-        expect(() => rgxConcat(['bar', token, 'baz'])).toThrow(RGXInsertionRejectedError);
+        expectError(() => rgxConcat(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
+            return e.message === "Insertion rejected; Additional info: index 1, token type unknown";
+        });
     });
 
     it('Throws the correct error for a convertible token that rejects insertion with a message', () => {
         const token = { toRgx: () => "foo", rgxAcceptInsertion: () => "Always rejects" };
-        expect(() => rgxConcat(['bar', token, 'baz'])).toThrow(RGXInsertionRejectedError);
+        expectError(() => rgxConcat(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
+            return e.message === "Insertion rejected; Reason: Always rejects; Additional info: index 1, token type unknown";
+        });
+    });
+
+    it('Throws the correct error for a class token that rejects insertion', () => {
+        const token = new TestClassToken1();
+        expectError(() => rgxConcat(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
+            return e.message === "Insertion rejected; Additional info: index 1, token type TestClassToken1";
+        });
+    });
+
+    it('Throws the correct error for a class token that rejects insertion with a message', () => {
+        const token = new TestClassToken2();
+        expectError(() => rgxConcat(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
+            return e.message === "Insertion rejected; Reason: class: always rejects; Additional info: index 1, token type TestClassToken2";
+        });
     });
 });
