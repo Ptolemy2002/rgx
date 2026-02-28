@@ -12,7 +12,8 @@ export type RGXErrorCode =
     'FLAG_TRANSFORMER_CONFLICT' |
     'CONSTANT_CONFLICT' |
     'INVALID_CONSTANT_KEY' |
-    'INSERTION_REJECTED'
+    'INSERTION_REJECTED' |
+    'REGEX_NOT_MATCHED_AT_POSITION'
 ;
 
 export class RGXError extends Error {

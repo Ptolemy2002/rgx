@@ -12,7 +12,7 @@ class TestClassToken1 extends RGXClassToken {
     }
 }
 
-class TestClassToken2 extends RGXClassToken {
+export class TestClassToken2 extends RGXClassToken {
     get rgxIsGroup() {
         return true as const;
     }
@@ -43,8 +43,8 @@ function constructorTest(constructor: ConstructFunction<typeof RGXClassWrapperTo
     });
 }
 
-const isRgxClassWrapperToken = RGXClassWrapperToken.check;
-const assertRgxClassWrapperToken = RGXClassWrapperToken.assert;
+export const isRgxClassWrapperToken = RGXClassWrapperToken.check;
+export const assertRgxClassWrapperToken = RGXClassWrapperToken.assert;
 
 describe("RGXClassWrapperToken", () => {
     describe("constructor", () => {
@@ -88,8 +88,8 @@ describe("RGXClassWrapperToken", () => {
         });
 
         it("is true for literal tokens", () => {
-            const instance = new RGXClassWrapperToken("test");
-            expect(instance.rgxIsGroup).toBe(false);
+            const instance = new RGXClassWrapperToken(/test/);
+            expect(instance.rgxIsGroup).toBe(true);
         });
 
         it("is true for class tokens with rgxIsGroup true", () => {
@@ -159,7 +159,7 @@ describe("RGXClassWrapperToken", () => {
             expect(instance.rgxIsRepeatable).toBe(false);
         });
 
-        it("is true for non-class tokens", () => {
+        it("is true for non-convertible tokens", () => {
             const instance1 = new RGXClassWrapperToken("test");
             expect(instance1.rgxIsRepeatable).toBe(true);
 

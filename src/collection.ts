@@ -1,4 +1,4 @@
-import { RGXToken, ValidRegexString } from "./types";
+import { RGXConvertibleToken, RGXToken, ValidRegexString } from "./types";
 import { resolveRGXToken } from "./resolve";
 import { rgxConcat } from "./concat";
 import { CloneDepth, immutableMut, extClone, depthDecrement } from "@ptolemy2002/immutability-utils";
@@ -8,7 +8,7 @@ import { createConstructFunction, createClassGuardFunction, createAssertClassGua
 export type RGXTokenCollectionMode = 'union' | 'concat';
 export type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
 
-export class RGXTokenCollection implements Collection<RGXToken> {
+export class RGXTokenCollection implements Collection<RGXToken>, RGXConvertibleToken {
     mode: RGXTokenCollectionMode;
     tokens: RGXToken[] = [];
 

@@ -12,3 +12,4 @@ export * from './notSupported';
 export * from './insertionRejected';
 export * from './constantConflict';
 export * from './invalidConstantKey';
+export * from './regexNotMatchedAtPosition';

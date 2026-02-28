@@ -3,7 +3,7 @@ import {
     RGXNotImplementedError, RGXClassToken, RGXInvalidIdentifierError, RGXOutOfBoundsError,
     RGXInvalidRegexFlagsError, isInRange, assertInRange, RGXInvalidFlagTransformerKeyError,
     RGXFlagTransformerConflictError, RGXNotSupportedError, RGXInsertionRejectedError,
-    RGXConstantConflictError, RGXInvalidConstantKeyError
+    RGXConstantConflictError, RGXInvalidConstantKeyError, RGXRegexNotMatchedAtPositionError
 } from 'src/index';
 
 class TestClassToken extends RGXClassToken {
@@ -598,5 +598,179 @@ describe('isInRange', () => {
     it('rejects a value equal to the maximum when inclusiveRight is false', () => {
         expect(isInRange(10, { min: 0, max: 10, inclusiveRight: false })).toBe(false);
         expect(() => assertInRange(10, { min: 0, max: 10, inclusiveRight: false })).toThrow(RGXOutOfBoundsError);
+    });
+});
+
+describe('RGXRegexNotMatchedAtPositionError', () => {
+    const pattern = /foo/;
+    const source = 'hello world foobar';
+
+    it('has the correct name', () => {
+        const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 0);
+        expect(error.name).toBe('RGXRegexNotMatchedAtPositionError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 0);
+        expect(error.code).toBe('REGEX_NOT_MATCHED_AT_POSITION');
+    });
+
+    it('exposes the pattern property', () => {
+        const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 0);
+        expect(error.pattern).toBe(pattern);
+    });
+
+    it('exposes the source property', () => {
+        const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 0);
+        expect(error.source).toBe(source);
+    });
+
+    it('exposes the position property', () => {
+        const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 5);
+        expect(error.position).toBe(5);
+    });
+
+    it('defaults contextSize to null', () => {
+        const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 0);
+        expect(error.contextSize).toBeNull();
+    });
+
+    it('accepts a custom contextSize', () => {
+        const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 5, 3);
+        expect(error.contextSize).toBe(3);
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 0);
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('throws RGXOutOfBoundsError when position is negative', () => {
+        expect(() => new RGXRegexNotMatchedAtPositionError('No match', pattern, source, -1)).toThrow(RGXOutOfBoundsError);
+    });
+
+    it('throws RGXOutOfBoundsError when position is >= source length', () => {
+        expect(() => new RGXRegexNotMatchedAtPositionError('No match', pattern, source, source.length)).toThrow(RGXOutOfBoundsError);
+    });
+
+    it('throws RGXOutOfBoundsError when setting position out of bounds', () => {
+        const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 0);
+        expect(() => { error.position = -1; }).toThrow(RGXOutOfBoundsError);
+        expect(() => { error.position = source.length; }).toThrow(RGXOutOfBoundsError);
+    });
+
+    describe('sourceContext', () => {
+        it('returns the full source when contextSize is null', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 5);
+            expect(error.sourceContext()).toBe(source);
+        });
+
+        it('returns the full source when contextSize covers the entire string', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 5, 100);
+            expect(error.sourceContext()).toBe(source);
+        });
+
+        it('returns a substring around the position based on contextSize', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 8, 3);
+            expect(error.sourceContext()).toBe(source.slice(5, 11));
+        });
+
+        it('clamps the start to 0', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 1, 3);
+            expect(error.sourceContext()).toBe(source.slice(0, 4));
+        });
+
+        it('clamps the end to source length', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, source.length - 1, 3);
+            expect(error.sourceContext()).toBe(source.slice(source.length - 4, source.length));
+        });
+    });
+
+    describe('hasLeftContext', () => {
+        it('returns false when contextSize is null', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 5);
+            expect(error.hasLeftContext()).toBe(false);
+        });
+
+        it('returns true when position - contextSize >= 0', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 5, 3);
+            expect(error.hasLeftContext()).toBe(true);
+        });
+
+        it('returns false when position - contextSize < 0', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 1, 3);
+            expect(error.hasLeftContext()).toBe(false);
+        });
+    });
+
+    describe('hasRightContext', () => {
+        it('returns false when contextSize is null', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 5);
+            expect(error.hasRightContext()).toBe(false);
+        });
+
+        it('returns true when position + contextSize <= source length', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 5, 3);
+            expect(error.hasRightContext()).toBe(true);
+        });
+
+        it('returns false when position + contextSize > source length', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, source.length - 1, 3);
+            expect(error.hasRightContext()).toBe(false);
+        });
+    });
+
+    describe('hasFullContext', () => {
+        it('returns true when contextSize is null', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 5);
+            expect(error.hasFullContext()).toBe(true);
+        });
+
+        it('returns true when contextSize covers the entire string', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 5, 100);
+            expect(error.hasFullContext()).toBe(true);
+        });
+
+        it('returns false when either side has context truncated', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 8, 3);
+            expect(error.hasFullContext()).toBe(false);
+        });
+    });
+
+    describe('toString', () => {
+        it('formats correctly with no contextSize (full source shown)', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 5);
+            expect(error.toString()).toBe(
+                `RGXRegexNotMatchedAtPositionError: No match; Pattern: /foo/, Position: 5, Context: ${source}`
+            );
+        });
+
+        it('formats correctly with contextSize that covers the full source', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 5, 100);
+            expect(error.toString()).toBe(
+                `RGXRegexNotMatchedAtPositionError: No match; Pattern: /foo/, Position: 5, Context: ${source}`
+            );
+        });
+
+        it('formats correctly with ellipsis on both sides', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 8, 3);
+            expect(error.toString()).toBe(
+                `RGXRegexNotMatchedAtPositionError: No match; Pattern: /foo/, Position: 8, Context: ...${source.slice(5, 11)}...`
+            );
+        });
+
+        it('formats correctly with ellipsis only on the right', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 1, 3);
+            expect(error.toString()).toBe(
+                `RGXRegexNotMatchedAtPositionError: No match; Pattern: /foo/, Position: 1, Context: ${source.slice(0, 4)}...`
+            );
+        });
+
+        it('formats correctly with ellipsis only on the left', () => {
+            const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, source.length - 1, 3);
+            expect(error.toString()).toBe(
+                `RGXRegexNotMatchedAtPositionError: No match; Pattern: /foo/, Position: ${source.length - 1}, Context: ...${source.slice(source.length - 4, source.length)}`
+            );
+        });
     });
 });

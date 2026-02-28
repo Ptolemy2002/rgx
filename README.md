@@ -54,7 +54,7 @@ type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     // ... see source for full definition
 ;
 
-type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_REGEX_FLAGS' | 'INVALID_VANILLA_REGEX_FLAGS' | 'NOT_IMPLEMENTED' | 'NOT_SUPPORTED' | 'INVALID_IDENTIFIER' | 'OUT_OF_BOUNDS' | 'INVALID_FLAG_TRANSFORMER_KEY' | 'FLAG_TRANSFORMER_CONFLICT' | 'CONSTANT_CONFLICT' | 'INVALID_CONSTANT_KEY' | 'INSERTION_REJECTED';
+type RGXErrorCode = 'UNKNOWN' | 'INVALID_RGX_TOKEN' | 'INVALID_REGEX_STRING' | 'INVALID_REGEX_FLAGS' | 'INVALID_VANILLA_REGEX_FLAGS' | 'NOT_IMPLEMENTED' | 'NOT_SUPPORTED' | 'INVALID_IDENTIFIER' | 'OUT_OF_BOUNDS' | 'INVALID_FLAG_TRANSFORMER_KEY' | 'FLAG_TRANSFORMER_CONFLICT' | 'CONSTANT_CONFLICT' | 'INVALID_CONSTANT_KEY' | 'INSERTION_REJECTED' | 'REGEX_NOT_MATCHED_AT_POSITION';
 
 type RangeObject = {
     min?: number | null;
@@ -77,6 +77,23 @@ type RGXUnionInsertionPosition = 'prefix' | 'suffix';
 type RGXGroupTokenArgs = {
     name?: string | null;
     capturing?: boolean;
+};
+
+type RGXPartEventType = "pre-capture" | "post-capture";
+type RGXPartOptions<R, T=string> = {
+    transform: (captured: string) => T;
+    onEvent: ((part: RGXPart<R, T>, eventType: RGXPartEventType, walker: RGXWalker<R>) => void) | null;
+};
+
+type RGXWalkerOptions<R> = {
+    startingSourcePosition?: number;
+    reducedCurrent?: R;
+};
+
+type RGXWalkerFlags = {
+    stopped: boolean;
+    skipped: boolean;
+    nonCapture: boolean;
 };
 ```
 
@@ -256,6 +273,31 @@ constructor(reason?: string | null, message?: string | null)
 
 #### Properties
 - `reason` (`string | null`): The reason the insertion was rejected, or `null` if no reason was provided.
+
+### RGXRegexNotMatchedAtPositionError extends RGXError
+A specific error class for regex match failures at a given position. This error is thrown when a regex is expected to match at a specific position in a string but does not (e.g., via `assertRegexMatchesAtPosition`). The error code is set to `REGEX_NOT_MATCHED_AT_POSITION` on instantiation.
+
+#### Constructor
+```typescript
+constructor(message: string, pattern: RegExp, source: string, position: number, contextSize?: number | null)
+```
+- `message` (`string`): The error message.
+- `pattern` (`RegExp`): The regex pattern that failed to match.
+- `source` (`string`): The string that was being matched against.
+- `position` (`number`): The zero-based index in the source string where the match was expected. Must be >= 0 and < `source.length`, or an `RGXOutOfBoundsError` will be thrown.
+- `contextSize` (`number | null`, optional): The number of characters on each side of the position to include in contextual output. Defaults to `null` (full source shown).
+
+#### Properties
+- `pattern` (`RegExp`): The regex pattern that failed to match.
+- `source` (`string`): The string that was being matched against.
+- `position` (`number`): The position where the match was expected. Setting this validates that the value is >= 0 and < `source.length`, throwing `RGXOutOfBoundsError` if not.
+- `contextSize` (`number | null`): The number of characters on each side of the position to include in contextual output, or `null` for the full source.
+
+#### Methods
+- `sourceContext() => string`: Returns the relevant portion of the source string around the position. When `contextSize` is `null` or covers the entire string, returns the full source. Otherwise, returns a substring from `max(0, position - contextSize)` to `min(source.length, position + contextSize)`.
+- `hasLeftContext() => boolean`: Returns `true` if the context window starts after the beginning of the source string (i.e., there is truncated content on the left). Returns `false` when `contextSize` is `null`.
+- `hasRightContext() => boolean`: Returns `true` if the context window ends before the end of the source string (i.e., there is truncated content on the right). Returns `false` when `contextSize` is `null`.
+- `hasFullContext() => boolean`: Returns `true` when the full source is shown (neither side is truncated). This is the case when `contextSize` is `null` or when the context window covers the entire source string.
 
 ### RGXOutOfBoundsError extends RGXError
 A specific error class for out-of-bounds values. This error is thrown when a numeric value falls outside an expected range. The error code is set to `OUT_OF_BOUNDS` on instantiation.
@@ -535,6 +577,87 @@ constructor(pattern: string | RegExp, flags?: string)
 
 #### Static Properties
 - `[Symbol.species]` (`RegExpConstructor`): Returns `ExtRegExp`, ensuring that derived `RegExp` methods (like those returning new regex instances) produce `ExtRegExp` instances rather than plain `RegExp`.
+
+### RGXPart\<R, T=string\>
+A class that wraps an `RGXToken` and captures the matched string when used within an `RGXWalker`. It implements `RGXConvertibleToken`, delegating `rgxIsGroup` and `rgxIsRepeatable` to the wrapped token. After a walker captures a match for this part, the `capturedString` and `capturedValue` properties are populated, with the latter produced by the `transform` function.
+
+A function `rgxPart` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
+
+#### Static Properties
+- `check(value: unknown): value is RGXPart`: A type guard that checks if the given value is an instance of `RGXPart`.
+- `assert(value: unknown): asserts value is RGXPart`: An assertion that checks if the given value is an instance of `RGXPart`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Constructor
+```typescript
+constructor(token: RGXToken, options?: Partial<RGXPartOptions<R, T>>)
+```
+- `token` (`RGXToken`): The token to wrap.
+- `options` (`Partial<RGXPartOptions<R, T>>`, optional): Configuration options. Defaults to `{}`.
+  - `transform` (`(captured: string) => T`, optional): A function that transforms the captured string into the desired type `T`. Defaults to an identity function that casts the string to `T`.
+  - `onEvent` (`((part: RGXPart<R, T>, eventType: RGXPartEventType, walker: RGXWalker<R>) => void) | null`, optional): A callback invoked when an event is triggered on this part during walking. Defaults to `null`.
+
+#### Properties
+- `token` (`RGXToken`): The wrapped token.
+- `capturedString` (`string | null`): The raw string captured by the walker for this part, or `null` if not yet captured.
+- `capturedValue` (`T | null`): The transformed value produced by applying `transform` to `capturedString`, or `null` if not yet captured.
+- `transform` (`(captured: string) => T`): The transform function used to convert captured strings to values of type `T`.
+- `onEvent` (`((part: RGXPart<R, T>, eventType: RGXPartEventType, walker: RGXWalker<R>) => void) | null`): The event callback, or `null`.
+- `rgxIsGroup` (`boolean`): Delegates to the wrapped token's group status via `isRGXGroupedToken`.
+- `rgxIsRepeatable` (`boolean`): If the wrapped token is an `RGXConvertibleToken`, delegates to its `rgxIsRepeatable` property (defaulting to `true` if not present). Otherwise, returns `true`.
+
+#### Methods
+- `triggerEvent(eventType: RGXPartEventType, walker: RGXWalker<R>) => void`: Triggers an event on this part. For `"post-capture"` events, sets `capturedString` to the walker's last captured string and `capturedValue` to the result of `transform`. Then calls the `onEvent` callback if present.
+- `toRgx() => RGXToken`: Returns the wrapped token.
+- `clone(depth: CloneDepth = "max") => RGXPart`: Creates a clone of this part. When `depth` is `0`, returns `this`; otherwise, returns a new `RGXPart` with a cloned token and the same `transform` and `onEvent` references.
+
+### RGXWalker\<R\>
+A class that walks through a sequence of RGX tokens, matching each token against a source string at the current position. It implements `RGXConvertibleToken`, delegating to its internal `RGXTokenCollection`. The walker maintains a source position and a token position, advancing through both as tokens are matched. When an `RGXPart` is encountered, its event callbacks are triggered around the capture. The generic type `R` represents a user-defined "reduced" value that can accumulate state during walking (e.g., via `RGXPart` event callbacks).
+
+A function `rgxWalker` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
+
+#### Static Properties
+- `check(value: unknown): value is RGXWalker`: A type guard that checks if the given value is an instance of `RGXWalker`.
+- `assert(value: unknown): asserts value is RGXWalker`: An assertion that checks if the given value is an instance of `RGXWalker`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+#### Constructor
+```typescript
+constructor(source: string, tokens: RGXTokenCollectionInput, options?: RGXWalkerOptions<R>)
+```
+- `source` (`string`): The string to walk through, matching tokens against.
+- `tokens` (`RGXTokenCollectionInput`): The tokens to match sequentially. Internally stored as an `RGXTokenCollection` in 'concat' mode.
+- `options` (`RGXWalkerOptions<R>`, optional): Configuration options. Defaults to `{}`.
+  - `startingSourcePosition` (`number`, optional): The starting index in the source string. Defaults to `0`.
+  - `reducedCurrent` (`R`, optional): The initial value for the `reducedCurrent` accumulator. Defaults to `null`.
+
+#### Properties
+- `source` (`string`): The source string being walked (readonly).
+- `sourcePosition` (`number`): The current index in the source string. Setting this validates that the value is >= 0 and < `source.length`, throwing `RGXOutOfBoundsError` if not.
+- `tokens` (`RGXTokenCollection`): The internal collection of tokens in 'concat' mode (readonly).
+- `tokenPosition` (`number`): The current index in the token collection. Setting this validates that the value is >= 0 and <= `tokens.length`, throwing `RGXOutOfBoundsError` if not.
+- `reducedCurrent` (`R`): A user-defined accumulator value, typically updated by `RGXPart` event callbacks during walking.
+- `capturedStrings` (`string[]`): An array of all strings captured during walking (excluding those captured with the `nonCapture` flag set).
+- `flags` (`RGXWalkerFlags`): The current walker flags: `stopped` halts `stepToToken`/`stepToPart`/`walk`, `skipped` causes `step` to skip the current token without capturing, and `nonCapture` prevents the captured string from being added to `capturedStrings`.
+
+#### Methods
+- `resetFlags() => void`: Resets all flags (`stopped`, `skipped`, `nonCapture`) to `false`.
+- `stop() => void`: Sets the `stopped` flag to `true`, causing any active `stepToToken`, `stepToPart`, or `walk` loop to halt after the current iteration.
+- `skip() => void`: Sets the `skipped` flag to `true`, causing the current `step` call to skip capturing the current token.
+- `preventCapture() => void`: Sets the `nonCapture` flag to `true`, causing the current `step` call to capture the token but not add the matched string to `capturedStrings`.
+- `atTokenEnd() => boolean`: Returns `true` if the token position is at or past the end of the token collection.
+- `hasNextToken(predicate?: (token: RGXToken) => boolean) => boolean`: Returns `true` if there is a next token and it satisfies the optional predicate (defaults to `() => true`).
+- `atSourceEnd() => boolean`: Returns `true` if the source position is at the last character of the source string.
+- `hasNextSource(predicate?: (rest: string) => boolean) => boolean`: Returns `true` if the source position is not at the end and the remaining source satisfies the optional predicate (defaults to `() => true`).
+- `hasCapturedStrings(minCount?: number) => boolean`: Returns `true` if `capturedStrings` has at least `minCount` entries (defaults to `1`).
+- `getLastCapturedString() => string | null`: Returns the last entry in `capturedStrings`, or `null` if empty.
+- `nextToken() => RGXToken | null`: Returns the token at the current token position, or `null` if at the end.
+- `remainingSource() => string | null`: Returns the remaining source string from the current position onward, or `null` if at the end.
+- `capture(token: RGXToken) => string`: Resolves the token to a regex, asserts that it matches at the current source position (throwing `RGXRegexNotMatchedAtPositionError` if not), captures the matched string (unless `nonCapture` is set), and advances the source position by the match length. Returns the matched string.
+- `step(flagReset?: boolean) => string | null`: Steps through the next token in the collection. If `flagReset` is `true` (the default), resets flags first. If the token is an `RGXPart`, triggers `"pre-capture"` before capturing and `"post-capture"` after (when not skipped or non-capturing). Advances the token position and returns the captured string, or `null` if there are no more tokens or the step was skipped.
+- `stepToToken(predicate: (token: RGXToken) => boolean) => void`: Steps through tokens until the predicate returns `true` for the next token or the walker is stopped. The matching token is not consumed.
+- `stepToPart(predicate?: (part: RGXPart<R>) => boolean) => void`: Steps through tokens until the next `RGXPart` satisfying the predicate is reached. If already at a part, steps once first to move past it. The matching part is not consumed.
+- `walk() => void`: Steps through all remaining tokens until the end of the token collection.
+- `toRgx() => RGXToken`: Returns the internal `RGXTokenCollection`, allowing the walker to be used as a convertible token.
+- `clone(depth: CloneDepth = "max") => RGXWalker`: Creates a clone of the walker. When `depth` is `0`, returns `this`; otherwise, creates a new `RGXWalker` with cloned tokens, source position, reduced value, captured strings, and flags.
 
 ## Functions
 The following functions are exported by the library:
@@ -1287,10 +1410,25 @@ Creates a new `ExtRegExp` from an existing one with additional or replaced flags
 
 ### regexMatchAtPosition
 ```typescript
-function regexMatchAtPosition(regex: RegExp, str: string, position: number): boolean
+function regexMatchAtPosition(regex: RegExp, str: string, position: number): string | null
 ```
 
-Tests whether the given regular expression matches at a specific position in the string. This is done by creating a sticky (`y` flag) copy of the regex and setting its `lastIndex` to the desired position. The position must be within the bounds of the string (>= 0 and < string length), or an `RGXOutOfBoundsError` will be thrown.
+Attempts to match the given regular expression at a specific position in the string and returns the matched string, or `null` if there is no match. This is done by creating a sticky (`y` flag) copy of the regex and setting its `lastIndex` to the desired position. The position must be within the bounds of the string (>= 0 and < string length), or an `RGXOutOfBoundsError` will be thrown.
+
+#### Parameters
+  - `regex` (`RegExp`): The regular expression to match.
+  - `str` (`string`): The string to match against.
+  - `position` (`number`): The zero-based index in the string at which to attempt the match. Must be >= 0 and < `str.length`.
+
+#### Returns
+- `string | null`: The matched string if the regex matches at the specified position, otherwise `null`.
+
+### doesRegexMatchAtPosition
+```typescript
+function doesRegexMatchAtPosition(regex: RegExp, str: string, position: number): boolean
+```
+
+Tests whether the given regular expression matches at a specific position in the string. This is a boolean wrapper around `regexMatchAtPosition`, returning `true` if the match is non-null.
 
 #### Parameters
   - `regex` (`RegExp`): The regular expression to test.
@@ -1299,6 +1437,22 @@ Tests whether the given regular expression matches at a specific position in the
 
 #### Returns
 - `boolean`: `true` if the regex matches at the specified position, otherwise `false`.
+
+### assertRegexMatchesAtPosition
+```typescript
+function assertRegexMatchesAtPosition(regex: RegExp, str: string, position: number, contextSize?: number | null): string
+```
+
+Asserts that the given regular expression matches at a specific position in the string, throwing an `RGXRegexNotMatchedAtPositionError` if it does not. On success, returns the matched string.
+
+#### Parameters
+  - `regex` (`RegExp`): The regular expression to match.
+  - `str` (`string`): The string to match against.
+  - `position` (`number`): The zero-based index in the string at which to assert the match. Must be >= 0 and < `str.length`.
+  - `contextSize` (`number | null`, optional): The number of characters on each side of the position to include in the error's context output. Defaults to `10`.
+
+#### Returns
+- `string`: The matched string if the regex matches at the specified position. Throws `RGXRegexNotMatchedAtPositionError` if there is no match.
 
 ### cloneRGXToken
 ```typescript
