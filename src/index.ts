@@ -30,9 +30,9 @@ export function rgxa(tokens: t.RGXToken[], flags: string = ''): ExtRegExp {
     return extRegExp(pattern, flags);
 }
 
-export default function rgx(flags: string = '') {
+export default function rgx(flags: string = '', multiline=true) {
     assertValidRegexFlags(flags);
     return (strings: TemplateStringsArray, ...tokens: t.RGXToken[]) => {
-        return rgxa(taggedTemplateToArray(strings, tokens), flags);
+        return rgxa(taggedTemplateToArray(strings, tokens, multiline), flags);
     };
 }

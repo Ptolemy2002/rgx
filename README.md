@@ -950,10 +950,12 @@ A helper function that resolves an array of RGX tokens and concatenates their re
 
 ### rgx
 ```typescript
-function rgx(flags?: string): (strings: TemplateStringsArray, ...tokens: RGXToken[]) => ExtRegExp
+function rgx(flags?: string, multiline?: boolean): (strings: TemplateStringsArray, ...tokens: RGXToken[]) => ExtRegExp
 ```
 
 Creates and returns a template tag function that constructs an `ExtRegExp` object from the provided template literal with the provided flags. The template literal can contain RGX tokens, which will be resolved and concatenated with the literal parts to form the final regex pattern. Before constructing the pattern, any convertible token that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown with details about the reason and exactly where the rejection occurred.
+
+When `multiline` is `true` (the default), the literal string parts of the template are processed to strip newlines, trim leading whitespace from each line, and remove empty lines, then joined together. This allows you to write regex patterns across multiple lines in the source code for readability without the newlines and indentation becoming part of the pattern. Only the literal string parts between tokens are affected — interpolated values (tokens) are preserved as-is, including string tokens passed via `${"..."}`. When `multiline` is `false`, all literal string parts are preserved exactly as written, including newlines and whitespace.
 
 The provided `flags` are passed as `currentFlags` to the resolver, enabling inline modifier groups for any `RegExp` literal tokens whose localizable flags (`i`, `m`, `s`) differ from the parent flags. For example, embedding `/foo/i` in a no-flag context produces `(?i:foo)`, while embedding `/bar/` in an `i`-flag context produces `(?-i:bar)`.
 
@@ -971,11 +973,26 @@ const pattern3 = rgx()`${beginning}value: ${[word, optionalDigit]}${end}`; // /^
 
 const caseInsensitiveWord = /hello/i;
 const pattern4 = rgx()`${beginning}${caseInsensitiveWord} world${end}`; // /^(?i:hello) world$/ - "hello" matches case-insensitively via an inline modifier group, while " world" remains case-sensitive
+
+// Multiline template for readability (multiline is true by default):
+const pattern5 = rgx()`
+    ${beginning}
+    testing ${word}
+    ${end}
+`; // /^testing \w+$/ - same as pattern, but written across multiple lines
+
+// Preserving literal newlines with multiline mode:
+const pattern6 = rgx()`
+    foo
+    bar${rgxConstant("newline")}
+    baz
+`; // /foobar\nbaz/ - the constant newline is preserved, but template newlines are stripped
 ```
 
 #### Parameters
 **Direct**
   - `flags` (`string`, optional): The regex flags to apply to the resulting `ExtRegExp` object (e.g., 'g', 'i', 'm', or custom registered flags). If not provided, no flags will be applied. If provided and not valid regex flags (vanilla or registered custom), an `RGXInvalidRegexFlagsError` will be thrown.
+  - `multiline` (`boolean`, optional): Whether to strip newlines and trim leading whitespace from the literal string parts of the template. Defaults to `true`. When `true`, each literal string part is split by newlines, each line has its leading whitespace trimmed, empty lines are removed, and the remaining lines are joined together. Interpolated tokens (including string tokens via `${"..."}`) are not affected. When `false`, literal string parts are preserved exactly as written.
 
 **Template Tag**
   - `strings` (`TemplateStringsArray`): The literal parts of the template string.
@@ -1350,14 +1367,14 @@ Asserts that an RGX constant with the given name does not exist. If the assertio
 function defineRGXConstant(name: string, value: RGXToken): RGXToken
 ```
 
-Defines a new RGX constant with the given name and value. Throws an `RGXConstantConflictError` if a constant with the same name already exists.
+Defines a new RGX constant with the given name and value. If the value is a native token (string, number, boolean, or no-op), it is automatically wrapped in an `RGXClassWrapperToken` before being stored. This ensures that native-valued constants are not stripped by multiline template processing in `rgx`, since only the literal string parts of the template are affected by multiline mode. Throws an `RGXConstantConflictError` if a constant with the same name already exists.
 
 #### Parameters
   - `name` (`string`): The name for the constant.
-  - `value` (`RGXToken`): The token value to associate with the name.
+  - `value` (`RGXToken`): The token value to associate with the name. Native tokens are automatically wrapped in `RGXClassWrapperToken`.
 
 #### Returns
-- `RGXToken`: The value that was defined.
+- `RGXToken`: The stored value (after wrapping, if applicable).
 
 ### rgxConstant
 ```typescript
@@ -1389,6 +1406,8 @@ Deletes an existing RGX constant by name. Throws an `RGXInvalidConstantKeyError`
 The library defines the following built-in constants, which are available immediately after import. Each can be retrieved via `rgxConstant(name)`.
 
 ### Control Characters
+Since these are defined as native tokens (strings), they are automatically wrapped in `RGXClassWrapperToken` by `defineRGXConstant`, ensuring they are preserved in multiline mode.
+
 | Name | Resolves To | Description |
 | --- | --- | --- |
 | `"newline"` | `\n` | Newline character |

@@ -1,5 +1,6 @@
-import { RGXLookaheadToken, RGXLookbehindToken } from "./class";
+import { rgxClassWrapper, RGXLookaheadToken, RGXLookbehindToken } from "./class";
 import { RGXConstantConflictError, RGXInvalidConstantKeyError } from "./errors";
+import { isRGXNativeToken } from "./typeGuards";
 import { RGXToken } from "./types";
 
 const rgxConstants: Record<string, RGXToken> = {};
@@ -26,8 +27,9 @@ export function assertNotHasRGXConstant(name: string) {
 
 export function defineRGXConstant(name: string, value: RGXToken) {
     assertNotHasRGXConstant(name);
-    rgxConstants[name] = value;
-    return value;
+    // Not strings themselves so that they aren't removed in multiline mode.
+    rgxConstants[name] = isRGXNativeToken(value) ? rgxClassWrapper(value) : value;
+    return rgxConstants[name];
 }
 
 export function rgxConstant(name: string): RGXToken {

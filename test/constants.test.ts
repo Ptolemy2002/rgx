@@ -1,3 +1,4 @@
+import { RGXClassWrapperToken } from "src/class";
 import { rgxConstant, listRGXConstants, hasRGXConstant, assertHasRGXConstant, assertNotHasRGXConstant, defineRGXConstant, deleteRGXConstant } from "src/constants";
 import { RGXConstantConflictError, RGXInvalidConstantKeyError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
@@ -57,11 +58,21 @@ describe("hasRGXConstant", () => {
 describe("defineRGXConstant", () => {
     it("defines a new constant", () => {
         const name = "test-constant";
-        const value = "value";
+        const value = {toRgx() { return "test"; }};
 
         expect(() => defineRGXConstant(name, value)).not.toThrow();
         expect(rgxConstant(name)).toBe(value);
         deleteRGXConstant(name);
+    });
+
+    it("wraps native tokens in RGXClassWrapperToken", () => {
+        const name = "test-native-constant";
+        const value = "native-value";
+
+        const definedValue = defineRGXConstant(name, value);
+        expect(definedValue).not.toBe(value);
+        expect(definedValue).toBeInstanceOf(RGXClassWrapperToken);
+        expect((definedValue as RGXClassWrapperToken).token).toBe(value);
     });
 
     it("throws an error when defining a constant with an existing name", () => {

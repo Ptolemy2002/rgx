@@ -1,4 +1,4 @@
-import rgx, { rgxa, RGXClassToken, rgxConcat, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXToken, RGXTokenCollection, ValidRegexFlags } from 'src/index';
+import rgx, { rgxa, RGXClassToken, RGXClassWrapperToken, rgxConcat, rgxConstant, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXToken, RGXTokenCollection, ValidRegexFlags } from 'src/index';
 import { expectError } from './utils';
 
 function expectRegexpEqual(received: RegExp, expected: RegExp | string) {
@@ -341,6 +341,47 @@ describe('rgx', () => {
 
         expect(regex1.flags).toBe('');
         expect(regex2.flags).toBe('');
+    });
+
+    it('Strips newlines and trims whitespace when multiline is true', () => {
+        const regex = rgx('', true)`
+            foo
+            ${new RGXClassWrapperToken("bar")}
+            baz quux
+        `;
+        expectRegexpEqual(regex, 'foobarbaz quux');
+    });
+
+    it('Does not remove newlines coming from the constant instead of the template when multiline is true', () => {
+        const regex = rgx('', true)`
+            foo
+            bar ${rgxConstant("newline")}
+            baz quux
+        `;
+        expectRegexpEqual(regex, 'foobar \\nbaz quux');
+        expect(regex.test('foobar \nbaz quux')).toBe(true);
+    });
+
+    it('Does not remove newlines as parts (instead of directly in the template) when multiline is true', () => {
+        const regex = rgx('', true)`
+            foo
+            bar ${"\n"}
+            baz quux
+        `;
+        expectRegexpEqual(regex, 'foobar \\nbaz quux');
+        expect(regex.test('foobar \nbaz quux')).toBe(true);
+    });
+    
+    it('Preserves newlines and whitespace when multiline is false', () => {
+        const regex = rgx('', false)`
+            foo
+            ${new RGXClassWrapperToken("bar")}
+            baz quux
+        `;
+
+        const expectedString = '\n            foo\n            bar\n            baz quux\n        ';
+        expectRegexpEqual(regex, expectedString.replaceAll('\n', '\\n'));
+        expect(regex.test(expectedString)).toBe(true);
     });
 });
 
