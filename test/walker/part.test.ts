@@ -1,6 +1,8 @@
 import { RGXClassToken } from "src/class";
 import { RGXInvalidTokenError } from "src/errors";
 import { rgxPart, RGXPart, RGXWalker } from "src/walker";
+import { RGXPartValidationFailedError } from "src/errors";
+import { expectError } from "../utils";
 
 export class TestClassToken1 extends RGXClassToken {
     toRgx() {
@@ -45,11 +47,13 @@ function constructorTest<R, T=string>(constructor: typeof rgxPart<R, T>) {
     it("correctly initializes with options", () => {
         const token = "test";
         const transform = jest.fn();
-        const onEvent = jest.fn();
+        const beforeCapture = jest.fn();
+        const afterCapture = jest.fn();
 
-        const instance = constructor(token, { transform, onEvent });
+        const instance = constructor(token, { transform, beforeCapture, afterCapture });
         expect(instance.transform).toBe(transform);
-        expect(instance.onEvent).toBe(onEvent);
+        expect(instance.beforeCapture).toBe(beforeCapture);
+        expect(instance.afterCapture).toBe(afterCapture);
     });
 }
 
@@ -87,66 +91,6 @@ describe("RGXPart", () => {
             expect(() => assertRGXPart(null)).toThrow(RGXInvalidTokenError);
             expect(() => assertRGXPart(undefined)).toThrow(RGXInvalidTokenError);
             expect(() => assertRGXPart(instance)).toThrow(RGXInvalidTokenError);
-        });
-    });
-
-    describe("triggerEvent", () => {
-        it("sets capturedString and capturedValue on post-capture", () => {
-            const transform = jest.fn((captured: string) => captured.toUpperCase());
-            const walker = new RGXWalker("test", []);
-            walker.capturedStrings = ["test"];
-
-            const instance = new RGXPart("test", { transform });
-            instance.triggerEvent("post-capture", walker);
-
-            expect(instance.capturedString).toBe("test");
-            expect(instance.capturedValue).toBe("TEST");
-        });
-
-        it("calls transform on post-capture", () => {
-            const transform = jest.fn((captured: string) => captured.toUpperCase());
-            const walker = new RGXWalker("test", []);
-            walker.capturedStrings = ["test"];
-
-            const instance = new RGXPart("test", { transform });
-            instance.triggerEvent("post-capture", walker);
-
-            expect(transform).toHaveBeenCalledWith("test");
-        });
-
-        it("does not set capturedString or capturedValue on pre-capture", () => {
-            const transform = jest.fn((captured: string) => captured.toUpperCase());
-            const walker = new RGXWalker("test", []);
-            walker.capturedStrings = ["test"];
-
-            const instance = new RGXPart("test", { transform });
-            instance.triggerEvent("pre-capture", walker);
-            
-            expect(instance.capturedString).toBeNull();
-            expect(instance.capturedValue).toBeNull();
-        });
-
-        it("does not call transform on pre-capture", () => {
-            const transform = jest.fn((captured: string) => captured.toUpperCase());
-            const walker = new RGXWalker("test", []);
-            walker.capturedStrings = ["test"];
-            
-            const instance = new RGXPart("test", { transform });
-            instance.triggerEvent("pre-capture", walker);
-            expect(transform).not.toHaveBeenCalled();
-        });
-
-        it("calls onEvent if provided", () => {
-            const onEvent = jest.fn();
-            const walker = new RGXWalker("test", []);
-
-            const instance = new RGXPart("test", { onEvent });
-
-            instance.triggerEvent("pre-capture", walker);
-            expect(onEvent).toHaveBeenCalledWith(instance, "pre-capture", walker);
-
-            instance.triggerEvent("post-capture", walker);
-            expect(onEvent).toHaveBeenCalledWith(instance, "post-capture", walker);
         });
     });
 
@@ -233,15 +177,36 @@ describe("RGXPart", () => {
         it("preserves properties", () => {
             const token = "test";
             const transform = jest.fn();
-            const onEvent = jest.fn();
+            const beforeCapture = jest.fn();
+            const afterCapture = jest.fn();
 
-            const instance = new RGXPart(token, { transform, onEvent });
+            const instance = new RGXPart(token, { transform, beforeCapture, afterCapture });
             const clone = instance.clone();
 
             expect(clone).not.toBe(instance);
             expect(clone.token).toEqual(instance.token);
             expect(clone.transform).toBe(instance.transform);
-            expect(clone.onEvent).toBe(instance.onEvent);
+            expect(clone.beforeCapture).toBe(instance.beforeCapture);
+            expect(clone.afterCapture).toBe(instance.afterCapture);
+        });
+    });
+
+    describe("validate", () => {
+        it("returns true if validation passes", () => {
+            const instance = new RGXPart("test", { validate: () => true });
+            expect(() => instance.validate({ raw: "test", value: "test" }, new RGXWalker("test", []))).not.toThrow();
+        });
+
+        it("throws if validation fails with false", () => {
+            const instance = new RGXPart("test", { validate: () => false });
+            expect(() => instance.validate({ raw: "test", value: "test" }, new RGXWalker("test", []))).toThrow(RGXPartValidationFailedError);
+        });
+
+        it("throws with custom message if validation fails with a string", () => {
+            const instance = new RGXPart("test", { validate: () => "Custom error message" });
+            expectError(() => instance.validate({ raw: "test", value: "test" }, new RGXWalker("test", [])), RGXPartValidationFailedError, (e) => {
+                return e.message === `Custom error message; Got: test (transformed: "test")`;
+            });
         });
     });
 });

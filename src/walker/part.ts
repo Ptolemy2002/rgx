@@ -4,21 +4,38 @@ import type { RGXWalker } from "./base";
 import { createAssertClassGuardFunction, createClassGuardFunction } from "src/internal";
 import { cloneRGXToken } from "src/clone";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
+import { RGXPartValidationFailedError } from "src/errors";
 
-export type RGXPartEventType = "pre-capture" | "post-capture";
+// Return values from beforeCapture to control walker behavior.
+// - void/undefined: proceed normally
+// - "skip": skip this token (advance token position, don't capture)
+// - "silent": capture (advance source) but don't record in captures
+// - "stop": halt immediately (don't capture, don't advance)
+export type RGXPartControl = "skip" | "stop" | "silent" | void;
+
+// A structured capture result, replacing the flat string array.
+// Defaults to unknown — use RGXCapture<T> in Part callbacks for typed access.
+export type RGXCapture<T = unknown> = {
+    raw: string;
+    value: T;
+};
+
 export type RGXPartOptions<R, T=string> = {
     transform: (captured: string) => T;
-    onEvent: ((part: RGXPart<R, T>, eventType: RGXPartEventType, walker: RGXWalker<R>) => void) | null;
+    validate: (captured: RGXCapture<T>, part: RGXPart<R, T>, walker: RGXWalker<R>) => boolean | string;
+    beforeCapture: ((part: RGXPart<R, T>, walker: RGXWalker<R>) => RGXPartControl) | null;
+    afterCapture: ((capture: RGXCapture<T>, part: RGXPart<R, T>, walker: RGXWalker<R>) => void) | null;
 }
 
+// A Part is purely a definition: a token + optional callbacks.
+// It does NOT store capture state — that lives on the walker.
 export class RGXPart<R, T=string> implements RGXConvertibleToken {
     token: RGXToken;
 
-    capturedString: string | null = null;
-    capturedValue: T | null = null;
-
     readonly transform: RGXPartOptions<R, T>["transform"];
-    readonly onEvent: RGXPartOptions<R, T>["onEvent"];
+    private readonly _validate: RGXPartOptions<R, T>["validate"];
+    readonly beforeCapture: RGXPartOptions<R, T>["beforeCapture"];
+    readonly afterCapture: RGXPartOptions<R, T>["afterCapture"];
 
     static check = createClassGuardFunction(RGXPart);
     static assert = createAssertClassGuardFunction(RGXPart);
@@ -26,19 +43,17 @@ export class RGXPart<R, T=string> implements RGXConvertibleToken {
     constructor(token: RGXToken, options: Partial<RGXPartOptions<R, T>> = {}) {
         this.token = token;
         this.transform = options.transform ?? ((captured: string) => captured as unknown as T);
-        this.onEvent = options.onEvent ?? null;
+        this._validate = options.validate ?? (() => true);
+        this.beforeCapture = options.beforeCapture ?? null;
+        this.afterCapture = options.afterCapture ?? null;
     }
 
-    triggerEvent(eventType: RGXPartEventType, walker: RGXWalker<R>) {
-        switch (eventType) {
-            case "post-capture": {
-                this.capturedString = walker.getLastCapturedString()!;
-                this.capturedValue = this.transform(this.capturedString);
-                break;
-            }
-        }
-
-        this.onEvent?.(this, eventType, walker);
+    validate(capture: RGXCapture<T>, walker: RGXWalker<R>) {
+        const result = this._validate(capture, this, walker);
+        if (result === true) return;
+        
+        const message = typeof result === "string" ? result : "Part Validation Failed";
+        throw new RGXPartValidationFailedError(message, capture.raw, capture.value);
     }
 
     // Properties used for conversion to an RGXToken
@@ -59,7 +74,11 @@ export class RGXPart<R, T=string> implements RGXConvertibleToken {
     // Clone method
     clone(depth: CloneDepth = "max") {
         if (depth === 0) return this;
-        return new RGXPart(cloneRGXToken(this.token, depthDecrement(depth, 1)), { transform: this.transform, onEvent: this.onEvent });
+        return new RGXPart(cloneRGXToken(this.token, depthDecrement(depth, 1)), {
+            transform: this.transform,
+            beforeCapture: this.beforeCapture,
+            afterCapture: this.afterCapture,
+        });
     }
 }
 

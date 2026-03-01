@@ -13,3 +13,4 @@ export * from './insertionRejected';
 export * from './constantConflict';
 export * from './invalidConstantKey';
 export * from './regexNotMatchedAtPosition';
+export * from './partValidationFailed';

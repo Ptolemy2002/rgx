@@ -21,9 +21,11 @@ export function doesRegexMatchAtPosition(regex: RegExp, str: string, position: n
 }
 
 export function assertRegexMatchesAtPosition(regex: RegExp, str: string, position: number, contextSize: number | null = 10) {
-    if (!doesRegexMatchAtPosition(regex, str, position)) {
+    const result = regexMatchAtPosition(regex, str, position);
+    
+    if (result === null) {
         throw new RGXRegexNotMatchedAtPositionError("Regex not matched at index", regex, str, position, contextSize);
     }
 
-    return regexMatchAtPosition(regex, str, position)!;
+    return result;
 }

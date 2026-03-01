@@ -3,7 +3,8 @@ import {
     RGXNotImplementedError, RGXClassToken, RGXInvalidIdentifierError, RGXOutOfBoundsError,
     RGXInvalidRegexFlagsError, isInRange, assertInRange, RGXInvalidFlagTransformerKeyError,
     RGXFlagTransformerConflictError, RGXNotSupportedError, RGXInsertionRejectedError,
-    RGXConstantConflictError, RGXInvalidConstantKeyError, RGXRegexNotMatchedAtPositionError
+    RGXConstantConflictError, RGXInvalidConstantKeyError, RGXRegexNotMatchedAtPositionError,
+    RGXPartValidationFailedError
 } from 'src/index';
 
 class TestClassToken extends RGXClassToken {
@@ -772,5 +773,34 @@ describe('RGXRegexNotMatchedAtPositionError', () => {
                 `RGXRegexNotMatchedAtPositionError: No match; Pattern: /foo/, Position: ${source.length - 1}, Context: ...${source.slice(source.length - 4, source.length)}`
             );
         });
+    });
+});
+
+describe("RGXPartValidationFailedError", () => {
+    it('has the correct name', () => {
+        const error = new RGXPartValidationFailedError('Validation failed', 'rawValue', 'transformedValue');
+        expect(error.name).toBe('RGXPartValidationFailedError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXPartValidationFailedError('Validation failed', 'rawValue', 'transformedValue');
+        expect(error.code).toBe('PART_VALIDATION_FAILED');
+    });
+
+    it('exposes the gotRaw property', () => {
+        const error = new RGXPartValidationFailedError('Validation failed', 'rawValue', 'transformedValue');
+        expect(error.gotRaw).toBe('rawValue');
+    });
+
+    it('exposes the gotTransformed property', () => {
+        const error = new RGXPartValidationFailedError('Validation failed', 'rawValue', 'transformedValue');
+        expect(error.gotTransformed).toBe('transformedValue');
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXPartValidationFailedError('Validation failed', 'rawValue', 'transformedValue');
+        expect(error.toString()).toBe(
+            `RGXPartValidationFailedError: Validation failed; Got: rawValue (transformed: "transformedValue")`
+        );
     });
 });

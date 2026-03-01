@@ -13,7 +13,8 @@ export type RGXErrorCode =
     'CONSTANT_CONFLICT' |
     'INVALID_CONSTANT_KEY' |
     'INSERTION_REJECTED' |
-    'REGEX_NOT_MATCHED_AT_POSITION'
+    'REGEX_NOT_MATCHED_AT_POSITION' |
+    'PART_VALIDATION_FAILED'
 ;
 
 export class RGXError extends Error {

@@ -2,19 +2,13 @@ import { CloneDepth, depthDecrement, extClone } from "@ptolemy2002/immutability-
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 import { assertInRange } from "src/errors";
 import { RGXConvertibleToken, RGXToken } from "src/types";
-import { RGXPart } from "./part";
+import { RGXPart, RGXCapture } from "./part";
 import { assertRegexMatchesAtPosition, rgxa } from "src/index";
 import { createAssertClassGuardFunction, createClassGuardFunction } from "src/internal";
 
 export type RGXWalkerOptions<R> = {
     startingSourcePosition?: number;
-    reducedCurrent?: R;
-};
-
-export type RGXWalkerFlags = {
-    stopped: boolean;
-    skipped: boolean;
-    nonCapture: boolean;
+    reduced?: R;
 };
 
 export class RGXWalker<R> implements RGXConvertibleToken {
@@ -23,16 +17,12 @@ export class RGXWalker<R> implements RGXConvertibleToken {
 
     readonly tokens: RGXTokenCollection;
     _tokenPosition: number;
-    
-    reducedCurrent: R;
 
-    capturedStrings: string[] = [];
+    reduced: R;
 
-    flags: RGXWalkerFlags = {
-        stopped: false,
-        skipped: false,
-        nonCapture: false
-    };
+    captures: RGXCapture[] = [];
+
+    private _stopped: boolean = false;
 
     static check = createClassGuardFunction(RGXWalker);
     static assert = createAssertClassGuardFunction(RGXWalker);
@@ -42,7 +32,7 @@ export class RGXWalker<R> implements RGXConvertibleToken {
     }
 
     set sourcePosition(value: number) {
-        assertInRange(value, { min: 0, max: this.source.length, inclusiveRight: false }, "sourcePosition is outside the bounds of the source string");
+        assertInRange(value, { min: 0, max: this.source.length }, "sourcePosition is outside the bounds of the source string");
         this._sourcePosition = value;
     }
 
@@ -55,32 +45,22 @@ export class RGXWalker<R> implements RGXConvertibleToken {
         this._tokenPosition = value;
     }
 
+    get stopped() {
+        return this._stopped;
+    }
+
     constructor(source: string, tokens: RGXTokenCollectionInput, options: RGXWalkerOptions<R> = {}) {
         this.source = source;
         this.sourcePosition = options.startingSourcePosition ?? 0;
-        
+
         this.tokens = new RGXTokenCollection(tokens, "concat");
         this.tokenPosition = 0;
 
-        this.reducedCurrent = options.reducedCurrent ?? null as unknown as R;
-    }
-
-    resetFlags() {
-        this.flags.stopped = false;
-        this.flags.skipped = false;
-        this.flags.nonCapture = false;
+        this.reduced = options.reduced ?? null as unknown as R;
     }
 
     stop() {
-        this.flags.stopped = true;
-    }
-
-    skip() {
-        this.flags.skipped = true;
-    }
-
-    preventCapture() {
-        this.flags.nonCapture = true;
+        this._stopped = true;
     }
 
     atTokenEnd() {
@@ -88,81 +68,109 @@ export class RGXWalker<R> implements RGXConvertibleToken {
     }
 
     hasNextToken(predicate: (token: RGXToken) => boolean = () => true) {
-        return !this.atTokenEnd() && predicate(this.nextToken()!);
+        return !this.atTokenEnd() && predicate(this.currentToken()!);
     }
 
     atSourceEnd() {
-        return this.sourcePosition >= this.source.length - 1;
+        return this.sourcePosition >= this.source.length;
     }
 
     hasNextSource(predicate: (rest: string) => boolean = () => true) {
         return !this.atSourceEnd() && predicate(this.remainingSource()!);
     }
 
-    hasCapturedStrings(minCount: number = 1) {
-        return this.capturedStrings.length >= minCount;
+    lastCapture(): RGXCapture | null {
+        if (this.captures.length === 0) return null;
+        return this.captures[this.captures.length - 1]!;
     }
 
-    getLastCapturedString() {
-        if (!this.hasCapturedStrings()) return null;
-        return this.capturedStrings[this.capturedStrings.length - 1];
-    }
-
-    nextToken() {
-        if (this.tokenPosition >= this.tokens.length) return null;
+    currentToken() {
+        if (this.atTokenEnd()) return null;
         return this.tokens.at(this.tokenPosition);
     }
 
     remainingSource() {
-        if (this.sourcePosition >= this.source.length - 1) return null;
+        if (this.atSourceEnd()) return null;
         return this.source.slice(this.sourcePosition);
     }
 
-    capture(token: RGXToken) {
+    capture(token: RGXToken): string {
         const regex = rgxa([token]);
         const match = assertRegexMatchesAtPosition(regex, this.source, this.sourcePosition);
-        if (!this.flags.nonCapture) this.capturedStrings.push(match);
-
-        if (this.sourcePosition < this.source.length - match.length) this.sourcePosition += match.length;
-        else this.sourcePosition = this.source.length - 1; // Move to the end of the source if the match goes beyond it
-        
+        this.sourcePosition += match.length;
         return match;
     }
 
-    step(flagReset = true) {
-        if (flagReset) this.resetFlags();
+    step(): RGXCapture | null {
+        if (this.atTokenEnd()) return null;
 
-        if (!this.hasNextToken()) return null;
-        const token = this.nextToken()!;
+        const token = this.currentToken()!;
+        const isPart = token instanceof RGXPart;
+        let silent = false;
 
-        if (token instanceof RGXPart) token.triggerEvent("pre-capture", this);
+        // Ask Part what to do — control flow via return values, not flags.
+        if (isPart) {
+            const control = token.beforeCapture?.(token, this);
 
-        let captured: string | null = null;
-        if (!this.flags.skipped) {
-            captured = this.capture(token);
-            if (token instanceof RGXPart && !this.flags.nonCapture) token.triggerEvent("post-capture", this);
+            if (control === "stop") {
+                this._stopped = true;
+                return null;
+            }
+
+            if (control === "skip") {
+                this.tokenPosition++;
+                return null;
+            }
+
+            if (control === "silent") {
+                silent = true;
+            }
+        }
+
+        // Capture the match
+        const raw = this.capture(token);
+        const value = isPart ? token.transform(raw) : raw;
+        const captureResult: RGXCapture = { raw, value };
+
+        // Validate the part. If validation fails, it will throw an error, so nothing below will run.
+        if (isPart) {
+            token.validate(captureResult, this);
+        }
+
+        // Skip adding the capture if in silent mode.
+        if (!silent) {
+            this.captures.push(captureResult);
+        }
+
+        // Notify Part after capture
+        if (isPart) {
+            token.afterCapture?.(captureResult, token, this);
         }
 
         this.tokenPosition++;
-        return captured;
+        return captureResult;
     }
 
     stepToToken(predicate: (token: RGXToken) => boolean) {
         while (this.hasNextToken()) {
-            this.resetFlags();
+            this._stopped = false;
 
-            if (predicate(this.nextToken()!)) break;
-            this.step(false);
-            
-            if (this.flags.stopped) break;
+            if (predicate(this.currentToken()!)) break;
+            this.step();
+
+            if (this._stopped) break;
         }
     }
 
     stepToPart(predicate: (part: RGXPart<R>) => boolean = () => true) {
-        // If we're currently at a part, step once so that we can get to the next one.
-        if (this.nextToken() instanceof RGXPart) this.step();
-        if (this.flags.stopped) return;
-        
+        // If currently at a Part, step past it first so repeated
+        // calls advance to the next Part rather than getting stuck.
+        if (this.currentToken() instanceof RGXPart) {
+            this._stopped = false;
+            this.step();
+            if (this._stopped) return;
+        }
+
         this.stepToToken(token => token instanceof RGXPart && predicate(token));
     }
 
@@ -170,8 +178,7 @@ export class RGXWalker<R> implements RGXConvertibleToken {
         return this.stepToToken(() => false);
     }
 
-    // When used as a convertible token, just treat the walker as
-    // a collection.
+    // When used as a convertible token, treat the walker as its collection.
     toRgx() {
         return this.tokens;
     }
@@ -182,13 +189,13 @@ export class RGXWalker<R> implements RGXConvertibleToken {
         const clone = new RGXWalker(
             this.source, this.tokens.clone(depthDecrement(1)), {
                 startingSourcePosition: this.sourcePosition,
-                reducedCurrent: extClone(this.reducedCurrent, depthDecrement(1))
+                reduced: extClone(this.reduced, depthDecrement(1))
             }
         );
 
         clone._tokenPosition = this.tokenPosition;
-        clone.capturedStrings = extClone(this.capturedStrings, depthDecrement(1));
-        clone.flags = extClone(this.flags, depthDecrement(1));
+        clone.captures = extClone(this.captures, depthDecrement(1));
+        clone._stopped = this._stopped;
 
         return clone;
     }
