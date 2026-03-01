@@ -2,6 +2,7 @@ import { Branded } from "@ptolemy2002/ts-brand-utils";
 import type { RGXClassToken } from "./class";
 import type { ExtRegExp } from "./ExtRegExp";
 import type { RGXTokenCollection } from "./collection";
+import type { RGXWalkerOptions } from "./walker";
 
 export type RGXNoOpToken = null | undefined;
 export type RGXLiteralToken = RegExp;
@@ -58,3 +59,7 @@ export type ValidRegexFlags = Branded<string, [ValidRegexFlagsBrandSymbol]> | Va
 export const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
 export type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;
 export type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;
+
+export type RGXWOptions<R = unknown> = Omit<RGXWalkerOptions<R>, "startingSourcePosition"> & {
+    multiline?: boolean;
+};

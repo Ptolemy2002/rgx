@@ -2,6 +2,7 @@ import { RGXPart, rgxWalker, RGXWalker } from "src/walker";
 import { RGXTokenCollection } from "src/collection";
 import { RGXInvalidTokenError, RGXOutOfBoundsError, RGXRegexNotMatchedAtPositionError } from "src/errors";
 import { RGXClassToken } from "src/class";
+import { rgxwa } from "src/index";
 
 export class TestClassToken1 extends RGXClassToken {
     toRgx() {
@@ -68,6 +69,10 @@ describe("RGXWalker", () => {
 
     describe("construct function", () => {
         constructorTest(rgxWalker);
+    });
+
+    describe("rgxwa", () => {
+        constructorTest((source, tokens, options) => rgxwa(source, [...(new RGXTokenCollection(tokens))], options));
     });
 
     describe("class guards", () => {

@@ -97,6 +97,10 @@ type RGXWalkerOptions<R> = {
     startingSourcePosition?: number;
     reduced?: R;
 };
+
+type RGXWOptions<R = unknown> = Omit<RGXWalkerOptions<R>, "startingSourcePosition"> & {
+    multiline?: boolean;
+};
 ```
 
 ## Classes
@@ -1150,6 +1154,37 @@ As an alternative to using the `rgx` template tag, you can directly call `rgxa` 
 
 #### Returns
 - `ExtRegExp`: An `ExtRegExp` object constructed from the resolved tokens and the provided flags.
+
+### rgxw
+```typescript
+function rgxw<R = unknown>(source: string, {multiline=true, ...options}: RGXWOptions<R> = {}): (strings: TemplateStringsArray, ...tokens: RGXToken[]
+) => RGXWalker<R>
+```
+A helper function that creates an `RGXWalker` instance from an interpolation of strings and tokens. The token array is processed exactly like in `rgx`, but instead of returning an `ExtRegExp`, it returns an `RGXWalker` that can be used to walk through matches of the regex pattern in the source string.
+
+#### Parameters
+  - `source` (`string`): An arbitrary string value that will be included in the `source` property of the walker object.
+  - `options` (`RGXWOptions<R>`, optional): Additional options for configuring the behavior of the resulting `RGXWalker`. This includes:
+    - `multiline` (`boolean`, optional): Whether to strip newlines and trim leading whitespace from the literal string parts of the template. Defaults to `true`. When `true`, each literal string part is split by newlines, each line has its leading whitespace trimmed, empty lines are removed, and the remaining lines are joined together. Interpolated tokens (including string tokens via `${"..."}`) are not affected. When `false`, literal string parts are preserved exactly as written.
+    - `reduced` (`R`, optional): An optional initial value for the walker's `reduced` property, which can be used to accumulate results across matches.
+
+#### Returns
+- `(strings: TemplateStringsArray, ...tokens: RGXToken[]) => RGXWalker<R>`: A template tag function that takes a template literal and returns an `RGXWalker` instance configured with the provided source, the provided tokens, and the specified options.
+
+### rgxwa
+```typescript
+function rgxwa<R = unknown>(source: string, tokens: RGXToken[], options: Omit<RGXWOptions<R>, "multiline"> = {}): RGXWalker<R>
+```
+As an alternative to using the `rgxw` template tag, you can directly call `rgxwa` with a source string, an array of RGX tokens, and options to get an `RGXWalker` instance. This is useful in cases where you don't want to use a template literal. The token array is processed exactly like in `rgxa`, and the provided options are passed through to configure the resulting walker.
+
+#### Parameters
+  - `source` (`string`): An arbitrary string value that will be included in the `source` property of the walker object.
+  - `tokens` (`RGXToken[]`): The RGX tokens to be resolved and concatenated to form the regex pattern for the walker.
+  - `options` (`Omit<RGXWOptions<R>, "multiline">`, optional): Additional options for configuring the behavior of the resulting `RGXWalker`, excluding the `multiline` option which is not applicable when not using a template literal. This includes:
+    - `reduced` (`R`, optional): An optional initial value for the walker's `reduced` property, which can be used to accumulate results across matches.
+
+#### Returns
+- `RGXWalker<R>`: An `RGXWalker` instance configured with the provided source, the resolved tokens, and the specified options.
 
 ### expandRgxUnionTokens
 ```typescript

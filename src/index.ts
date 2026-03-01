@@ -4,6 +4,7 @@ import { registerCustomFlagTransformers } from "./flag-transformer";
 import { rgxConcat } from "./concat";
 import { assureAcceptance, taggedTemplateToArray } from "./internal";
 import { assertValidRegexFlags, ExtRegExp, extRegExp } from "./ExtRegExp";
+import { RGXWalker } from "./walker";
 
 export * from "./errors";
 export * from "./types";
@@ -35,5 +36,15 @@ export default function rgx(flags: string = '', multiline=true) {
     assertValidRegexFlags(flags);
     return (strings: TemplateStringsArray, ...tokens: t.RGXToken[]) => {
         return rgxa(taggedTemplateToArray(strings, tokens, multiline), flags);
+    };
+}
+
+export function rgxwa<R = unknown>(source: string, tokens: t.RGXToken[], options: Omit<t.RGXWOptions<R>, "multiline"> = {}) {
+    return new RGXWalker(source, tokens, options);
+}
+
+export function rgxw<R = unknown>(source: string, {multiline=true, ...options}: t.RGXWOptions<R> = {}) {
+    return (strings: TemplateStringsArray, ...tokens: t.RGXToken[]) => {
+        return rgxwa(source, taggedTemplateToArray(strings, tokens, multiline), options);
     };
 }

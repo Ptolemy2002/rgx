@@ -1,4 +1,5 @@
-import rgx, { rgxa, RGXClassToken, RGXClassWrapperToken, rgxConcat, rgxConstant, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXToken, RGXTokenCollection, ValidRegexFlags } from 'src/index';
+import rgx, { rgxa, rgxw, RGXClassToken, RGXClassWrapperToken, rgxConcat, rgxConstant, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXToken, RGXTokenCollection, ValidRegexFlags } from 'src/index';
+import { RGXWalker } from 'src/walker';
 import { expectError } from './utils';
 
 function expectRegexpEqual(received: RegExp, expected: RegExp | string) {
@@ -432,5 +433,106 @@ describe('rgxConcat', () => {
         expectError(() => rgxConcat(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
             return e.message === "Insertion rejected; Reason: class: always rejects; Additional info: index 1, token type TestClassToken2";
         });
+    });
+});
+
+describe('rgxw', () => {
+    it('returns a tagged template function that creates an RGXWalker', () => {
+        const walker = rgxw("test")`test`;
+        expect(walker).toBeInstanceOf(RGXWalker);
+    });
+
+    it('sets the source correctly', () => {
+        const walker = rgxw("hello")`hello`;
+        expect(walker.source).toBe("hello");
+    });
+
+    it('constructs a walker with string tokens', () => {
+        const walker = rgxw("foobarbaz")`foo${'bar'}baz`;
+        walker.walk();
+        expect(walker.captures.map(c => c.value)).toEqual(['foo', 'bar', 'baz']);
+    });
+
+    it('constructs a walker with no-op tokens', () => {
+        const walker = rgxw("foobarbazqux")`foo${null}bar${undefined}bazqux`;
+        walker.walk();
+        expect(walker.captures.map(c => c.value)).toEqual(['foo', 'bar', 'bazqux']);
+    });
+
+    it('constructs a walker with convertible tokens', () => {
+        const token = { toRgx: () => 'bar' };
+        const walker = rgxw("foobarbaz")`foo${token}baz`;
+        walker.walk();
+        expect(walker.captures.map(c => c.value)).toEqual(['foo', 'bar', 'baz']);
+    });
+
+    it('constructs a walker with mixed tokens', () => {
+        const token = { toRgx: () => 'bar' };
+        const walker = rgxw("foobarquux5corge")`foo${token}quux${/\d/}corge`;
+        walker.walk();
+        expect(walker.captures.map(c => c.value)).toEqual(['foo', 'bar', 'quux', '5', 'corge']);
+    });
+
+    it('constructs a walker with array tokens interpreted as unions', () => {
+        const walker = rgxw("foobazqux")`foo${['bar', 'baz']}qux`;
+        walker.walk();
+        expect(walker.captures.map(c => c.value)).toEqual(['foo', 'baz', 'qux']);
+    });
+
+    it('constructs a walker with no tokens', () => {
+        const walker = rgxw("foobarbaz")`foobarbaz`;
+        walker.walk();
+        expect(walker.captures.map(c => c.value)).toEqual(['foobarbaz']);
+    });
+
+    it('passes options through correctly', () => {
+        const walker = rgxw("test", { reduced: "initial" })`test`;
+        expect(walker.reduced).toBe("initial");
+    });
+
+    it('strips newlines and trims whitespace when multiline is true (default)', () => {
+        const walker = rgxw("foobarbaz quux")`
+            foo
+            ${'bar'}
+            baz quux
+        `;
+        walker.walk();
+        expect(walker.captures.map(c => c.value)).toEqual(['foo', 'bar', 'baz quux']);
+    });
+
+    it('strips newlines and trims whitespace with explicit multiline true', () => {
+        const walker = rgxw("foobarbaz quux", { multiline: true })`
+            foo
+            ${'bar'}
+            baz quux
+        `;
+        walker.walk();
+        expect(walker.captures.map(c => c.value)).toEqual(['foo', 'bar', 'baz quux']);
+    });
+
+    it('preserves newlines and whitespace when multiline is false', () => {
+        const source = '\n            foo\n            bar\n            baz quux\n        ';
+        const walker = rgxw(source, { multiline: false })`
+            foo
+            ${'bar'}
+            baz quux
+        `;
+        walker.walk();
+        expect(walker.captures.map(c => c.raw)).toEqual([
+            '\n            foo\n            ',
+            'bar',
+            '\n            baz quux\n        ',
+        ]);
+    });
+
+    it('does not remove newlines coming from tokens when multiline is true', () => {
+        const walker = rgxw("foobar \nbaz quux")`
+            foo
+            bar ${"\n"}
+            baz quux
+        `;
+        walker.walk();
+        // Multiline mode joins template lines, so 'foo' and 'bar ' become one token 'foobar '
+        expect(walker.captures.map(c => c.value)).toEqual(['foobar ', '\n', 'baz quux']);
     });
 });
