@@ -59,6 +59,7 @@ defineRGXConstant("any", {
 
 defineRGXConstant("start", {
     rgxGroupWrap: false,
+    rgxIsRepeatable: false,
     toRgx() {
         return /^/;
     }
@@ -66,6 +67,7 @@ defineRGXConstant("start", {
 
 defineRGXConstant("end", {
     rgxGroupWrap: false,
+    rgxIsRepeatable: false,
     toRgx() {
         return /$/;
     }
@@ -73,6 +75,7 @@ defineRGXConstant("end", {
 
 defineRGXConstant("word-bound", {
     rgxGroupWrap: false,
+    rgxIsRepeatable: false,
     toRgx() {
         return /\b/;
     }
@@ -80,6 +83,7 @@ defineRGXConstant("word-bound", {
 
 defineRGXConstant("non-word-bound", {
     rgxGroupWrap: false,
+    rgxIsRepeatable: false,
     toRgx() {
         return /\B/;
     }
@@ -87,6 +91,7 @@ defineRGXConstant("non-word-bound", {
 
 defineRGXConstant("word-bound-start", {
     rgxGroupWrap: false,
+    rgxIsRepeatable: false,
     toRgx() {
         // Make sure there is a non-word character before and a word character after
         return /(?<=\W)(?=\w)/;
@@ -95,6 +100,7 @@ defineRGXConstant("word-bound-start", {
 
 defineRGXConstant("word-bound-end", {
     rgxGroupWrap: false,
+    rgxIsRepeatable: false,
     toRgx() {
         // Make sure there is a word character before and a non-word character after
         return /(?<=\w)(?=\W)/;
