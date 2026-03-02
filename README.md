@@ -86,6 +86,7 @@ type RGXCapture<T = unknown> = {
     value: T;
     start: number;
     end: number;
+    ownerId: string | null;
 };
 
 type RGXPartOptions<R, T=string> = {
@@ -663,8 +664,8 @@ constructor(source: string, tokens: RGXTokenCollectionInput, options?: RGXWalker
 - `tokens` (`RGXTokenCollection`): The internal collection of tokens in 'concat' mode (readonly).
 - `tokenPosition` (`number`): The current index in the token collection. Setting this validates that the value is >= 0 and <= `tokens.length`, throwing `RGXOutOfBoundsError` if not.
 - `reduced` (`R`): A user-defined accumulator value, typically updated by `RGXPart` callbacks during walking.
-- `captures` (`RGXCapture[]`): An array of structured capture results recorded during walking. Each entry has a `raw` string and a `value` (the transform result for Parts, or the raw string for plain tokens).
-- `namedCaptures` (`Record<string, RGXCapture>`): An object mapping capture IDs to their corresponding `RGXCapture` results. Only Parts with non-null IDs are included.
+- `captures` (`RGXCapture[]`): An array of structured capture results recorded during walking. Each entry has a `raw` string, a `value` (the transform result for Parts, or the raw string for plain tokens), `start` and `end` indices in the source string, and an `ownerId` that is the `id` of the Part that produced it (or `null` for captures from plain tokens or parts without ids).
+- `namedCaptures` (`Record<string, RGXCapture[]>`): An object mapping capture IDs to their corresponding `RGXCapture` results. Only Parts with non-null IDs are included. The captures occur in the same order as they appear in the `captures` array.
 - `stopped` (`boolean`, readonly): Whether the walker has been stopped, either by a Part's `beforeCapture` returning `"stop"` or by calling `stop()` in an `afterCapture` callback.
 
 #### Methods

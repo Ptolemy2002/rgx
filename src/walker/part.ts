@@ -18,6 +18,7 @@ export type RGXCapture<T = unknown> = {
     value: T;
     start: number;
     end: number;
+    ownerId: string | null; // The id of the RGXPart that captured this, if any
 };
 
 export type RGXPartOptions<R, T=string> = {

@@ -21,7 +21,7 @@ export class RGXWalker<R> implements RGXConvertibleToken {
     reduced: R;
 
     captures: RGXCapture[] = [];
-    namedCaptures: Record<string, RGXCapture> = {};
+    namedCaptures: Record<string, RGXCapture[]> = {};
 
     private _stopped: boolean = false;
 
@@ -134,7 +134,7 @@ export class RGXWalker<R> implements RGXConvertibleToken {
         const end = this.sourcePosition;
         const value = isPart ? token.transform(raw) : raw;
 
-        const captureResult: RGXCapture = { raw, value, start, end };
+        const captureResult: RGXCapture = { raw, value, start, end, ownerId: isPart && token.hasId() ? token.id : null };
 
         // Validate the part. If validation fails, it will throw an error, so nothing below will run.
         if (isPart) {
@@ -145,7 +145,8 @@ export class RGXWalker<R> implements RGXConvertibleToken {
         if (!silent) {
             this.captures.push(captureResult);
             if (isPart && token.hasId()) {
-                this.namedCaptures[token.id] = captureResult;
+                if (!(token.id in this.namedCaptures)) this.namedCaptures[token.id] = [];
+                this.namedCaptures[token.id]!.push(captureResult);
             }
         }
 
