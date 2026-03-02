@@ -29,7 +29,8 @@ const expectedConstantNames = [
     "vertical-whitespace",
     "word-char",
     "non-word-char",
-    "backspace"
+    "backspace",
+    "non-escape-bound"
 ];
 
 describe("listRGXConstants", () => {
@@ -293,6 +294,13 @@ describe("rgxConstant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("backspace"));
             expect(result).toBe("[\\b]");
+        });
+    });
+
+    describe("non-escape-bound constant", () => {
+        it("resolves correctly", () => {
+            const result = resolveRGXToken(rgxConstant("non-escape-bound"));
+            expect(result).toBe("(?<=(?<!\\\\)(?:\\\\\\\\)*)(?=[^\\\\]|$)");
         });
     });
 });

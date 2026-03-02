@@ -213,3 +213,14 @@ defineRGXConstant("backspace", {
         return /[\b]/;
     }
 });
+
+// Complex Constructs
+
+// Put this before any pattern to ensure that the pattern is not escaped, i.e., not preceded by an odd number of backslashes.
+defineRGXConstant("non-escape-bound", {
+    rgxGroupWrap: false,
+    rgxIsRepeatable: false,
+    toRgx() {
+        return /(?<=(?<!\\)(?:\\\\)*)(?=[^\\]|$)/;
+    }
+});

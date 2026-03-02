@@ -1354,6 +1354,8 @@ A pre-built `RegExpFlagTransformer` that makes a regex pattern accent-insensitiv
 - `o` / `O`: ó, ò, ö, ô, õ / Ó, Ò, Ö, Ô, Õ
 - `u` / `U`: ú, ù, ü, û / Ú, Ù, Ü, Û
 
+Note that this transformer intentionally excludes replacing characters preceded by an odd number of backslashes, to allow for escaping. For example, in the pattern `\\a`, the `a` is preceded by two backslashes (an even number), so it will be replaced with `(a|á|à|ä|â|ã)`. In the pattern `\a`, the `a` is preceded by one backslash (an odd number), so it will not be replaced.
+
 #### Parameters
   - `exp` (`RegExp`): The regular expression to transform.
 
@@ -1659,6 +1661,11 @@ Since these are defined as native tokens (strings), they are automatically wrapp
 | `"word-char"` | `\w` | Any word character (letter, digit, or underscore) |
 | `"non-word-char"` | `\W` | Any non-word character |
 | `"backspace"` | `[\b]` | Backspace character |
+
+### Complex Constructs
+| Name | Resolves To | Description |
+| --- | --- | --- |
+| `"non-escape-bound"` | `(?<=(?<!\\)(?:\\\\)*)(?=[^\\]\|$)` | Matches a position that is not preceded by an odd number of backslashes, i.e., the next character is not escaped. Note that this doesn't match when the next character is a backslash, since allowing it to do that would cause non-escaped backslashes within a series of backslashes to be treated as escaped. For example, in the string `\\\a`, the first and third backslashes would be treated as escaped. |
 
 ## Peer Dependencies
 - `@ptolemy2002/immutability-utils` ^2.0.0

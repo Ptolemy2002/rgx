@@ -32,6 +32,13 @@ describe("accentInsensitiveFlagTransformer", () => {
         expect(transformed.source).toBe("T(E|É|È|Ë|Ê)ST");
     });
 
+    it("does not transform escaped characters", () => {
+        const regex = new ExtRegExp("\\u0025", "g"); // The u is escaped, so it should not be transformed
+        const transformed = accentInsensitiveFlagTransformer(regex);
+        expect(transformed.source).toBe("\\u0025");
+    }); 
+
+
     it("works when applied as a flag", () => {
         registerCustomFlagTransformers(); // Ensure the "a" flag is registered
         const regex = new ExtRegExp("tést", "ga");
