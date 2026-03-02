@@ -51,11 +51,13 @@ function constructorTest(constructor: typeof rgxWalker) {
     it("correctly initializes with options", () => {
         const source = "test";
         const tokens = ["t", "e", "s", "t"];
-        const options = { startingSourcePosition: 2, reduced: "reduced" };
+        const options = { startingSourcePosition: 2, reduced: "reduced", infinite: true, looping: true };
         const instance = constructor(source, tokens, options);
 
         expect(instance.sourcePosition).toBe(options.startingSourcePosition);
         expect(instance.reduced).toBe(options.reduced);
+        expect(instance.infinite).toBe(options.infinite);
+        expect(instance.looping).toBe(options.looping);
     });
 }
 
@@ -482,6 +484,52 @@ describe("RGXWalker", () => {
                 expect(instance.captures).toHaveLength(1);
             });
         });
+
+        describe("infinite mode", () => {
+            it("stays on the last token after capturing it", () => {
+                const instance = new RGXWalker("tt", ["t"], { infinite: true });
+                instance.step();
+                expect(instance.tokenPosition).toBe(0);
+                expect(instance.sourcePosition).toBe(1);
+            });
+
+            it("still advances tokenPosition when not at the last token", () => {
+                const instance = new RGXWalker("test", ["t", "e"], { infinite: true });
+                instance.step();
+                expect(instance.tokenPosition).toBe(1);
+            });
+
+            it("sets stopped and returns null when source is exhausted", () => {
+                const instance = new RGXWalker("t", ["t"], { infinite: true });
+                instance.step(); // captures "t", stays at token 0, source now exhausted
+                const result = instance.step();
+                expect(result).toBe(null);
+                expect(instance.stopped).toBe(true);
+            });
+        });
+
+        describe("looping mode", () => {
+            it("resets tokenPosition to 0 when the end is reached", () => {
+                const instance = new RGXWalker("test", ["t", "e"], { looping: true });
+                instance.step(); // tokenPosition 0 -> 1
+                instance.step(); // tokenPosition 1 -> 2 (end) -> reset to 0
+                expect(instance.tokenPosition).toBe(0);
+            });
+
+            it("still advances tokenPosition when not at the last token", () => {
+                const instance = new RGXWalker("test", ["t", "e"], { looping: true });
+                instance.step();
+                expect(instance.tokenPosition).toBe(1);
+            });
+
+            it("sets stopped and returns null when source is exhausted", () => {
+                const instance = new RGXWalker("t", ["t"], { looping: true });
+                instance.step(); // captures "t", stays at token 0, source now exhausted
+                const result = instance.step();
+                expect(result).toBe(null);
+                expect(instance.stopped).toBe(true);
+            });
+        });
     });
 
     describe("stepToToken", () => {
@@ -636,13 +684,14 @@ describe("RGXWalker", () => {
         it("preserves properties", () => {
             const source = "test";
             const tokens = ["t", "e", "s", "t"];
-            const options = { startingSourcePosition: 2, reduced: "reduced" };
+            const options = { startingSourcePosition: 2, reduced: "reduced", infinite: true };
             const instance = rgxWalker(source, tokens, options);
             const clone = instance.clone();
 
             expect(clone).not.toBe(instance);
 
             expect(clone.stopped).toEqual(instance.stopped);
+            expect(clone.infinite).toBe(instance.infinite);
 
             expect(clone.source).toBe(instance.source);
             expect(clone.sourcePosition).toBe(instance.sourcePosition);
@@ -653,6 +702,7 @@ describe("RGXWalker", () => {
             expect(clone.reduced).toEqual(instance.reduced);
 
             expect(clone.captures).toEqual(instance.captures);
+            expect(clone.namedCaptures).toEqual(instance.namedCaptures);
         });
     });
 

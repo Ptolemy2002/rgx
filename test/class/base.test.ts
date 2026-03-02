@@ -273,6 +273,12 @@ describe("RGXClassToken", () => {
             
             expect(() => nonRepeatableToken.repeat(2)).toThrow(RGXNotSupportedError);
         });
+
+        it("supports convertible tokens without rgxIsRepeatable property", () => {
+            const convertibleToken = new RGXClassWrapperToken({ toRgx: () => "convertible" });
+            
+            expect(() => convertibleToken.repeat(2)).not.toThrow();
+        });
     });
 
     describe("optional", () => {

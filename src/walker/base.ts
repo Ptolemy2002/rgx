@@ -9,6 +9,8 @@ import { createAssertClassGuardFunction, createClassGuardFunction } from "src/in
 export type RGXWalkerOptions<R> = {
     startingSourcePosition?: number;
     reduced?: R;
+    infinite?: boolean;
+    looping?: boolean;
 };
 
 export class RGXWalker<R> implements RGXConvertibleToken {
@@ -22,6 +24,9 @@ export class RGXWalker<R> implements RGXConvertibleToken {
 
     captures: RGXCapture[] = [];
     namedCaptures: Record<string, RGXCapture[]> = {};
+
+    infinite: boolean;
+    looping: boolean;
 
     private _stopped: boolean = false;
 
@@ -58,6 +63,8 @@ export class RGXWalker<R> implements RGXConvertibleToken {
         this.tokenPosition = 0;
 
         this.reduced = options.reduced ?? null as unknown as R;
+        this.infinite = options.infinite ?? false;
+        this.looping = options.looping ?? false;
     }
 
     stop() {
@@ -103,7 +110,16 @@ export class RGXWalker<R> implements RGXConvertibleToken {
     }
 
     step(): RGXCapture | null {
-        if (this.atTokenEnd()) return null;
+        if (!this.infinite && !this.looping && this.atTokenEnd()) {
+            this._stopped = true;
+            return null;
+        }
+
+        // If we're infinite, we need to manually stop when all is exhausted.
+        if ((this.infinite || this.looping) && this.atSourceEnd()) {
+            this._stopped = true;
+            return null;
+        }
 
         const token = this.currentToken()!;
         const isPart = token instanceof RGXPart;
@@ -155,7 +171,12 @@ export class RGXWalker<R> implements RGXConvertibleToken {
             token.afterCapture?.(captureResult, token, this);
         }
 
-        this.tokenPosition++;
+        if (!this.infinite || this.tokenPosition < this.tokens.length - 1) {
+            this.tokenPosition++;
+            if (this.looping && this.atTokenEnd()) {
+                this.tokenPosition = 0;
+            }
+        }
         return captureResult;
     }
 
@@ -197,7 +218,9 @@ export class RGXWalker<R> implements RGXConvertibleToken {
         const clone = new RGXWalker(
             this.source, this.tokens.clone(depthDecrement(1)), {
                 startingSourcePosition: this.sourcePosition,
-                reduced: extClone(this.reduced, depthDecrement(1))
+                reduced: extClone(this.reduced, depthDecrement(1)),
+                infinite: this.infinite,
+                looping: this.looping
             }
         );
 

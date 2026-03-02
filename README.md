@@ -100,6 +100,8 @@ type RGXPartOptions<R, T=string> = {
 type RGXWalkerOptions<R> = {
     startingSourcePosition?: number;
     reduced?: R;
+    infinite?: boolean;
+    looping?: boolean;
 };
 
 type RGXWOptions<R = unknown> = Omit<RGXWalkerOptions<R>, "startingSourcePosition"> & {
@@ -657,6 +659,8 @@ constructor(source: string, tokens: RGXTokenCollectionInput, options?: RGXWalker
 - `options` (`RGXWalkerOptions<R>`, optional): Configuration options. Defaults to `{}`.
   - `startingSourcePosition` (`number`, optional): The starting index in the source string. Defaults to `0`.
   - `reduced` (`R`, optional): The initial value for the `reduced` accumulator. Defaults to `null`.
+  - `infinite` (`boolean`, optional): When `true`, the walker stays at the last token indefinitely rather than stopping when the token collection is exhausted, continuing to match the last token until the source is consumed. Defaults to `false`.
+  - `looping` (`boolean`, optional): When `true`, the walker loops back to token position `0` when the token collection is exhausted, continuing to match from the start until the source is consumed. Defaults to `false`.
 
 #### Properties
 - `source` (`string`): The source string being walked (readonly).
@@ -666,6 +670,8 @@ constructor(source: string, tokens: RGXTokenCollectionInput, options?: RGXWalker
 - `reduced` (`R`): A user-defined accumulator value, typically updated by `RGXPart` callbacks during walking.
 - `captures` (`RGXCapture[]`): An array of structured capture results recorded during walking. Each entry has a `raw` string, a `value` (the transform result for Parts, or the raw string for plain tokens), `start` and `end` indices in the source string, and an `ownerId` that is the `id` of the Part that produced it (or `null` for captures from plain tokens or parts without ids).
 - `namedCaptures` (`Record<string, RGXCapture[]>`): An object mapping capture IDs to their corresponding `RGXCapture` results. Only Parts with non-null IDs are included. The captures occur in the same order as they appear in the `captures` array.
+- `infinite` (`boolean`): Whether the walker is in infinite mode — stays at the last token when the token collection is exhausted until the source is consumed.
+- `looping` (`boolean`): Whether the walker is in looping mode — loops back to token position `0` when the token collection is exhausted until the source is consumed.
 - `stopped` (`boolean`, readonly): Whether the walker has been stopped, either by a Part's `beforeCapture` returning `"stop"` or by calling `stop()` in an `afterCapture` callback.
 
 #### Methods
@@ -678,12 +684,12 @@ constructor(source: string, tokens: RGXTokenCollectionInput, options?: RGXWalker
 - `currentToken() => RGXToken | null`: Returns the token at the current token position, or `null` if at the end.
 - `remainingSource() => string | null`: Returns the remaining source string from the current position onward, or `null` if the source is fully consumed.
 - `capture(token: RGXToken) => string`: Resolves the token to a regex, asserts that it matches at the current source position (throwing `RGXRegexNotMatchedAtPositionError` if not), and advances the source position by the match length. Returns the matched string.
-- `step() => RGXCapture | null`: Steps through the next token in the collection. If the token is an `RGXPart`, calls `beforeCapture` first — if it returns `"stop"`, sets `stopped` and returns `null` without advancing; if `"skip"`, advances the token position and returns `null` without capturing; if `"silent"`, captures but does not add to `captures` or `namedCaptures`. After capturing, validates. After validating, calls `afterCapture` if present. Returns the `RGXCapture` result, or `null` if there are no more tokens, the step was skipped, or the walker was stopped.
+- `step() => RGXCapture | null`: Steps through the next token in the collection. If the token is an `RGXPart`, calls `beforeCapture` first — if it returns `"stop"`, sets `stopped` and returns `null` without advancing; if `"skip"`, advances the token position and returns `null` without capturing; if `"silent"`, captures but does not add to `captures` or `namedCaptures`. After capturing, validates. After validating, calls `afterCapture` if present. Returns the `RGXCapture` result, or `null` if there are no more tokens (or no more source in `infinite`/`looping` mode), the step was skipped, or the walker was stopped.
 - `stepToToken(predicate: (token: RGXToken) => boolean) => void`: Steps through tokens until the predicate returns `true` for the current token or the walker is stopped. The matching token is not consumed.
 - `stepToPart(predicate?: (part: RGXPart<R>) => boolean) => void`: Steps through tokens until the next `RGXPart` satisfying the predicate is reached. If already at a Part, steps once first to move past it. The matching Part is not consumed.
-- `walk() => void`: Steps through all remaining tokens until the end of the token collection or the walker is stopped.
+- `walk() => void`: Steps through all remaining tokens until the end of the token collection (or until the source is consumed in `infinite`/`looping` mode) or the walker is stopped.
 - `toRgx() => RGXToken`: Returns the internal `RGXTokenCollection`, allowing the walker to be used as a convertible token.
-- `clone(depth: CloneDepth = "max") => RGXWalker`: Creates a clone of the walker. When `depth` is `0`, returns `this`; otherwise, creates a new `RGXWalker` with cloned tokens, source position, reduced value, captures, and stopped state.
+- `clone(depth: CloneDepth = "max") => RGXWalker`: Creates a clone of the walker. When `depth` is `0`, returns `this`; otherwise, creates a new `RGXWalker` with cloned tokens, source position, reduced value, captures, stopped state, and the `infinite`/`looping` flags.
 
 ## Functions
 The following functions are exported by the library:

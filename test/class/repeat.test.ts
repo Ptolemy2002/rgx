@@ -91,6 +91,11 @@ function constructionTest(constructor: ConstructFunction<typeof RGXRepeatToken>)
         const nonRepeatableToken = { toRgx: () => 'foo', rgxIsRepeatable: false };
         expect(() => constructor(nonRepeatableToken)).toThrow(RGXNotSupportedError);
     });
+
+    it("accepts convertible tokens without rgxIsRepeatable property", () => {
+        const convertibleToken = { toRgx: () => 'foo' };
+        expect(() => constructor(convertibleToken)).not.toThrow();
+    });
 }
 
 export const isRgxRepeatToken = RGXRepeatToken.check;
