@@ -353,6 +353,16 @@ describe('rgx', () => {
         expectRegexpEqual(regex, 'foobarbaz quux');
     });
 
+    it('Strips comments when multiline is true', () => {
+        const regex = rgx('', true)`
+            foo
+            // This is a comment
+            ${new RGXClassWrapperToken("bar")}
+            baz quux // Another comment
+        `;
+        expectRegexpEqual(regex, 'foobarbaz quux');
+    });
+
     it('Does not remove newlines coming from the constant instead of the template when multiline is true', () => {
         const regex = rgx('', true)`
             foo
@@ -373,15 +383,21 @@ describe('rgx', () => {
         expect(regex.test('foobar \nbaz quux')).toBe(true);
     });
     
-    it('Preserves newlines and whitespace when multiline is false', () => {
+    it('Preserves newlines, comments, and whitespace when multiline is false', () => {
         const regex = rgx('', false)`
             foo
-            ${new RGXClassWrapperToken("bar")}
+            // This is a comment
+            ${new RGXClassWrapperToken("bar")}// Another comment
             baz quux
         `;
 
-        const expectedString = '\n            foo\n            bar\n            baz quux\n        ';
-        expectRegexpEqual(regex, expectedString.replaceAll('\n', '\\n'));
+        const expectedString = `
+            foo
+            // This is a comment
+            bar// Another comment
+            baz quux
+        `;
+        expectRegexpEqual(regex, expectedString.replaceAll('\n', '\\n').replaceAll('/', '\\/'));
         expect(regex.test(expectedString)).toBe(true);
     });
 });

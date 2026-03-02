@@ -14,8 +14,24 @@ export function taggedTemplateToArray<T>(strings: TemplateStringsArray, tokens: 
             if (!multiline) {
                 array.push(string);
             } else {
-                // Remove all empty lines and trim whitespace from the start of each line.
-                let lines = string.split("\n").map(line => line.trimStart()).filter(line => line.length > 0).join("");
+                // Remove all empty lines, remove comments, and trim whitespace from the start of each line.
+                let lines = string
+                    .split("\n")
+                    .map(line => line.trimStart())
+                    // Remove comments both for the start of the line.
+                    .filter(line => !line.startsWith("//"))
+                    .filter(line => line.length > 0)
+                    // Remove comments at the end of the line.
+                    .map(line => {
+                        const commentIndex = line.indexOf("//");
+                        if (commentIndex !== -1) {
+                            return line.substring(0, commentIndex).trimEnd();
+                        }
+                        return line;
+                    })
+                    .join("")
+                ;
+
                 array.push(lines);
             }
         }
