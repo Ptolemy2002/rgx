@@ -11,7 +11,9 @@ const expectedConstantNames = [
     "form-feed",
     "any",
     "start",
+    "line-start",
     "end",
+    "line-end",
     "word-bound",
     "non-word-bound",
     "word-bound-start",
@@ -162,10 +164,24 @@ describe("rgxConstant", () => {
         });
     });
 
+    describe("line-start constant", () => {
+        it("resolves correctly", () => {
+            const result = resolveRGXToken(rgxConstant("line-start"));
+            expect(result).toBe("(?m:^)");
+        });
+    });
+
     describe("end constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("end"));
             expect(result).toBe("$");
+        });
+    });
+
+    describe("line-end constant", () => {
+        it("resolves correctly", () => {
+            const result = resolveRGXToken(rgxConstant("line-end"));
+            expect(result).toBe("(?m:$)");
         });
     });
 

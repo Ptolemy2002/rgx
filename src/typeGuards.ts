@@ -3,6 +3,8 @@ import * as e from "./errors";
 import isCallable from "is-callable";
 import { isConstructor } from "./internal";
 import { RGXClassToken } from "./class";
+import { ExtRegExp } from "./ExtRegExp";
+import { RGXTokenCollection } from "./collection";
 
 export function isRGXNoOpToken(value: unknown): value is t.RGXNoOpToken {
     return value === null || value === undefined;
@@ -117,7 +119,10 @@ export function rgxTokenTypeToFlat(type: t.RGXTokenType): t.RGXTokenTypeFlat {
 export function rgxTokenTypeGuardInputToFlat(type: t.RGXTokenTypeGuardInput): t.RGXTokenTypeFlat | null {
     if (type === null) return null;
     if (Array.isArray(type)) return 'array';
+    if (type === RegExp || type === ExtRegExp) return 'literal';
+    if (type === RGXTokenCollection) return 'convertible';
     if (isConstructor(type)) return 'class';
+    if (type === "repeatable") return null;
 
     return type;
 }
@@ -134,9 +139,15 @@ export function isRGXToken<
     if (typeMatches('no-op') && isRGXNoOpToken(value)) return true;
     if (typeMatches('literal') && isRGXLiteralToken(value)) return true;
     if (typeMatches('native') && isRGXNativeToken(value)) return true;
+
     // We have to check class before convertible because class tokens are also convertible.
     if (typeMatches('class') && RGXClassToken.check(value)) return true;
     if (typeMatches('convertible') && isRGXConvertibleToken(value)) return true;
+
+    // Non-covertible tokens are repeatable by default. Convertible tokens are only non-repeatable if they have the rgxIsRepeatable property set to false.
+    if (type === 'repeatable' && !isRGXConvertibleToken(value, false)) return true;
+    if (type === 'repeatable' && isRGXConvertibleToken(value)) return value.rgxIsRepeatable ?? true;
+
     if (typeMatches('array') && isRGXArrayToken(value)) return true;
 
     if (Array.isArray(type) && Array.isArray(value) && (!matchLength || type.length === value.length)) {

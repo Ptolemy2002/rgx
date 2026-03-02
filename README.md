@@ -24,6 +24,7 @@ type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToke
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken;
 type RGXGroupedConvertibleToken = (RGXConvertibleToken & { readonly rgxIsGroup: true }) | (Omit<RGXConvertibleToken, "toRgx"> & { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true  });
+type RGXRepeatableConvertibleToken = RGXConvertibleToken & { readonly rgxIsRepeatable: true | undefined };
 
 const validRegexSymbol = Symbol('rgx.ValidRegex');
 type ValidRegexBrandSymbol = typeof validRegexSymbol;
@@ -45,7 +46,7 @@ type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;
 
 type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
 type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
-type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | typeof RegExp | typeof ExtRegExp | typeof RGXTokenCollection | RGXTokenTypeGuardInput[];
+type RGXTokenTypeGuardInput = "repeatable" | RGXTokenTypeFlat | null | RGXClassTokenConstructor | typeof RegExp | typeof ExtRegExp | typeof RGXTokenCollection | RGXTokenTypeGuardInput[];
 type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     // Maps token type strings to their corresponding types, e.g.:
     // 'no-op' -> RGXNoOpToken, 'literal' -> RGXLiteralToken, etc.
@@ -911,7 +912,7 @@ Converts an `RGXTokenType` to its flat equivalent `RGXTokenTypeFlat`. If the typ
 function rgxTokenTypeGuardInputToFlat(type: RGXTokenTypeGuardInput): RGXTokenTypeFlat | null
 ```
 
-Converts an `RGXTokenTypeGuardInput` to its flat equivalent. If the type is `null`, it returns `null`; if it is an array, it returns `'array'`; if it is an `RGXClassTokenConstructor` (a constructor for an `RGXClassToken` subclass), it returns `'class'` (making it slightly lossy in that case); otherwise, it returns the type as-is.
+Converts an `RGXTokenTypeGuardInput` to its flat equivalent. If the type is `null`, it returns `null`; if it is an array, it returns `'array'`; if it is a RegEx constructor, it returns `'literal`; if it is the `RGXTokenCollection` constructor, it returns `'convertible'`; if it is an `RGXClassTokenConstructor` (a constructor for an `RGXClassToken` subclass), it returns `'class'` (making it slightly lossy in that case); otherwise, it returns the type as-is.
 
 #### Parameters
   - `type` (`RGXTokenTypeGuardInput`): The type guard input to convert.
@@ -929,6 +930,8 @@ Checks if the given value is a valid RGX token, optionally narrowed to a specifi
 When `type` is a constructor, it performs an `instanceof` check against that specific constructor, allowing you to narrow to a specific class token subclass rather than all class tokens. In this case, `RGXTokenFromType` resolves to `InstanceType<T>`, giving you the specific subclass type.
 
 When `type` is an array, it checks that every element of the value array is a valid RGX token matching the corresponding type in the `type` array. If `matchLength` is `true` (the default), it also requires that the value array has the same length as the type array; if `false`, it allows the value array to be longer than the type array, as long as all elements up to the length of the type array match and all elements after that are still valid RGX tokens of any type.
+
+When `type` is `"repeatable"`, it passes for any token that is not convertible, then checks if `rgxIsRepeatable` is `true | undefined` for convertible tokens.
 
 #### Parameters
   - `value` (`unknown`): The value to check.

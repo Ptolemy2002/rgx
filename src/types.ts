@@ -20,10 +20,11 @@ export type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken
 
 export type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken;
 export type RGXGroupedConvertibleToken = (RGXConvertibleToken & { readonly rgxIsGroup: true }) | (Omit<RGXConvertibleToken, "toRgx"> & { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true  });
+export type RGXRepeatableConvertibleToken = RGXConvertibleToken & { readonly rgxIsRepeatable: true | undefined };
 
 export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
 export type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
-export type RGXTokenTypeGuardInput = RGXTokenTypeFlat | null | RGXClassTokenConstructor | typeof RegExp | typeof ExtRegExp | typeof RGXTokenCollection | RGXTokenTypeGuardInput[];
+export type RGXTokenTypeGuardInput = "repeatable" | RGXTokenTypeFlat | null | RGXClassTokenConstructor | typeof RegExp | typeof ExtRegExp | typeof RGXTokenCollection | RGXTokenTypeGuardInput[];
 export type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     T extends null ? RGXToken :
     T extends 'no-op' ? RGXNoOpToken :
@@ -32,6 +33,7 @@ export type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     T extends 'convertible' ? RGXConvertibleToken :
     T extends 'class' ? RGXClassToken :
     T extends 'array' ? RGXToken[] :
+    T extends 'repeatable' ? Exclude<RGXToken, RGXConvertibleToken> | RGXRepeatableConvertibleToken :
     T extends new (...args: unknown[]) => infer R ? R :
     T extends RGXTokenTypeGuardInput[] ? { [K in keyof T]: T[K] extends RGXTokenTypeGuardInput ? RGXTokenFromType<T[K]> : never } :
     never

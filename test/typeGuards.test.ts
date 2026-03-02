@@ -674,6 +674,30 @@ describe('Type Guards', () => {
             expect(() => assertRGXToken(matchingToken, ['native', 'convertible'] as const)).toThrow(RGXInvalidTokenError);
         });
 
+        it('identifies non-convertible tokens as repeatable', () => {
+            const token: RGXToken = "foo";
+            expect(isRGXToken(token, 'repeatable')).toBe(true);
+            expect(() => assertRGXToken(token, 'repeatable')).not.toThrow();
+        });
+
+        it('identifies non-repeatable tokens as non-repeatable', () => {
+            const token: RGXToken = { toRgx: () => 'foo', rgxIsRepeatable: false };
+            expect(isRGXToken(token, 'repeatable')).toBe(false);
+            expect(() => assertRGXToken(token, 'repeatable')).toThrow(RGXInvalidTokenError);
+        });
+
+        it('identifies repeatable tokens as repeatable', () => {
+            const token: RGXToken = { toRgx: () => 'foo', rgxIsRepeatable: true };
+            expect(isRGXToken(token, 'repeatable')).toBe(true);
+            expect(() => assertRGXToken(token, 'repeatable')).not.toThrow();
+        });
+
+        it('identifies convertible tokens without rgxIsRepeatable as repeatable', () => {
+            const token: RGXToken = { toRgx: () => 'foo' };
+            expect(isRGXToken(token, 'repeatable')).toBe(true);
+            expect(() => assertRGXToken(token, 'repeatable')).not.toThrow();
+        });
+
         it('correctly handles constructors', () => {
             const token1: RGXToken = new TestClassToken1();
             const token2: RGXToken = new TestClassToken2();
@@ -781,6 +805,10 @@ describe('Type Guards', () => {
             expect(rgxTokenTypeGuardInputToFlat(null)).toBe(null);
         });
 
+        it('returns null for repeatable', () => {
+            expect(rgxTokenTypeGuardInputToFlat('repeatable')).toBe(null);
+        });
+
         it('returns non-array types as-is', () => {
             expect(rgxTokenTypeGuardInputToFlat('no-op')).toBe('no-op');
             expect(rgxTokenTypeGuardInputToFlat('literal')).toBe('literal');
@@ -792,6 +820,15 @@ describe('Type Guards', () => {
         it('returns "array" for array types', () => {
             expect(rgxTokenTypeGuardInputToFlat(['native', 'literal'])).toBe('array');
             expect(rgxTokenTypeGuardInputToFlat([])).toBe('array');
+        });
+
+        it('returns "literal" for RegExp constructors', () => {
+            expect(rgxTokenTypeGuardInputToFlat(RegExp)).toBe('literal');
+            expect(rgxTokenTypeGuardInputToFlat(ExtRegExp)).toBe('literal');
+        });
+
+        it('returns "convertible" for RGXTokenCollection constructor', () => {
+            expect(rgxTokenTypeGuardInputToFlat(RGXTokenCollection)).toBe('convertible');
         });
 
         it('returns "class" for class token constructors', () => {

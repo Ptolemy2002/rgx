@@ -5,7 +5,7 @@ import { isRGXGroupedToken, isRGXToken } from "src/typeGuards";
 import { assertInRange, RGXNotSupportedError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
 import { createAssertClassGuardFunction, createClassGuardFunction, createConstructFunction } from "src/internal";
-import { CloneDepth, depthDecrement, extClone } from "@ptolemy2002/immutability-utils";
+import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
 
 export class RGXRepeatToken extends RGXClassToken {
@@ -45,7 +45,7 @@ export class RGXRepeatToken extends RGXClassToken {
     }
 
     set token(value: RGXToken) {
-        if (isRGXToken(value, "convertible") && typeof value.rgxIsRepeatable === "boolean" && !value.rgxIsRepeatable) {
+        if (isRGXToken(value, "convertible") && !isRGXToken(value, "repeatable")) {
             if (isRGXToken(value, "class")) {
                 throw new RGXNotSupportedError(`Repeating ${value.constructor.name} tokens`, "The token was manually marked as non-repeatable.");
             } else {

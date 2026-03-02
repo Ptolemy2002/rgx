@@ -1,4 +1,4 @@
-import { rgxClassWrapper, RGXLookaheadToken, RGXLookbehindToken } from "./class";
+import { rgxClassWrapper } from "./class";
 import { RGXConstantConflictError, RGXInvalidConstantKeyError } from "./errors";
 import { isRGXNativeToken } from "./typeGuards";
 import { RGXToken } from "./types";
@@ -65,11 +65,27 @@ defineRGXConstant("start", {
     }
 });
 
+defineRGXConstant("line-start", {
+    rgxGroupWrap: false,
+    rgxIsRepeatable: false,
+    toRgx() {
+        return /^/m;
+    }
+});
+
 defineRGXConstant("end", {
     rgxGroupWrap: false,
     rgxIsRepeatable: false,
     toRgx() {
         return /$/;
+    }
+});
+
+defineRGXConstant("line-end", {
+    rgxGroupWrap: false,
+    rgxIsRepeatable: false,
+    toRgx() {
+        return /$/m;
     }
 });
 
