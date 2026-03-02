@@ -46,14 +46,21 @@ function constructorTest<R, T=string>(constructor: typeof rgxPart<R, T>) {
 
     it("correctly initializes with options", () => {
         const token = "test";
+        const id = "customId";
         const transform = jest.fn();
         const beforeCapture = jest.fn();
         const afterCapture = jest.fn();
 
-        const instance = constructor(token, { transform, beforeCapture, afterCapture });
+        const instance = constructor(token, { id, transform, beforeCapture, afterCapture });
+        expect(instance.id).toBe(id);
         expect(instance.transform).toBe(transform);
         expect(instance.beforeCapture).toBe(beforeCapture);
         expect(instance.afterCapture).toBe(afterCapture);
+    });
+
+    it("defaults id to null if not provided", () => {
+        const instance = constructor("test");
+        expect(instance.id).toBeNull();
     });
 }
 
@@ -191,20 +198,32 @@ describe("RGXPart", () => {
         });
     });
 
+    describe("hasId", () => {
+        it("returns true if id is not null", () => {
+            const instance = new RGXPart("test", { id: "customId" });
+            expect(instance.hasId()).toBe(true);
+        });
+
+        it("returns false if id is null", () => {
+            const instance = new RGXPart("test");
+            expect(instance.hasId()).toBe(false);
+        });
+    });
+
     describe("validate", () => {
         it("returns true if validation passes", () => {
             const instance = new RGXPart("test", { validate: () => true });
-            expect(() => instance.validate({ raw: "test", value: "test" }, new RGXWalker("test", []))).not.toThrow();
+            expect(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4 }, new RGXWalker("test", []))).not.toThrow();
         });
 
         it("throws if validation fails with false", () => {
             const instance = new RGXPart("test", { validate: () => false });
-            expect(() => instance.validate({ raw: "test", value: "test" }, new RGXWalker("test", []))).toThrow(RGXPartValidationFailedError);
+            expect(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4 }, new RGXWalker("test", []))).toThrow(RGXPartValidationFailedError);
         });
 
         it("throws with custom message if validation fails with a string", () => {
             const instance = new RGXPart("test", { validate: () => "Custom error message" });
-            expectError(() => instance.validate({ raw: "test", value: "test" }, new RGXWalker("test", [])), RGXPartValidationFailedError, (e) => {
+            expectError(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4 }, new RGXWalker("test", [])), RGXPartValidationFailedError, (e) => {
                 return e.message === `Custom error message; Got: test (transformed: "test")`;
             });
         });

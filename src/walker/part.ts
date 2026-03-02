@@ -13,23 +13,23 @@ import { RGXPartValidationFailedError } from "src/errors";
 // - "stop": halt immediately (don't capture, don't advance)
 export type RGXPartControl = "skip" | "stop" | "silent" | void;
 
-// A structured capture result, replacing the flat string array.
-// Defaults to unknown — use RGXCapture<T> in Part callbacks for typed access.
 export type RGXCapture<T = unknown> = {
     raw: string;
     value: T;
+    start: number;
+    end: number;
 };
 
 export type RGXPartOptions<R, T=string> = {
+    id: string;
     transform: (captured: string) => T;
     validate: (captured: RGXCapture<T>, part: RGXPart<R, T>, walker: RGXWalker<R>) => boolean | string;
     beforeCapture: ((part: RGXPart<R, T>, walker: RGXWalker<R>) => RGXPartControl) | null;
     afterCapture: ((capture: RGXCapture<T>, part: RGXPart<R, T>, walker: RGXWalker<R>) => void) | null;
 }
 
-// A Part is purely a definition: a token + optional callbacks.
-// It does NOT store capture state — that lives on the walker.
 export class RGXPart<R, T=string> implements RGXConvertibleToken {
+    id: string | null;
     token: RGXToken;
 
     readonly transform: RGXPartOptions<R, T>["transform"];
@@ -41,11 +41,16 @@ export class RGXPart<R, T=string> implements RGXConvertibleToken {
     static assert = createAssertClassGuardFunction(RGXPart);
 
     constructor(token: RGXToken, options: Partial<RGXPartOptions<R, T>> = {}) {
+        this.id = options.id ?? null;
         this.token = token;
         this.transform = options.transform ?? ((captured: string) => captured as unknown as T);
         this._validate = options.validate ?? (() => true);
         this.beforeCapture = options.beforeCapture ?? null;
         this.afterCapture = options.afterCapture ?? null;
+    }
+
+    hasId(): this is RGXPart<R, T> & { id: string } {
+        return this.id !== null;
     }
 
     validate(capture: RGXCapture<T>, walker: RGXWalker<R>) {
@@ -75,6 +80,7 @@ export class RGXPart<R, T=string> implements RGXConvertibleToken {
     clone(depth: CloneDepth = "max") {
         if (depth === 0) return this;
         return new RGXPart(cloneRGXToken(this.token, depthDecrement(depth, 1)), {
+            id: this.id ?? undefined,
             transform: this.transform,
             beforeCapture: this.beforeCapture,
             afterCapture: this.afterCapture,

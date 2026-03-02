@@ -263,9 +263,9 @@ describe("RGXWalker", () => {
 
         it("returns the last capture", () => {
             const instance = new RGXWalker("test", []);
-            instance.captures.push({ raw: "first", value: "first" });
-            instance.captures.push({ raw: "second", value: "second" });
-            expect(instance.lastCapture()).toEqual({ raw: "second", value: "second" });
+            instance.captures.push({ raw: "first", value: "first", start: 0, end: 5 });
+            instance.captures.push({ raw: "second", value: "second", start: 5, end: 11 });
+            expect(instance.lastCapture()).toEqual({ raw: "second", value: "second", start: 5, end: 11 });
         });
     });
 
@@ -340,13 +340,27 @@ describe("RGXWalker", () => {
         it("returns a capture result for plain tokens", () => {
             const instance = new RGXWalker("test", ["t", "e"]);
             const result = instance.step();
-            expect(result).toEqual({ raw: "t", value: "t" });
+            expect(result).toEqual({ raw: "t", value: "t", start: 0, end: 1 });
         });
 
         it("adds to captures for plain tokens", () => {
             const instance = new RGXWalker("test", ["t"]);
             instance.step();
-            expect(instance.captures).toEqual([{ raw: "t", value: "t" }]);
+            expect(instance.captures).toEqual([{ raw: "t", value: "t", start: 0, end: 1 }]);
+        });
+
+        it("adds to namedCaptures for Parts with IDs", () => {
+            const part = new RGXPart("t", { id: "first" });
+            const instance = new RGXWalker("test", [part]);
+            instance.step();
+            expect(instance.namedCaptures).toEqual({ first: { raw: "t", value: "t", start: 0, end: 1 } });
+        });
+
+        it("does not add to namedCaptures for Parts without IDs", () => {
+            const part = new RGXPart("t");
+            const instance = new RGXWalker("test", [part]);
+            instance.step();
+            expect(instance.namedCaptures).toEqual({});
         });
 
         it("advances tokenPosition", () => {
@@ -371,7 +385,7 @@ describe("RGXWalker", () => {
 
             instance.step();
             expect(afterCapture).toHaveBeenCalledWith(
-                { raw: "test", value: "test" },
+                { raw: "test", value: "test", start: 0, end: 4 },
                 part,
                 instance
             );
@@ -382,7 +396,7 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("test", [part]);
 
             const result = instance.step();
-            expect(result).toEqual({ raw: "test", value: "TEST" });
+            expect(result).toEqual({ raw: "test", value: "TEST", start: 0, end: 4 });
         });
 
         describe("beforeCapture returns 'skip'", () => {
@@ -422,7 +436,7 @@ describe("RGXWalker", () => {
 
                 const result = instance.step();
                 // Still returns the capture result
-                expect(result).toEqual({ raw: "t", value: "t" });
+                expect(result).toEqual({ raw: "t", value: "t", start: 0, end: 1 });
                 // But NOT added to captures
                 expect(instance.captures).toEqual([]);
                 // Positions advance normally
@@ -448,7 +462,7 @@ describe("RGXWalker", () => {
                 const instance = new RGXWalker("test", [part]);
 
                 const result = instance.step();
-                expect(result).toEqual({ raw: "t", value: "t" });
+                expect(result).toEqual({ raw: "t", value: "t", start: 0, end: 1 });
                 expect(instance.stopped).toBe(true);
                 // Token was captured and position advanced
                 expect(instance.tokenPosition).toBe(1);
@@ -570,10 +584,10 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
             instance.walk();
             expect(instance.captures).toEqual([
-                { raw: "t", value: "t" },
-                { raw: "e", value: "e" },
-                { raw: "s", value: "s" },
-                { raw: "t", value: "t" },
+                { raw: "t", value: "t", start: 0, end: 1 },
+                { raw: "e", value: "e", start: 1, end: 2 },
+                { raw: "s", value: "s", start: 2, end: 3 },
+                { raw: "t", value: "t", start: 3, end: 4 },
             ]);
         });
 
@@ -582,9 +596,9 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("test", ["t", part, "t"]);
             instance.walk();
             expect(instance.captures).toEqual([
-                { raw: "t", value: "t" },
-                { raw: "es", value: "ES" },
-                { raw: "t", value: "t" },
+                { raw: "t", value: "t", start: 0, end: 1 },
+                { raw: "es", value: "ES", start: 1, end: 3 },
+                { raw: "t", value: "t", start: 3, end: 4 },
             ]);
         });
     });
