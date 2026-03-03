@@ -3,7 +3,7 @@ import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 import { assertInRange } from "src/errors";
 import { RGXConvertibleToken, RGXToken } from "src/types";
 import { RGXPart, RGXCapture } from "./part";
-import { assertRegexMatchesAtPosition, rgxa } from "src/index";
+import { assertRegexMatchesAtPosition, isRGXArrayToken, rgxa, RGXClassUnionToken, RGXGroupToken } from "src/index";
 import { createAssertClassGuardFunction, createClassGuardFunction } from "src/internal";
 
 export type RGXWalkerOptions<R> = {
@@ -12,6 +12,23 @@ export type RGXWalkerOptions<R> = {
     infinite?: boolean;
     looping?: boolean;
 };
+
+function createBranchGroups(tokens: RGXTokenCollectionInput): RGXToken {
+    if (
+        (tokens instanceof RGXTokenCollection && tokens.mode === "union") ||
+        RGXClassUnionToken.check(tokens)
+    ) return createBranchGroups(tokens.tokens);
+
+    if (isRGXArrayToken(tokens)) {
+        const newTokens = tokens.map((token, i) => {
+            return new RGXGroupToken({name: `rgx_branch_${i}`}, [token]);
+        });
+
+        return new RGXClassUnionToken(newTokens);
+    } else {
+        return tokens;
+    }
+}
 
 export class RGXWalker<R> implements RGXConvertibleToken {
     readonly source: string;
@@ -102,11 +119,13 @@ export class RGXWalker<R> implements RGXConvertibleToken {
         return this.source.slice(this.sourcePosition);
     }
 
-    capture(token: RGXToken): string {
+    capture(token: RGXToken, includeMatch: true): RegExpExecArray;
+    capture(token: RGXToken, includeMatch?: false): string;
+    capture(token: RGXToken, includeMatch = false): string | RegExpExecArray {
         const regex = rgxa([token]);
-        const match = assertRegexMatchesAtPosition(regex, this.source, this.sourcePosition);
-        this.sourcePosition += match.length;
-        return match;
+        const match = assertRegexMatchesAtPosition(regex, this.source, this.sourcePosition, 10, true);
+        this.sourcePosition += match[0].length;
+        return includeMatch ? match : match[0];
     }
 
     step(): RGXCapture | null {
@@ -146,11 +165,29 @@ export class RGXWalker<R> implements RGXConvertibleToken {
 
         // Capture the match
         const start = this.sourcePosition;
-        const raw = this.capture(token);
+
+        let innerToken: RGXToken = token;
+        if (isPart) innerToken = createBranchGroups(token.token);
+        const capture = this.capture(innerToken, true);
+
+        const raw = isPart ? token.rawTransform(capture[0]) : capture[0];
         const end = this.sourcePosition;
         const value = isPart ? token.transform(raw) : raw;
 
-        const captureResult: RGXCapture = { raw, value, start, end, ownerId: isPart && token.hasId() ? token.id : null };
+        let branch = 0;
+        if (isPart) {
+            // Determine branch index for captureResult by finding the first index
+            // with non-undefined match group.
+            for (let i = 0; i < capture.length; i++) {
+                const branchKey = `rgx_branch_${i}`;
+                if (capture.groups && capture.groups[branchKey] !== undefined) {
+                    branch = i;
+                    break;
+                }
+            }
+        }
+
+        const captureResult: RGXCapture = { raw, value, start, end, branch, ownerId: isPart && token.hasId() ? token.id : null };
 
         // Validate the part. If validation fails, it will throw an error, so nothing below will run.
         if (isPart) {

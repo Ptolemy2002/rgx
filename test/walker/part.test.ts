@@ -47,12 +47,14 @@ function constructorTest<R, T=string>(constructor: typeof rgxPart<R, T>) {
     it("correctly initializes with options", () => {
         const token = "test";
         const id = "customId";
+        const rawTransform = jest.fn();
         const transform = jest.fn();
         const beforeCapture = jest.fn();
         const afterCapture = jest.fn();
 
-        const instance = constructor(token, { id, transform, beforeCapture, afterCapture });
+        const instance = constructor(token, { id, rawTransform, transform, beforeCapture, afterCapture });
         expect(instance.id).toBe(id);
+        expect(instance.rawTransform).toBe(rawTransform);
         expect(instance.transform).toBe(transform);
         expect(instance.beforeCapture).toBe(beforeCapture);
         expect(instance.afterCapture).toBe(afterCapture);
@@ -181,17 +183,40 @@ describe("RGXPart", () => {
             expect(instance.clone(0)).toBe(instance);
         });
 
-        it("preserves properties", () => {
+        it("preserves properties when id is set", () => {
             const token = "test";
+            const id = "customId";
+            const rawTransform = jest.fn();
             const transform = jest.fn();
             const beforeCapture = jest.fn();
             const afterCapture = jest.fn();
 
-            const instance = new RGXPart(token, { transform, beforeCapture, afterCapture });
+            const instance = new RGXPart(token, { id, rawTransform, transform, beforeCapture, afterCapture });
             const clone = instance.clone();
 
             expect(clone).not.toBe(instance);
             expect(clone.token).toEqual(instance.token);
+            expect(clone.id).toBe(instance.id);
+            expect(clone.rawTransform).toBe(instance.rawTransform);
+            expect(clone.transform).toBe(instance.transform);
+            expect(clone.beforeCapture).toBe(instance.beforeCapture);
+            expect(clone.afterCapture).toBe(instance.afterCapture);
+        });
+
+        it("preserves properties when no id is set", () => {
+            const token = "test";
+            const rawTransform = jest.fn();
+            const transform = jest.fn();
+            const beforeCapture = jest.fn();
+            const afterCapture = jest.fn();
+
+            const instance = new RGXPart(token, { rawTransform, transform, beforeCapture, afterCapture });
+            const clone = instance.clone();
+
+            expect(clone).not.toBe(instance);
+            expect(clone.token).toEqual(instance.token);
+            expect(clone.id).toBeNull();
+            expect(clone.rawTransform).toBe(instance.rawTransform);
             expect(clone.transform).toBe(instance.transform);
             expect(clone.beforeCapture).toBe(instance.beforeCapture);
             expect(clone.afterCapture).toBe(instance.afterCapture);
@@ -213,17 +238,17 @@ describe("RGXPart", () => {
     describe("validate", () => {
         it("returns true if validation passes", () => {
             const instance = new RGXPart("test", { validate: () => true });
-            expect(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4, ownerId: null }, new RGXWalker("test", []))).not.toThrow();
+            expect(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4, ownerId: null, branch: 0 }, new RGXWalker("test", []))).not.toThrow();
         });
 
         it("throws if validation fails with false", () => {
             const instance = new RGXPart("test", { validate: () => false });
-            expect(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4, ownerId: null }, new RGXWalker("test", []))).toThrow(RGXPartValidationFailedError);
+            expect(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4, ownerId: null, branch: 0 }, new RGXWalker("test", []))).toThrow(RGXPartValidationFailedError);
         });
 
         it("throws with custom message if validation fails with a string", () => {
             const instance = new RGXPart("test", { validate: () => "Custom error message" });
-            expectError(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4, ownerId: null }, new RGXWalker("test", [])), RGXPartValidationFailedError, (e) => {
+            expectError(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4, ownerId: null, branch: 0 }, new RGXWalker("test", [])), RGXPartValidationFailedError, (e) => {
                 return e.message === `Custom error message; Got: test (transformed: "test")`;
             });
         });

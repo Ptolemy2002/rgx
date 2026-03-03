@@ -57,6 +57,17 @@ describe("doesRegexMatchAtPosition", () => {
         expect(() => assertRegexMatchesAtPosition(/b/i, "ABC", 1)).not.toThrow();
         expect(() => assertRegexMatchesAtPosition(/c/i, "ABC", 2)).not.toThrow();
     });
+
+    it("is an RegExpExecArray when includeMatch is true and a match is found", () => {
+        const match = doesRegexMatchAtPosition(/a/, "abc", 0, true);
+        expect(match).toBeInstanceOf(Array);
+        expect(match![0]).toBe("a");
+    });
+
+    it("is false when includeMatch is true and no match is found", () => {
+        const match = doesRegexMatchAtPosition(/d/, "abc", 0, true);
+        expect(match).toBe(false);
+    });
 });
 
 describe("regexMatchAtPosition", () => {
@@ -85,5 +96,11 @@ describe("regexMatchAtPosition", () => {
         expect(regexMatchAtPosition(/a/i, "ABC", 0)).toBe("A");
         expect(regexMatchAtPosition(/b/i, "ABC", 1)).toBe("B");
         expect(regexMatchAtPosition(/c/i, "ABC", 2)).toBe("C");
+    });
+
+    it("is an RegExpExecArray when includeMatch is true", () => {
+        const match = regexMatchAtPosition(/a/, "abc", 0, true);
+        expect(match).toBeInstanceOf(Array);
+        expect(match![0]).toBe("a");
     });
 });

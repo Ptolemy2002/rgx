@@ -19,10 +19,12 @@ export type RGXCapture<T = unknown> = {
     start: number;
     end: number;
     ownerId: string | null; // The id of the RGXPart that captured this, if any
+    branch: number; // The branch index of the token that captured this, or 0 if there is only one branch
 };
 
 export type RGXPartOptions<R, T=string> = {
     id: string;
+    rawTransform: (captured: string) => string;
     transform: (captured: string) => T;
     validate: (captured: RGXCapture<T>, part: RGXPart<R, T>, walker: RGXWalker<R>) => boolean | string;
     beforeCapture: ((part: RGXPart<R, T>, walker: RGXWalker<R>) => RGXPartControl) | null;
@@ -33,6 +35,7 @@ export class RGXPart<R, T=string> implements RGXConvertibleToken {
     id: string | null;
     token: RGXToken;
 
+    readonly rawTransform: RGXPartOptions<R, T>["rawTransform"];
     readonly transform: RGXPartOptions<R, T>["transform"];
     private readonly _validate: RGXPartOptions<R, T>["validate"];
     readonly beforeCapture: RGXPartOptions<R, T>["beforeCapture"];
@@ -44,6 +47,7 @@ export class RGXPart<R, T=string> implements RGXConvertibleToken {
     constructor(token: RGXToken, options: Partial<RGXPartOptions<R, T>> = {}) {
         this.id = options.id ?? null;
         this.token = token;
+        this.rawTransform = options.rawTransform ?? (captured => captured);
         this.transform = options.transform ?? ((captured: string) => captured as unknown as T);
         this._validate = options.validate ?? (() => true);
         this.beforeCapture = options.beforeCapture ?? null;
@@ -82,6 +86,7 @@ export class RGXPart<R, T=string> implements RGXConvertibleToken {
         if (depth === 0) return this;
         return new RGXPart(cloneRGXToken(this.token, depthDecrement(depth, 1)), {
             id: this.id ?? undefined,
+            rawTransform: this.rawTransform,
             transform: this.transform,
             beforeCapture: this.beforeCapture,
             afterCapture: this.afterCapture,
