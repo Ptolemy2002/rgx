@@ -1,4 +1,4 @@
-import { regexWithFlags, RGXInvalidVanillaRegexFlagsError } from "src/index";
+import { regexWithFlags, RGXInvalidRegexFlagsError } from "src/index";
 
 describe("regexWithFlags", () => {
     it("always returns a new regex", () => {
@@ -27,6 +27,6 @@ describe("regexWithFlags", () => {
 
     it("rejects invalid flags", () => {
         const exp = /abc/;
-        expect(() => regexWithFlags(exp, "z")).toThrow(RGXInvalidVanillaRegexFlagsError);
+        expect(() => regexWithFlags(exp, "z")).toThrow(RGXInvalidRegexFlagsError);
     });
 });

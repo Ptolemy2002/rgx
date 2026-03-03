@@ -40,6 +40,7 @@ export default function rgx(flags: string = '', multiline=true) {
 }
 
 export function rgxwa<R = unknown>(source: string, tokens: t.RGXToken[], options: Omit<t.RGXWOptions<R>, "multiline"> = {}) {
+    assureAcceptance(tokens, '' as t.ValidRegexFlags);
     return new RGXWalker(source, tokens, options);
 }
 

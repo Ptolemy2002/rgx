@@ -3,6 +3,7 @@ import type { RGXClassToken } from "./class";
 import type { ExtRegExp } from "./ExtRegExp";
 import type { RGXTokenCollection } from "./collection";
 import type { RGXWalkerOptions } from "./walker";
+import type { RGXPart, RGXWalker } from "./walker";
 
 export type RGXNoOpToken = null | undefined;
 export type RGXLiteralToken = RegExp;
@@ -24,7 +25,17 @@ export type RGXRepeatableConvertibleToken = RGXConvertibleToken & { readonly rgx
 
 export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
 export type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
-export type RGXTokenTypeGuardInput = "repeatable" | RGXTokenTypeFlat | null | RGXClassTokenConstructor | typeof RegExp | typeof ExtRegExp | typeof RGXTokenCollection | RGXTokenTypeGuardInput[];
+export type RGXTokenTypeGuardInput = 
+    "repeatable" |
+    RGXTokenTypeFlat |
+    null | RGXClassTokenConstructor |
+    typeof RegExp |
+    typeof ExtRegExp |
+    typeof RGXTokenCollection |
+    typeof RGXWalker |
+    typeof RGXPart |
+    RGXTokenTypeGuardInput[]
+;
 export type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
     T extends null ? RGXToken :
     T extends 'no-op' ? RGXNoOpToken :
@@ -62,6 +73,6 @@ export const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
 export type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;
 export type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;
 
-export type RGXWOptions<R = unknown> = Omit<RGXWalkerOptions<R>, "startingSourcePosition"> & {
+export type RGXWOptions<R = unknown> = RGXWalkerOptions<R> & {
     multiline?: boolean;
 };

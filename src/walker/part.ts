@@ -30,7 +30,7 @@ export type RGXPartOptions<R, T=string> = {
     validate: (captured: RGXCapture<T>, part: RGXPart<R, T>, walker: RGXWalker<R>) => boolean | string;
     beforeCapture: ((part: RGXPart<R, T>, walker: RGXWalker<R>) => RGXPartControl) | null;
     afterCapture: ((capture: RGXCapture<T>, part: RGXPart<R, T>, walker: RGXWalker<R>) => void) | null;
-}
+};
 
 export class RGXPart<R, T=string> implements RGXConvertibleToken {
     id: string | null;
@@ -64,7 +64,7 @@ export class RGXPart<R, T=string> implements RGXConvertibleToken {
         if (result === true) return;
         
         const message = typeof result === "string" ? result : "Part Validation Failed";
-        throw new RGXPartValidationFailedError(message, capture.raw, capture.value);
+        throw new RGXPartValidationFailedError(this.id, message, capture.raw, capture.value);
     }
 
     // Properties used for conversion to an RGXToken

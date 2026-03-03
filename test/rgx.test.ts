@@ -551,4 +551,9 @@ describe('rgxw', () => {
         // Multiline mode joins template lines, so 'foo' and 'bar ' become one token 'foobar '
         expect(walker.captures.map(c => c.value)).toEqual(['foobar ', '\n', 'baz quux']);
     });
+
+    it('Throws the correct error for a convertible token that rejects insertion', () => {
+        const token = { toRgx: () => "foo", rgxAcceptInsertion: () => false };
+        expect(() => rgxw("barbaz")`bar${token}baz`).toThrow(RGXInsertionRejectedError);
+    });
 });

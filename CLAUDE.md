@@ -4,7 +4,7 @@ The project is a Regular Expression library with all source files in `./src` and
 
 `./src/index.ts` exports all of the subfolders (except `internal`), so any public component can be imported directly from there.
 
-`./README.md` should contain documentation for every public component, so reading that is a good way to give you an overview without needing to search specific sections. Reading just the "RGX" section (top-level heading) gives you a very high-level overview of what the library is. Other sections have details. Notably, you may be given a task in a state where there are currently unstaged changes or untracked files, in which case `./README.md` may not be up to date. If you find yourself needing to check for any additions, use `git status` and `git diff`.
+`./README.md` should contain documentation for every public component (or links to where that documentation is located), so reading that is a good way to give you an overview without needing to search specific sections. Reading just the "RGX" section (top-level heading) gives you a very high-level overview of what the library is. Other sections have details. Notably, you may be given a task in a state where there are currently unstaged changes or untracked files, in which case `./README.md` may not be up to date. If you find yourself needing to check for any additions, use `git status` and `git diff`.
 
 While `./src/types.ts` contains most types, there are some types that are exported directly from their respective files. The "Type Reference" section of the README contains all types.
 

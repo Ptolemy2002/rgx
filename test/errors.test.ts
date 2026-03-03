@@ -778,29 +778,36 @@ describe('RGXRegexNotMatchedAtPositionError', () => {
 
 describe("RGXPartValidationFailedError", () => {
     it('has the correct name', () => {
-        const error = new RGXPartValidationFailedError('Validation failed', 'rawValue', 'transformedValue');
+        const error = new RGXPartValidationFailedError(null, 'Validation failed', 'rawValue', 'transformedValue');
         expect(error.name).toBe('RGXPartValidationFailedError');
     });
 
     it('has the correct code', () => {
-        const error = new RGXPartValidationFailedError('Validation failed', 'rawValue', 'transformedValue');
+        const error = new RGXPartValidationFailedError(null, 'Validation failed', 'rawValue', 'transformedValue');
         expect(error.code).toBe('PART_VALIDATION_FAILED');
     });
 
     it('exposes the gotRaw property', () => {
-        const error = new RGXPartValidationFailedError('Validation failed', 'rawValue', 'transformedValue');
+        const error = new RGXPartValidationFailedError(null, 'Validation failed', 'rawValue', 'transformedValue');
         expect(error.gotRaw).toBe('rawValue');
     });
 
     it('exposes the gotTransformed property', () => {
-        const error = new RGXPartValidationFailedError('Validation failed', 'rawValue', 'transformedValue');
+        const error = new RGXPartValidationFailedError(null, 'Validation failed', 'rawValue', 'transformedValue');
         expect(error.gotTransformed).toBe('transformedValue');
     });
 
-    it('formats the error message correctly', () => {
-        const error = new RGXPartValidationFailedError('Validation failed', 'rawValue', 'transformedValue');
+    it('formats the error message correctly when id is unknown', () => {
+        const error = new RGXPartValidationFailedError(null, 'Validation failed', 'rawValue', 'transformedValue');
         expect(error.toString()).toBe(
-            `RGXPartValidationFailedError: Validation failed; Got: rawValue (transformed: "transformedValue")`
+            `RGXPartValidationFailedError: Validation failed; ID: unknown; Got: rawValue (transformed: "transformedValue")`
+        );
+    });
+
+    it('formats the error message correctly when id is provided', () => {
+        const error = new RGXPartValidationFailedError('PART_ID', 'Validation failed', 'rawValue', 'transformedValue');
+        expect(error.toString()).toBe(
+            `RGXPartValidationFailedError: Validation failed; ID: PART_ID; Got: rawValue (transformed: "transformedValue")`
         );
     });
 });
