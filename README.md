@@ -1376,6 +1376,12 @@ A pre-built `RegExpFlagTransformer` that makes a regex pattern accent-insensitiv
 
 Note that this transformer intentionally excludes replacing characters preceded by an odd number of backslashes, to allow for escaping. For example, in the pattern `\\a`, the `a` is preceded by two backslashes (an even number), so it will be replaced with `(a|á|à|ä|â|ã)`. In the pattern `\a`, the `a` is preceded by one backslash (an odd number), so it will not be replaced.
 
+Also, characters part of a localized flag diff inline modifier (e.g., `(?i:a)`) are not replaced, as that would introduce invalid syntax. This refers to the `i` here, not the `a`, since only `i` is a localizable flag.
+
+Finally, characters part of a character class are avoided for transformation, since that would introduce syntax errors again. For example, in the pattern `[a]`, the `a` is part of a character class and will not be replaced.
+
+These conditions (especially the last two) may cause some patterns that should be transformed to be skipped, but that is better than having the transformer produce invalid regex patterns.
+
 #### Parameters
   - `exp` (`RegExp`): The regular expression to transform.
 

@@ -36,8 +36,31 @@ describe("accentInsensitiveFlagTransformer", () => {
         const regex = new ExtRegExp("\\u0025", "g"); // The u is escaped, so it should not be transformed
         const transformed = accentInsensitiveFlagTransformer(regex);
         expect(transformed.source).toBe("\\u0025");
-    }); 
+    });
 
+    it("does not transform characters part of a localized flag pattern", () => {
+        const regex = new ExtRegExp("(?mi:y)tst", "g"); // The i is part of a localized flag pattern, so it should not be transformed
+        const transformed = accentInsensitiveFlagTransformer(regex);
+        expect(transformed.source).toBe("(?mi:y)tst");
+    });
+
+    it("does not transform characters part of a localized flag pattern with a dash", () => {
+        const regex = new ExtRegExp("(?-mi:y)tst", "g"); // The i is part of a localized flag pattern, so it should not be transformed
+        const transformed = accentInsensitiveFlagTransformer(regex);
+        expect(transformed.source).toBe("(?-mi:y)tst");
+    });
+
+    it("does not transform characters part of a character class", () => {
+        const regex = new ExtRegExp("[0-9a-z]", "g"); // Characters inside a character class should not be transformed
+        const transformed = accentInsensitiveFlagTransformer(regex);
+        expect(transformed.source).toBe("[0-9a-z]");
+    });
+
+    it("does transform characters following a character class", () => {
+        const regex = new ExtRegExp("[0-9a-z]tést", "g"); // Characters after a character class should be transformed
+        const transformed = accentInsensitiveFlagTransformer(regex);
+        expect(transformed.source).toBe("[0-9a-z]t(e|é|è|ë|ê)st");
+    });
 
     it("works when applied as a flag", () => {
         registerCustomFlagTransformers(); // Ensure the "a" flag is registered

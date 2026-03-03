@@ -10,16 +10,26 @@ const accentPatterns: string[] = [
     "(u|ú|ù|ü|û)"  , "(U|Ú|Ù|Ü|Û)"
 ];
 
+const nonEscapeBound = resolveRGXToken(rgxConstant("non-escape-bound"));
+const nonLocalizedFlagBound = resolveRGXToken({
+    rgxGroupWrap: false,
+    rgxIsRepeatable: false,
+    toRgx() { return /(?<!\(\?\-?[ims]*)/; }
+});
+const nonCharacterClassBound = resolveRGXToken({
+    rgxGroupWrap: false,
+    rgxIsRepeatable: false,
+    toRgx() { return /(?<!\[[^\]]*)/; }
+});
+
 export const accentInsensitiveFlagTransformer: RegExpFlagTransformer = function (exp) {
     let source = exp.source;
     const flags = exp.flags;
 
-    const nonEscapeBound = resolveRGXToken(rgxConstant("non-escape-bound"));
-
     accentPatterns.forEach((pattern) => {
         // Replace any of the characters in the pattern with the pattern itself
         source = source.replaceAll(new RegExp(
-            nonEscapeBound + pattern,
+            nonEscapeBound + nonLocalizedFlagBound + nonCharacterClassBound + pattern,
             "g"
         ), pattern);
     });
