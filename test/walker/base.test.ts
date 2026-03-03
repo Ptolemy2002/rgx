@@ -265,9 +265,9 @@ describe("RGXWalker", () => {
 
         it("returns the last capture", () => {
             const instance = new RGXWalker("test", []);
-            instance.captures.push({ raw: "first", value: "first", start: 0, end: 5, ownerId: null, branch: 0 });
-            instance.captures.push({ raw: "second", value: "second", start: 5, end: 11, ownerId: null, branch: 0 });
-            expect(instance.lastCapture()).toEqual({ raw: "second", value: "second", start: 5, end: 11, ownerId: null, branch: 0 });
+            instance.captures.push({ raw: "first", value: "first", start: 0, end: 5, ownerId: null, branch: 0, groups: null });
+            instance.captures.push({ raw: "second", value: "second", start: 5, end: 11, ownerId: null, branch: 0, groups: null });
+            expect(instance.lastCapture()).toEqual({ raw: "second", value: "second", start: 5, end: 11, ownerId: null, branch: 0, groups: null });
         });
     });
 
@@ -342,20 +342,20 @@ describe("RGXWalker", () => {
         it("returns a capture result for plain tokens", () => {
             const instance = new RGXWalker("test", ["t", "e"]);
             const result = instance.step();
-            expect(result).toEqual({ raw: "t", value: "t", start: 0, end: 1, ownerId: null, branch: 0 });
+            expect(result).toEqual({ raw: "t", value: "t", start: 0, end: 1, ownerId: null, branch: 0, groups: null });
         });
 
         it("adds to captures for plain tokens", () => {
             const instance = new RGXWalker("test", ["t"]);
             instance.step();
-            expect(instance.captures).toEqual([{ raw: "t", value: "t", start: 0, end: 1, ownerId: null, branch: 0 }]);
+            expect(instance.captures).toEqual([{ raw: "t", value: "t", start: 0, end: 1, ownerId: null, branch: 0, groups: null }]);
         });
 
         it("adds to namedCaptures for Parts with IDs", () => {
             const part = new RGXPart("t", { id: "first" });
             const instance = new RGXWalker("test", [part]);
             instance.step();
-            expect(instance.namedCaptures).toEqual({ first: [{ raw: "t", value: "t", start: 0, end: 1, ownerId: part.id, branch: 0 }] });
+            expect(instance.namedCaptures).toEqual({ first: [{ raw: "t", value: "t", start: 0, end: 1, ownerId: part.id, branch: 0, groups: null }] });
         });
 
         it("handles multiple captures for the same Part ID", () => {
@@ -365,8 +365,8 @@ describe("RGXWalker", () => {
             instance.step();
             expect(instance.namedCaptures).toEqual({
                 first: [
-                    { raw: "t", value: "t", start: 0, end: 1, ownerId: part.id, branch: 0 },
-                    { raw: "t", value: "t", start: 1, end: 2, ownerId: part.id, branch: 0 }
+                    { raw: "t", value: "t", start: 0, end: 1, ownerId: part.id, branch: 0, groups: null },
+                    { raw: "t", value: "t", start: 1, end: 2, ownerId: part.id, branch: 0, groups: null }
                 ]
             });
         });
@@ -400,7 +400,7 @@ describe("RGXWalker", () => {
 
             instance.step();
             expect(afterCapture).toHaveBeenCalledWith(
-                { raw: "test", value: "test", start: 0, end: 4, ownerId: part.id, branch: 0 },
+                { raw: "test", value: "test", start: 0, end: 4, ownerId: part.id, branch: 0, groups: null },
                 part,
                 instance
             );
@@ -427,7 +427,7 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("test", [part]);
 
             const result = instance.step();
-            expect(result).toEqual({ raw: "test", value: "TEST", start: 0, end: 4, ownerId: part.id, branch: 0 });
+            expect(result).toEqual({ raw: "test", value: "TEST", start: 0, end: 4, ownerId: part.id, branch: 0, groups: null });
         });
 
         it("handles branches correctly with an array token", () => {
@@ -437,7 +437,10 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("bar", [part]);
 
             const result = instance.step();
-            expect(result).toEqual({ raw: "bar", value: "BAR", start: 0, end: 3, ownerId: part.id, branch: 1 });
+            expect(result).toEqual({ raw: "bar", value: "BAR", start: 0, end: 3, ownerId: part.id, branch: 1, groups: {
+                rgx_branch_0: undefined,
+                rgx_branch_1: "bar"
+            } });
         });
 
         it("handles branches correctly with a token collection in union mode", () => {
@@ -447,7 +450,10 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("bar", [part]);
 
             const result = instance.step();
-            expect(result).toEqual({ raw: "bar", value: "BAR", start: 0, end: 3, ownerId: part.id, branch: 1 });
+            expect(result).toEqual({ raw: "bar", value: "BAR", start: 0, end: 3, ownerId: part.id, branch: 1, groups: {
+                rgx_branch_0: undefined,
+                rgx_branch_1: "bar"
+            } });
         });
 
         it("handles branches correctly with a token collection in concat mode", () => {
@@ -457,7 +463,7 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("foobar", [part]);
 
             const result = instance.step();
-            expect(result).toEqual({ raw: "foobar", value: "FOOBAR", start: 0, end: 6, ownerId: part.id, branch: 0 });
+            expect(result).toEqual({ raw: "foobar", value: "FOOBAR", start: 0, end: 6, ownerId: part.id, branch: 0, groups: null });
         });
 
         it("handles branches correctly with a class union token", () => {
@@ -467,7 +473,10 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("bar", [part]);
 
             const result = instance.step();
-            expect(result).toEqual({ raw: "bar", value: "BAR", start: 0, end: 3, ownerId: part.id, branch: 1 });
+            expect(result).toEqual({ raw: "bar", value: "BAR", start: 0, end: 3, ownerId: part.id, branch: 1, groups: {
+                rgx_branch_0: undefined,
+                rgx_branch_1: "bar"
+            } });
         });
 
         describe("beforeCapture returns 'skip'", () => {
@@ -507,7 +516,7 @@ describe("RGXWalker", () => {
 
                 const result = instance.step();
                 // Still returns the capture result
-                expect(result).toEqual({ raw: "t", value: "t", start: 0, end: 1, ownerId: part.id, branch: 0 });
+                expect(result).toEqual({ raw: "t", value: "t", start: 0, end: 1, ownerId: part.id, branch: 0, groups: null });
                 // But NOT added to captures
                 expect(instance.captures).toEqual([]);
                 // Positions advance normally
@@ -533,7 +542,7 @@ describe("RGXWalker", () => {
                 const instance = new RGXWalker("test", [part]);
 
                 const result = instance.step();
-                expect(result).toEqual({ raw: "t", value: "t", start: 0, end: 1, ownerId: part.id, branch: 0 });
+                expect(result).toEqual({ raw: "t", value: "t", start: 0, end: 1, ownerId: part.id, branch: 0, groups: null });
                 expect(instance.stopped).toBe(true);
                 // Token was captured and position advanced
                 expect(instance.tokenPosition).toBe(1);
@@ -701,10 +710,10 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
             instance.walk();
             expect(instance.captures).toEqual([
-                { raw: "t", value: "t", start: 0, end: 1, ownerId: null, branch: 0 },
-                { raw: "e", value: "e", start: 1, end: 2, ownerId: null, branch: 0 },
-                { raw: "s", value: "s", start: 2, end: 3, ownerId: null, branch: 0 },
-                { raw: "t", value: "t", start: 3, end: 4, ownerId: null, branch: 0 },
+                { raw: "t", value: "t", start: 0, end: 1, ownerId: null, branch: 0, groups: null },
+                { raw: "e", value: "e", start: 1, end: 2, ownerId: null, branch: 0, groups: null },
+                { raw: "s", value: "s", start: 2, end: 3, ownerId: null, branch: 0, groups: null },
+                { raw: "t", value: "t", start: 3, end: 4, ownerId: null, branch: 0, groups: null },
             ]);
         });
 
@@ -713,9 +722,9 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("test", ["t", part, "t"]);
             instance.walk();
             expect(instance.captures).toEqual([
-                { raw: "t", value: "t", start: 0, end: 1, ownerId: null, branch: 0 },
-                { raw: "es", value: "ES", start: 1, end: 3, ownerId: part.id, branch: 0 },
-                { raw: "t", value: "t", start: 3, end: 4, ownerId: null, branch: 0 },
+                { raw: "t", value: "t", start: 0, end: 1, ownerId: null, branch: 0, groups: null },
+                { raw: "es", value: "ES", start: 1, end: 3, ownerId: part.id, branch: 0, groups: null },
+                { raw: "t", value: "t", start: 3, end: 4, ownerId: null, branch: 0, groups: null },
             ]);
         });
     });

@@ -20,6 +20,7 @@ export type RGXCapture<T = unknown> = {
     end: number;
     ownerId: string | null; // The id of the RGXPart that captured this, if any
     branch: number; // The branch index of the token that captured this, or 0 if there is only one branch
+    groups: Record<string, string> | null; // The groups captured by the token that captured this, or null if the token didn't capture any groups
 };
 
 export type RGXPartOptions<R, T=string> = {

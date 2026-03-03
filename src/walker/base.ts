@@ -188,7 +188,11 @@ export class RGXWalker<R> implements RGXConvertibleToken {
             }
         }
 
-        const captureResult: RGXCapture = { raw, value, start, end, branch, ownerId: isPart && token.hasId() ? token.id : null };
+        const captureResult: RGXCapture = {
+            raw, value, start, end, branch,
+            ownerId: isPart && token.hasId() ? token.id : null,
+            groups: isPart ? capture.groups ?? null : null
+        };
 
         // Validate the part. If validation fails, it will throw an error, so nothing below will run.
         if (isPart) {
