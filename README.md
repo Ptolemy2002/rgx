@@ -10,7 +10,7 @@ Because there is so much to document, it has been broken up into multiple files.
 - [type-reference](./docs/type-reference.md) - A reference for all public types used in the library.
 - [general](./docs/general.md) - General utilities of the library, including tagged template functions for creating regular expressions and walkers.
 - [type-guards](./docs/type-guards.md) - Type guards for validating various types of tokens and string values.
-- [ExtRegExp](./docs/ext-reg-exp.md) - The `ExtRegExp` class, which extends the built-in `RegExp` class with the ability to create custom flags that transform the source string of the regular expression before it is compiled.
+- [ExtRegExp](./docs/ExtRegExp.md) - The `ExtRegExp` class, which extends the built-in `RegExp` class with the ability to create custom flags that transform the source string of the regular expression before it is compiled.
 - [constants](./docs/constants.md) - Constants provided by the library, such as predefined character classes and tokens.
 - `util` - A directory containing documentation for various utility functions provided by the library.
   - [clone](./docs/util/clone.md) - The `cloneRGXToken` function, which creates a clone of a given RGX token to a specified depth.
