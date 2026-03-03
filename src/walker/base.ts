@@ -86,6 +86,7 @@ export class RGXWalker<R> implements RGXConvertibleToken {
 
     stop() {
         this._stopped = true;
+        return this;
     }
 
     atTokenEnd() {
@@ -226,6 +227,7 @@ export class RGXWalker<R> implements RGXConvertibleToken {
 
             if (this._stopped) break;
         }
+        return this;
     }
 
     stepToPart(predicate: (part: RGXPart<R>) => boolean = () => true) {
@@ -234,10 +236,11 @@ export class RGXWalker<R> implements RGXConvertibleToken {
         if (this.currentToken() instanceof RGXPart) {
             this._stopped = false;
             this.step();
-            if (this._stopped) return;
+            if (this._stopped) return this;
         }
 
         this.stepToToken(token => token instanceof RGXPart && predicate(token));
+        return this;
     }
 
     walk() {

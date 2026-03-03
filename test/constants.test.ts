@@ -1,39 +1,9 @@
 import { RGXClassWrapperToken } from "src/class";
-import { rgxConstant, listRGXConstants, hasRGXConstant, assertHasRGXConstant, assertNotHasRGXConstant, defineRGXConstant, deleteRGXConstant } from "src/constants";
+import { rgxConstant, listRGXConstants, hasRGXConstant, assertHasRGXConstant, assertNotHasRGXConstant, defineRGXConstant, deleteRGXConstant, RGX_PREDEFINED_CONSTANTS } from "src/constants";
 import { RGXConstantConflictError, RGXInvalidConstantKeyError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
 
-const expectedConstantNames = [
-    "newline",
-    "carriage-return",
-    "tab",
-    "null",
-    "form-feed",
-    "any",
-    "start",
-    "line-start",
-    "end",
-    "line-end",
-    "word-bound",
-    "non-word-bound",
-    "word-bound-start",
-    "word-bound-end",
-    "letter",
-    "lowercase-letter",
-    "uppercase-letter",
-    "non-letter",
-    "alphanumeric",
-    "non-alphanumeric",
-    "digit",
-    "non-digit",
-    "whitespace",
-    "non-whitespace",
-    "vertical-whitespace",
-    "word-char",
-    "non-word-char",
-    "backspace",
-    "non-escape-bound"
-];
+const expectedConstantNames = Object.keys(RGX_PREDEFINED_CONSTANTS);
 
 describe("listRGXConstants", () => {
     it("has the default constants", () => {
@@ -153,6 +123,13 @@ describe("rgxConstant", () => {
     describe("any constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("any"));
+            expect(result).toBe("(?s:.)");
+        });
+    });
+
+    describe("non-newline constant", () => {
+        it("resolves correctly", () => {
+            const result = resolveRGXToken(rgxConstant("non-newline"));
             expect(result).toBe(".");
         });
     });

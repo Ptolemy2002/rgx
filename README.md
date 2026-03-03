@@ -110,6 +110,10 @@ type RGXWalkerOptions<R> = {
 type RGXWOptions<R = unknown> = Omit<RGXWalkerOptions<R>, "startingSourcePosition"> & {
     multiline?: boolean;
 };
+
+// See src/constants.ts for the actual mapping of predefined constant names to their token values
+type RGXPredefinedConstant = keyof typeof RGX_PREDEFINED_CONSTANTS;
+type RGXConstantName = RGXPredefinedConstant | (string & {});
 ```
 
 ## Classes
@@ -680,7 +684,7 @@ constructor(source: string, tokens: RGXTokenCollectionInput, options?: RGXWalker
 - `stopped` (`boolean`, readonly): Whether the walker has been stopped, either by a Part's `beforeCapture` returning `"stop"` or by calling `stop()` in an `afterCapture` callback.
 
 #### Methods
-- `stop() => void`: Sets `stopped` to `true`, causing any active `stepToToken`, `stepToPart`, or `walk` loop to halt after the current iteration. Typically called from an `afterCapture` callback to stop walking after the current capture.
+- `stop() => this`: Sets `stopped` to `true`, causing any active `stepToToken`, `stepToPart`, or `walk` loop to halt after the current iteration. Typically called from an `afterCapture` callback to stop walking after the current capture.
 - `atTokenEnd() => boolean`: Returns `true` if the token position is at or past the end of the token collection.
 - `hasNextToken(predicate?: (token: RGXToken) => boolean) => boolean`: Returns `true` if there is a current token and it satisfies the optional predicate (defaults to `() => true`).
 - `atSourceEnd() => boolean`: Returns `true` if the source has been fully consumed (`sourcePosition >= source.length`).
@@ -691,9 +695,9 @@ constructor(source: string, tokens: RGXTokenCollectionInput, options?: RGXWalker
 - `capture(token: RGXToken, includeMatch?: false) => string`: Resolves the token to a regex, asserts that it matches at the current source position (throwing `RGXRegexNotMatchedAtPositionError` if not), and advances the source position by the match length. Returns the matched string.
 - `capture(token: RGXToken, includeMatch: true) => RegExpExecArray`: Same as above, but returns the full `RegExpExecArray` from the match instead of just the matched string.
 - `step() => RGXCapture | null`: Steps through the next token in the collection. If the token is an `RGXPart`, calls `beforeCapture` first — if it returns `"stop"`, sets `stopped` and returns `null` without advancing; if `"skip"`, advances the token position and returns `null` without capturing; if `"silent"`, captures but does not add to `captures` or `namedCaptures`. After capturing, validates. After validating, calls `afterCapture` if present. Returns the `RGXCapture` result, or `null` if there are no more tokens (or no more source in `infinite`/`looping` mode), the step was skipped, or the walker was stopped.
-- `stepToToken(predicate: (token: RGXToken) => boolean) => void`: Steps through tokens until the predicate returns `true` for the current token or the walker is stopped. The matching token is not consumed.
-- `stepToPart(predicate?: (part: RGXPart<R>) => boolean) => void`: Steps through tokens until the next `RGXPart` satisfying the predicate is reached. If already at a Part, steps once first to move past it. The matching Part is not consumed.
-- `walk() => void`: Steps through all remaining tokens until the end of the token collection (or until the source is consumed in `infinite`/`looping` mode) or the walker is stopped.
+- `stepToToken(predicate: (token: RGXToken) => boolean) => this`: Steps through tokens until the predicate returns `true` for the current token or the walker is stopped. The matching token is not consumed.
+- `stepToPart(predicate?: (part: RGXPart<R>) => boolean) => this`: Steps through tokens until the next `RGXPart` satisfying the predicate is reached. If already at a Part, steps once first to move past it. The matching Part is not consumed.
+- `walk() => this`: Steps through all remaining tokens until the end of the token collection (or until the source is consumed in `infinite`/`looping` mode) or the walker is stopped.
 - `toRgx() => RGXToken`: Returns the internal `RGXTokenCollection`, allowing the walker to be used as a convertible token.
 - `clone(depth: CloneDepth = "max") => RGXWalker`: Creates a clone of the walker. When `depth` is `0`, returns `this`; otherwise, creates a new `RGXWalker` with cloned tokens, source position, reduced value, captures, stopped state, and the `infinite`/`looping` flags.
 
@@ -1551,6 +1555,13 @@ Creates a clone of the given RGX token to the given depth, provided that the tok
 #### Returns
 - `T`: The cloned token.
 
+### RGX_PREDEFINED_CONSTANTS
+```typescript
+const RGX_PREDEFINED_CONSTANTS: Record<RGXPredefinedConstant, RGXToken>
+```
+
+A read-only object containing all of the library's built-in constant definitions, keyed by their `RGXPredefinedConstant` name. This is the source from which the predefined constants are registered at module load time. It can be used to inspect available constant names at compile time (via `keyof typeof RGX_PREDEFINED_CONSTANTS`) or to iterate over the predefined set without calling `listRGXConstants`.
+
 ### listRGXConstants
 ```typescript
 function listRGXConstants(): string[]
@@ -1563,52 +1574,52 @@ Returns the names of all currently defined RGX constants.
 
 ### hasRGXConstant
 ```typescript
-function hasRGXConstant(name: string): boolean
+function hasRGXConstant(name: RGXConstantName): boolean
 ```
 
 Checks if an RGX constant with the given name exists.
 
 #### Parameters
-  - `name` (`string`): The constant name to check.
+  - `name` (`RGXConstantName`): The constant name to check.
 
 #### Returns
 - `boolean`: `true` if the constant exists, otherwise `false`.
 
 ### assertHasRGXConstant
 ```typescript
-function assertHasRGXConstant(name: string): void
+function assertHasRGXConstant(name: RGXConstantName): void
 ```
 
 Asserts that an RGX constant with the given name exists. If the assertion fails, an `RGXInvalidConstantKeyError` will be thrown.
 
 #### Parameters
-  - `name` (`string`): The constant name to assert.
+  - `name` (`RGXConstantName`): The constant name to assert.
 
 #### Returns
 - `void`: This function does not return a value, but will throw an error if the assertion fails.
 
 ### assertNotHasRGXConstant
 ```typescript
-function assertNotHasRGXConstant(name: string): void
+function assertNotHasRGXConstant(name: RGXConstantName): void
 ```
 
 Asserts that an RGX constant with the given name does not exist. If the assertion fails, an `RGXConstantConflictError` will be thrown.
 
 #### Parameters
-  - `name` (`string`): The constant name to assert.
+  - `name` (`RGXConstantName`): The constant name to assert.
 
 #### Returns
 - `void`: This function does not return a value, but will throw an error if the assertion fails.
 
 ### defineRGXConstant
 ```typescript
-function defineRGXConstant(name: string, value: RGXToken): RGXToken
+function defineRGXConstant(name: RGXConstantName, value: RGXToken): RGXToken
 ```
 
 Defines a new RGX constant with the given name and value. If the value is a native token (string, number, boolean, or no-op), it is automatically wrapped in an `RGXClassWrapperToken` before being stored. This ensures that native-valued constants are not stripped by multiline template processing in `rgx`, since only the literal string parts of the template are affected by multiline mode. Throws an `RGXConstantConflictError` if a constant with the same name already exists.
 
 #### Parameters
-  - `name` (`string`): The name for the constant.
+  - `name` (`RGXConstantName`): The name for the constant.
   - `value` (`RGXToken`): The token value to associate with the name. Native tokens are automatically wrapped in `RGXClassWrapperToken`.
 
 #### Returns
@@ -1616,26 +1627,26 @@ Defines a new RGX constant with the given name and value. If the value is a nati
 
 ### rgxConstant
 ```typescript
-function rgxConstant(name: string): RGXToken
+function rgxConstant(name: RGXConstantName): RGXToken
 ```
 
 Retrieves the value of an RGX constant by name. Throws an `RGXInvalidConstantKeyError` if no constant with the given name exists.
 
 #### Parameters
-  - `name` (`string`): The constant name to retrieve.
+  - `name` (`RGXConstantName`): The constant name to retrieve.
 
 #### Returns
 - `RGXToken`: The token value associated with the constant name.
 
 ### deleteRGXConstant
 ```typescript
-function deleteRGXConstant(name: string): void
+function deleteRGXConstant(name: RGXConstantName): void
 ```
 
 Deletes an existing RGX constant by name. Throws an `RGXInvalidConstantKeyError` if no constant with the given name exists.
 
 #### Parameters
-  - `name` (`string`): The constant name to delete.
+  - `name` (`RGXConstantName`): The constant name to delete.
 
 #### Returns
 - `void`: This function does not return a value, but will throw an error if the constant does not exist.
@@ -1657,7 +1668,8 @@ Since these are defined as native tokens (strings), they are automatically wrapp
 ### Special Characters
 | Name | Resolves To | Description |
 | --- | --- | --- |
-| `"any"` | `.` | Matches any single character (except newline by default) |
+| `"any"` | `(?s:.)` | Matches any single character, including newlines |
+| `"non-newline"` | `.` | Matches any single character except newlines |
 | `"start"` | `^` | Start of string anchor |
 | `"line-start"` | `^` (with `m` flag) | Start of line anchor |
 | `"end"` | `$` | End of string anchor |
