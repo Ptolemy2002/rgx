@@ -20,32 +20,20 @@ function constructorTest(constructor: typeof rgxWalker) {
         expect(instance).toBeInstanceOf(RGXWalker);
     });
 
-    it("correctly initializes with a source and token array", () => {
+    it("correctly initializes with a source and token array without a part", () => {
         const source = "test";
         const tokens = ["t", "e", "s", "t"];
         const instance = constructor(source, tokens);
         expect(instance.source).toBe(source);
-        expect(instance.tokens.toArray()).toEqual(tokens);
+        expect(instance.tokens).toEqual(tokens);
     });
 
-    it("correctly initializes with a source and a token collection in concat mode", () => {
+    it("correctly initializes with a source and token array with a part", () => {
         const source = "test";
-        const token = "test";
-        const collection = new RGXTokenCollection([token], 'concat');
-
-        const instance = constructor(source, collection);
+        const tokens = ["t", "e", "s", new RGXPart("t")];
+        const instance = constructor(source, tokens);
         expect(instance.source).toBe(source);
-        expect(instance.tokens.toArray()).toEqual([token]);
-    });
-
-    it("correctly initializes with a source and a token collection in union mode", () => {
-        const source = "test";
-        const token = "test";
-        const collection = new RGXTokenCollection([token], 'union');
-
-        const instance = constructor(source, collection);
-        expect(instance.source).toBe(source);
-        expect(instance.tokens.toArray()).toEqual([token]);
+        expect(instance.tokens).toEqual(tokens);
     });
 
     it("correctly initializes with options", () => {
@@ -74,7 +62,10 @@ describe("RGXWalker", () => {
     });
 
     describe("rgxwa", () => {
-        constructorTest((source, tokens, options) => rgxwa(source, [...(new RGXTokenCollection(tokens))], options));
+        constructorTest((source, tokens, options) => rgxwa(
+            source, tokens,
+            options
+        ));
     });
 
     describe("class guards", () => {
@@ -313,6 +304,13 @@ describe("RGXWalker", () => {
             expect(captured).toBe("t");
         });
 
+        it("captures the inner token when passed a part", () => {
+            const part = new RGXPart("t");
+            const instance = new RGXWalker("test", [part]);
+            const captured = instance.capture(part);
+            expect(captured).toBe("t");
+        });
+
         it("advances the source position by the length of the captured string", () => {
             const instance = new RGXWalker("test", ["te", "st"]);
             instance.capture("te");
@@ -430,7 +428,16 @@ describe("RGXWalker", () => {
             expect(result).toEqual({ raw: "test", value: "TEST", start: 0, end: 4, ownerId: part.id, branch: 0, groups: null });
         });
 
-        it("handles branches correctly with an array token", () => {
+        it("handles branches correctly with a non-part token", () => {
+            const instance = new RGXWalker("bar", [["foo", "bar"]]);
+            const result = instance.step();
+            expect(result).toEqual({ raw: "bar", value: "bar", start: 0, end: 3, ownerId: null, branch: 1, groups: {
+                rgx_branch_0: undefined,
+                rgx_branch_1: "bar"
+            } });
+        });
+
+        it("handles branches correctly with a part with an array token", () => {
             const part = new RGXPart(["foo", "bar"], {
                 transform: s => s.toUpperCase()
             });
@@ -443,7 +450,7 @@ describe("RGXWalker", () => {
             } });
         });
 
-        it("handles branches correctly with a token collection in union mode", () => {
+        it("handles branches correctly with a part with a token collection in union mode", () => {
             const part = new RGXPart(new RGXTokenCollection(["foo", "bar"], "union"), {
                 transform: s => s.toUpperCase()
             });
@@ -456,7 +463,7 @@ describe("RGXWalker", () => {
             } });
         });
 
-        it("handles branches correctly with a token collection in concat mode", () => {
+        it("handles branches correctly with a part with a token collection in concat mode", () => {
             const part = new RGXPart(new RGXTokenCollection(["foo", "bar"], "concat"), {
                 transform: s => s.toUpperCase()
             });
@@ -466,7 +473,7 @@ describe("RGXWalker", () => {
             expect(result).toEqual({ raw: "foobar", value: "FOOBAR", start: 0, end: 6, ownerId: part.id, branch: 0, groups: null });
         });
 
-        it("handles branches correctly with a class union token", () => {
+        it("handles branches correctly with a part with a class union token", () => {
             const part = new RGXPart(new RGXClassUnionToken(["foo", "bar"]), {
                 transform: s => s.toUpperCase()
             });
@@ -706,6 +713,13 @@ describe("RGXWalker", () => {
             expect(instance.tokenPosition).toBe(4);
         });
 
+        it("stops without throwing if it gets to the end of the tokens without consuming all the source", () => {
+            const instance = new RGXWalker("test", ["t", "e"]);
+            expect(() => instance.walk()).not.toThrow();
+            expect(instance.tokenPosition).toBe(2);
+            expect(instance.sourcePosition).toBe(2);
+        });
+
         it("populates captures for all tokens", () => {
             const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
             instance.walk();
@@ -726,15 +740,6 @@ describe("RGXWalker", () => {
                 { raw: "es", value: "ES", start: 1, end: 3, ownerId: part.id, branch: 0, groups: null },
                 { raw: "t", value: "t", start: 3, end: 4, ownerId: null, branch: 0, groups: null },
             ]);
-        });
-    });
-
-    describe("toRgx", () => {
-        it("returns the token collection", () => {
-            const source = "test";
-            const tokens = ["t", "e", "s", "t"];
-            const instance = rgxWalker(source, tokens);
-            expect(instance.toRgx()).toBe(instance.tokens);
         });
     });
 

@@ -4,7 +4,7 @@ import { registerCustomFlagTransformers } from "./flag-transformer";
 import { rgxConcat } from "./concat";
 import { assureAcceptance, taggedTemplateToArray } from "./internal";
 import { assertValidRegexFlags, ExtRegExp, extRegExp } from "./ExtRegExp";
-import { RGXWalker } from "./walker";
+import { RGXPart, RGXTokenOrPart, RGXWalker } from "./walker";
 
 export * from "./errors";
 export * from "./types";
@@ -39,13 +39,13 @@ export default function rgx(flags: string = '', multiline=true) {
     };
 }
 
-export function rgxwa<R = unknown>(source: string, tokens: t.RGXToken[], options: Omit<t.RGXWOptions<R>, "multiline"> = {}) {
-    assureAcceptance(tokens, '' as t.ValidRegexFlags);
-    return new RGXWalker(source, tokens, options);
+export function rgxwa<R = unknown, T = unknown>(source: string, tokens: RGXTokenOrPart<R, T>[], options: Omit<t.RGXWOptions<R>, "multiline"> = {}) {
+    assureAcceptance(tokens.map(t => RGXPart.check(t) ? t.token : t), '' as t.ValidRegexFlags);
+    return new RGXWalker<R>(source, tokens, options);
 }
 
-export function rgxw<R = unknown>(source: string, {multiline=true, ...options}: t.RGXWOptions<R> = {}) {
-    return (strings: TemplateStringsArray, ...tokens: t.RGXToken[]) => {
-        return rgxwa(source, taggedTemplateToArray(strings, tokens, multiline), options);
+export function rgxw<R = unknown, T = unknown>(source: string, {multiline=true, ...options}: t.RGXWOptions<R> = {}) {
+    return (strings: TemplateStringsArray, ...tokens: RGXTokenOrPart<R, T>[]) => {
+        return rgxwa<R, T>(source, taggedTemplateToArray(strings, tokens, multiline), options);
     };
 }

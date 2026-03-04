@@ -32,7 +32,7 @@ export type RGXPartOptions<R, T=string> = {
     afterCapture: ((capture: RGXCapture<T>, part: RGXPart<R, T>, walker: RGXWalker<R>) => void) | null;
 };
 
-export class RGXPart<R, T=string> implements RGXConvertibleToken {
+export class RGXPart<R, T=string> {
     id: string | null;
     token: RGXToken;
 
@@ -65,21 +65,6 @@ export class RGXPart<R, T=string> implements RGXConvertibleToken {
         
         const message = typeof result === "string" ? result : "Part Validation Failed";
         throw new RGXPartValidationFailedError(this.id, message, capture.raw, capture.value);
-    }
-
-    // Properties used for conversion to an RGXToken
-    get rgxIsGroup() {
-        return isRGXGroupedToken(this.token);
-    }
-
-    get rgxIsRepeatable() {
-        if (isRGXToken(this.token, 'convertible')) return this.token.rgxIsRepeatable ?? true;
-        // Assume any other token is repeatable, since we don't know its implementation.
-        return true;
-    }
-
-    toRgx() {
-        return this.token;
     }
 
     // Clone method

@@ -1,4 +1,4 @@
-import rgx, { rgxa, rgxw, RGXClassToken, RGXClassWrapperToken, rgxConcat, rgxConstant, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXToken, RGXTokenCollection, ValidRegexFlags } from 'src/index';
+import rgx, { rgxa, rgxw, RGXClassToken, RGXClassWrapperToken, rgxConcat, rgxConstant, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXToken, RGXTokenCollection, ValidRegexFlags, RGXPart } from 'src/index';
 import { RGXWalker } from 'src/walker';
 import { expectError } from './utils';
 
@@ -495,6 +495,13 @@ describe('rgxw', () => {
         expect(walker.captures.map(c => c.value)).toEqual(['foo', 'baz', 'qux']);
     });
 
+    it('constructs a walker with a part', () => {
+        const token = new RGXPart({ toRgx: () => 'bar' });
+        const walker = rgxw("foobarbaz")`foo${token}baz`;
+        walker.walk();
+        expect(walker.captures.map(c => c.value)).toEqual(['foo', 'bar', 'baz']);
+    });
+
     it('constructs a walker with no tokens', () => {
         const walker = rgxw("foobarbaz")`foobarbaz`;
         walker.walk();
@@ -554,6 +561,41 @@ describe('rgxw', () => {
 
     it('Throws the correct error for a convertible token that rejects insertion', () => {
         const token = { toRgx: () => "foo", rgxAcceptInsertion: () => false };
+        expect(() => rgxw("barbaz")`bar${token}baz`).toThrow(RGXInsertionRejectedError);
+    });
+
+    it('Throws the correct error for a convertible token that rejects insertion with a message', () => {
+        const token = { toRgx: () => "foo", rgxAcceptInsertion: () => "Always rejects" };
+        expect(() => rgxw("barbaz")`bar${token}baz`).toThrow(RGXInsertionRejectedError);
+    });
+
+    it('Throws the correct error for a class token that rejects insertion', () => {
+        const token = new TestClassToken1();
+        expect(() => rgxw("barbaz")`bar${token}baz`).toThrow(RGXInsertionRejectedError);
+    });
+
+    it('Throws the correct error for a class token that rejects insertion with a message', () => {
+        const token = new TestClassToken2();
+        expect(() => rgxw("barbaz")`bar${token}baz`).toThrow(RGXInsertionRejectedError);
+    });
+
+    it('Throws the correct error for a part containing a convertible token that rejects insertion', () => {
+        const token = new RGXPart({ toRgx: () => "foo", rgxAcceptInsertion: () => false });
+        expect(() => rgxw("barbaz")`bar${token}baz`).toThrow(RGXInsertionRejectedError);
+    });
+
+    it('Throws the correct error for a part containing a convertible token that rejects insertion with a message', () => {
+        const token = new RGXPart({ toRgx: () => "foo", rgxAcceptInsertion: () => "Always rejects" });
+        expect(() => rgxw("barbaz")`bar${token}baz`).toThrow(RGXInsertionRejectedError);
+    });
+
+    it('Throws the correct error for a part containing a class token that rejects insertion', () => {
+        const token = new RGXPart(new TestClassToken1());
+        expect(() => rgxw("barbaz")`bar${token}baz`).toThrow(RGXInsertionRejectedError);
+    });
+
+    it('Throws the correct error for a part containing a class token that rejects insertion with a message', () => {
+        const token = new RGXPart(new TestClassToken2());
         expect(() => rgxw("barbaz")`bar${token}baz`).toThrow(RGXInsertionRejectedError);
     });
 });

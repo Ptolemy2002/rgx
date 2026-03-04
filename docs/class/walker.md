@@ -17,6 +17,7 @@ type RGXConvertibleToken = {
     readonly rgxIsRepeatable?: boolean
 };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
+type RGXTokenOrPart<R, T = unknown> = RGXToken | RGXPart<R, T>;
 
 type RGXWalkerOptions<R> = {
     startingSourcePosition?: number;
@@ -56,10 +57,9 @@ The following are utilities for creating `RGXWalker` instances without the need 
 
 ## rgxw
 ```typescript
-function rgxw<R = unknown>(source: string, {multiline=true, ...options}: RGXWOptions<R> = {}): (strings: TemplateStringsArray, ...tokens: RGXToken[]
-) => RGXWalker<R>
+function rgxw<R = unknown, T = unknown>(source: string, {multiline=true, ...options}: RGXWOptions<R> = {}): (strings: TemplateStringsArray, ...tokens: RGXTokenOrPart<R, T>[]) => RGXWalker<R>
 ```
-Creates an `RGXWalker` instance from an interpolation of strings and tokens. The token array is processed exactly like in `rgx`, but instead of returning an `ExtRegExp`, it returns an `RGXWalker` that can be used to walk through matches of the regex pattern in the source string.
+Creates an `RGXWalker` instance from an interpolation of strings and tokens. Plain tokens are processed exactly like in `rgx`; `RGXPart` instances are tested for their inner token to accept insertion, then passed through. Instead of returning an `ExtRegExp`, it returns an `RGXWalker` that can be used to walk through matches of the regex pattern in the source string.
 
 ### Parameters
   - `source` (`string`): An arbitrary string value that will be included in the `source` property of the walker object.
@@ -69,17 +69,17 @@ Creates an `RGXWalker` instance from an interpolation of strings and tokens. The
     - `reduced` (`R`, optional): An optional initial value for the walker's `reduced` property, which can be used to accumulate results across matches.
 
 ### Returns
-- `(strings: TemplateStringsArray, ...tokens: RGXToken[]) => RGXWalker<R>`: A template tag function that takes a template literal and returns an `RGXWalker` instance configured with the provided source, the provided tokens, and the specified options.
+- `(strings: TemplateStringsArray, ...tokens: RGXTokenOrPart<R, T>[]) => RGXWalker<R>`: A template tag function that takes a template literal and returns an `RGXWalker` instance configured with the provided source, the provided tokens, and the specified options.
 
 ## rgxwa
 ```typescript
-function rgxwa<R = unknown>(source: string, tokens: RGXToken[], options: Omit<RGXWOptions<R>, "multiline"> = {}): RGXWalker<R>
+function rgxwa<R = unknown, T = unknown>(source: string, tokens: RGXTokenOrPart<R, T>[], options: Omit<RGXWOptions<R>, "multiline"> = {}): RGXWalker<R>
 ```
-As an alternative to using the `rgxw` template tag, you can directly call `rgxwa` with a source string, an array of RGX tokens, and options to get an `RGXWalker` instance. This is useful in cases where you don't want to use a template literal. The token array is processed exactly like in `rgxa`, and the provided options are passed through to configure the resulting walker.
+As an alternative to using the `rgxw` template tag, you can directly call `rgxwa` with a source string, an array of tokens and/or parts, and options to get an `RGXWalker` instance. This is useful in cases where you don't want to use a template literal. Plain tokens are validated exactly like in `rgxa`; `RGXPart` instances are tested for their inner token to accept insertion and passed through to the walker. The provided options are passed through to configure the resulting walker.
 
 #### Parameters
   - `source` (`string`): An arbitrary string value that will be included in the `source` property of the walker object.
-  - `tokens` (`RGXToken[]`): The RGX tokens to be resolved and concatenated to form the regex pattern for the walker.
+  - `tokens` (`RGXTokenOrPart<R, T>[]`): The tokens and/or parts to form the walker's token sequence. Plain `RGXToken` values are validated; `RGXPart` instances are passed through as-is.
   - `options` (`Omit<RGXWOptions<R>, "multiline">`, optional): Additional options for configuring the behavior of the resulting `RGXWalker`, excluding the `multiline` option which is not applicable when not using a template literal. This includes:
     - `startingSourcePosition` (`number`, optional): An optional initial value for the walker's `sourcePosition` property, which tracks the current position in the source string during walking. Defaults to `0`.
     - `reduced` (`R`, optional): An optional initial value for the walker's `reduced` property, which can be used to accumulate results across matches.
@@ -88,7 +88,7 @@ As an alternative to using the `rgxw` template tag, you can directly call `rgxwa
 - `RGXWalker<R>`: An `RGXWalker` instance configured with the provided source, the resolved tokens, and the specified options.
 
 # RGXPart\<R, T=string\>
-A class that wraps an `RGXToken` with optional callbacks for use within an `RGXWalker`. It implements `RGXConvertibleToken`, delegating `rgxIsGroup` and `rgxIsRepeatable` to the wrapped token. Unlike plain tokens, Parts can control walker behavior via `beforeCapture` (returning an `RGXPartControl` value) and react to captures via `afterCapture`. Parts are purely definitions and do not store capture state — all captures are stored on the walker as `RGXCapture` objects.
+A class that wraps an `RGXToken` with optional callbacks for use within an `RGXWalker`. Unlike plain tokens, Parts can control walker behavior via `beforeCapture` (returning an `RGXPartControl` value) and react to captures via `afterCapture`. Parts are purely definitions and do not store capture state — all captures are stored on the walker as `RGXCapture` objects.
 
 A function `rgxPart` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
 
@@ -116,17 +116,14 @@ constructor(token: RGXToken, options?: Partial<RGXPartOptions<R, T>>)
 - `transform` (`(captured: string) => T`, readonly): The transform function used to convert captured strings to values of type `T`.
 - `beforeCapture` (`((part: RGXPart<R, T>, walker: RGXWalker<R>) => RGXPartControl) | null`, readonly): The before-capture callback, or `null`.
 - `afterCapture` (`((capture: RGXCapture<T>, part: RGXPart<R, T>, walker: RGXWalker<R>) => void) | null`, readonly): The after-capture callback, or `null`.
-- `rgxIsGroup` (`boolean`): Delegates to the wrapped token's group status via `isRGXGroupedToken`.
-- `rgxIsRepeatable` (`boolean`): If the wrapped token is an `RGXConvertibleToken`, delegates to its `rgxIsRepeatable` property (defaulting to `true` if not present). Otherwise, returns `true`.
 
 ## Methods
-- `toRgx() => RGXToken`: Returns the wrapped token.
 - `clone(depth: CloneDepth = "max") => RGXPart`: Creates a clone of this part. When `depth` is `0`, returns `this`; otherwise, returns a new `RGXPart` with a cloned token and the same `rawTransform`, `transform`, `beforeCapture`, and `afterCapture` references.
 - `hasId() => this is RGXPart<R, T> & { id: string }`: A type guard that checks if this part has a non-null `id`. If `true`, narrows the type to indicate that `id` is a string.
 - `validate(capture: RGXCapture<T>, walker: RGXWalker<R>) => void`: A method that calls the inner passed validation logic for this part, if any. If it returns `false`, a generic `RGXPartValidationFailedError` is thrown. If it returns a string, an `RGXPartValidationFailedError` is thrown with that string as the message. If it returns `true`, validation passed. This is called internally by the walker after capturing and transforming a part, before invoking `afterCapture`.
 
 # RGXWalker\<R\>
-A class that walks through a sequence of RGX tokens, matching each token against a source string at the current position. It implements `RGXConvertibleToken`, delegating to its internal `RGXTokenCollection`. The walker maintains a source position and a token position, advancing through both as tokens are matched. When an `RGXPart` is encountered, its `beforeCapture` callback can control behavior via return values (`RGXPartControl`), and its `afterCapture` callback is invoked with the typed capture result. All captures are stored as structured `RGXCapture` objects on the walker, and captures with ids are stored in the `namedCaptures` property also. The generic type `R` represents a user-defined "reduced" value that can accumulate state during walking (e.g., via `RGXPart` callbacks).
+A class that walks through a sequence of RGX tokens (and/or `RGXPart` instances), matching each against a source string at the current position. The walker maintains a source position and a token position, advancing through both as tokens are matched. When an `RGXPart` is encountered, its `beforeCapture` callback can control behavior via return values (`RGXPartControl`), and its `afterCapture` callback is invoked with the typed capture result. All captures are stored as structured `RGXCapture` objects on the walker, and captures with ids are stored in the `namedCaptures` property also. The generic type `R` represents a user-defined "reduced" value that can accumulate state during walking (e.g., via `RGXPart` callbacks).
 
 A function `rgxWalker` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
 
@@ -136,10 +133,10 @@ A function `rgxWalker` is provided with the same parameters as this class' const
 
 ## Constructor
 ```typescript
-constructor(source: string, tokens: RGXTokenCollectionInput, options?: RGXWalkerOptions<R>)
+constructor(source: string, tokens: RGXTokenOrPart<R>[], options?: RGXWalkerOptions<R>)
 ```
 - `source` (`string`): The string to walk through, matching tokens against.
-- `tokens` (`RGXTokenCollectionInput`): The tokens to match sequentially. Internally stored as an `RGXTokenCollection` in 'concat' mode.
+- `tokens` (`RGXTokenOrPart<R>[]`): The tokens (and/or `RGXPart` instances) to match sequentially. Plain `RGXToken` values and `RGXPart` instances can be mixed freely.
 - `options` (`RGXWalkerOptions<R>`, optional): Configuration options. Defaults to `{}`.
   - `startingSourcePosition` (`number`, optional): The starting index in the source string. Defaults to `0`.
   - `reduced` (`R`, optional): The initial value for the `reduced` accumulator. Defaults to `null`.
@@ -149,7 +146,7 @@ constructor(source: string, tokens: RGXTokenCollectionInput, options?: RGXWalker
 ## Properties
 - `source` (`string`): The source string being walked (readonly).
 - `sourcePosition` (`number`): The current index in the source string. Range is `[0, source.length]` inclusive, where `source.length` represents "fully consumed". Setting this validates that the value is >= 0 and <= `source.length`, throwing `RGXOutOfBoundsError` if not.
-- `tokens` (`RGXTokenCollection`): The internal collection of tokens in 'concat' mode (readonly).
+- `tokens` (`RGXTokenOrPart<R>[]`): The array of tokens and/or parts to match against (readonly).
 - `tokenPosition` (`number`): The current index in the token collection. Setting this validates that the value is >= 0 and <= `tokens.length`, throwing `RGXOutOfBoundsError` if not.
 - `reduced` (`R`): A user-defined accumulator value, typically updated by `RGXPart` callbacks during walking.
 - `captures` (`RGXCapture[]`): An array of structured capture results recorded during walking. Each entry has a `raw` string (the `rawTransform` result for Parts, or the matched string for plain tokens), a `value` (the `transform` result for Parts, or the matched string for plain tokens), `start` and `end` indices in the source string, an `ownerId` that is the `id` of the Part that produced it (or `null` for captures from plain tokens or parts without ids), and a `branch` index indicating which alternative of a multi-branch Part token was matched (or `0` if there is only one branch or the token is not a Part).
@@ -161,17 +158,16 @@ constructor(source: string, tokens: RGXTokenCollectionInput, options?: RGXWalker
 ## Methods
 - `stop() => this`: Sets `stopped` to `true`, causing any active `stepToToken`, `stepToPart`, or `walk` loop to halt after the current iteration. Typically called from an `afterCapture` callback to stop walking after the current capture.
 - `atTokenEnd() => boolean`: Returns `true` if the token position is at or past the end of the token collection.
-- `hasNextToken(predicate?: (token: RGXToken) => boolean) => boolean`: Returns `true` if there is a current token and it satisfies the optional predicate (defaults to `() => true`).
+- `hasNextToken(predicate?: (token: RGXTokenOrPart<R>) => boolean) => boolean`: Returns `true` if there is a current token and it satisfies the optional predicate (defaults to `() => true`).
 - `atSourceEnd() => boolean`: Returns `true` if the source has been fully consumed (`sourcePosition >= source.length`).
 - `hasNextSource(predicate?: (rest: string) => boolean) => boolean`: Returns `true` if the source is not fully consumed and the remaining source satisfies the optional predicate (defaults to `() => true`).
 - `lastCapture() => RGXCapture | null`: Returns the last entry in `captures`, or `null` if empty.
-- `currentToken() => RGXToken | null`: Returns the token at the current token position, or `null` if at the end.
+- `currentToken() => RGXTokenOrPart<R> | null`: Returns the token or part at the current token position, or `null` if at the end.
 - `remainingSource() => string | null`: Returns the remaining source string from the current position onward, or `null` if the source is fully consumed.
-- `capture(token: RGXToken, includeMatch?: false) => string`: Resolves the token to a regex, asserts that it matches at the current source position (throwing `RGXRegexNotMatchedAtPositionError` if not), and advances the source position by the match length. Returns the matched string.
-- `capture(token: RGXToken, includeMatch: true) => RegExpExecArray`: Same as above, but returns the full `RegExpExecArray` from the match instead of just the matched string.
+- `capture(token: RGXTokenOrPart<R>, includeMatch?: false) => string`: Resolves the token (or part's inner token) to a regex, asserts that it matches at the current source position (throwing `RGXRegexNotMatchedAtPositionError` if not), and advances the source position by the match length. Returns the matched string.
+- `capture(token: RGXTokenOrPart<R>, includeMatch: true) => RegExpExecArray`: Same as above, but returns the full `RegExpExecArray` from the match instead of just the matched string.
 - `step() => RGXCapture | null`: Steps through the next token in the collection. If the token is an `RGXPart`, calls `beforeCapture` first — if it returns `"stop"`, sets `stopped` and returns `null` without advancing; if `"skip"`, advances the token position and returns `null` without capturing; if `"silent"`, captures but does not add to `captures` or `namedCaptures`. After capturing, validates. After validating, calls `afterCapture` if present. Returns the `RGXCapture` result, or `null` if there are no more tokens (or no more source in `infinite`/`looping` mode), the step was skipped, or the walker was stopped.
-- `stepToToken(predicate: (token: RGXToken) => boolean) => this`: Steps through tokens until the predicate returns `true` for the current token or the walker is stopped. The matching token is not consumed.
+- `stepToToken(predicate: (token: RGXTokenOrPart<R>) => boolean) => this`: Steps through tokens until the predicate returns `true` for the current token or the walker is stopped. The matching token is not consumed.
 - `stepToPart(predicate?: (part: RGXPart<R>) => boolean) => this`: Steps through tokens until the next `RGXPart` satisfying the predicate is reached. If already at a Part, steps once first to move past it. The matching Part is not consumed.
 - `walk() => this`: Steps through all remaining tokens until the end of the token collection (or until the source is consumed in `infinite`/`looping` mode) or the walker is stopped.
-- `toRgx() => RGXToken`: Returns the internal `RGXTokenCollection`, allowing the walker to be used as a convertible token.
 - `clone(depth: CloneDepth = "max") => RGXWalker`: Creates a clone of the walker. When `depth` is `0`, returns `this`; otherwise, creates a new `RGXWalker` with cloned tokens, source position, reduced value, captures, stopped state, and the `infinite`/`looping` flags.

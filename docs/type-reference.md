@@ -17,6 +17,7 @@ type RGXConvertibleToken = {
     readonly rgxIsRepeatable?: boolean
 };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
+type RGXTokenOrPart<R, T = unknown> = RGXToken | RGXPart<R, T>;
 
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken;
