@@ -48,7 +48,7 @@ type RGXTokenTypeGuardInput =
     // A union of all possible inputs that can be used to specify token types in type guards, including:
     // - The string literals corresponding to the basic token types, e.g. 'no-op', 'literal', etc.
     // - null, which can be used to indicate any token type
-    // - Constructors for class tokens, RGXWalker, and RGXPart
+    // - Constructors for class tokens
     // - The RegExp and ExtRegExp constructors, which can be used to indicate literal tokens
     // - RGXTokenCollection, which can be used to indicate arrays of tokens
     // - "repeatable", which can be used to indicate any token that is repeatable (i.e. has rgxIsRepeatable true or does not specify rgxIsRepeatable)

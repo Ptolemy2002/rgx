@@ -3,7 +3,6 @@ import type { RGXClassToken } from "./class";
 import type { ExtRegExp } from "./ExtRegExp";
 import type { RGXTokenCollection } from "./collection";
 import type { RGXWalkerOptions } from "./walker";
-import type { RGXPart, RGXWalker } from "./walker";
 
 export type RGXNoOpToken = null | undefined;
 export type RGXLiteralToken = RegExp;
@@ -32,8 +31,6 @@ export type RGXTokenTypeGuardInput =
     typeof RegExp |
     typeof ExtRegExp |
     typeof RGXTokenCollection |
-    typeof RGXWalker |
-    typeof RGXPart |
     RGXTokenTypeGuardInput[]
 ;
 export type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
