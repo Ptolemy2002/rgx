@@ -10,18 +10,19 @@ import { assertRegexMatchesAtPosition, regexMatchAtPosition } from "src/utils";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { rgxConstant } from "src/constants";
 
-export type RGXLexemeDefinition<Data> = Readonly<({
+export type RGXLexemeDefinition<Data, Share=unknown> = Readonly<({
     type: "resolve",
     token: RGXToken
 } | {
     type: "walk",
-    tokens: RGXTokenOrPart<Data>[],
+    tokens: RGXTokenOrPart<Data, Share>[],
     // The lexer needs complete control over the source position and the source,
     // so we omit startingSourcePosition and do not allow source specification.
-    options?: Omit<RGXWalkerOptions<Data>, "startingSourcePosition" | "reduced"> & {
+    options?: Omit<RGXWalkerOptions<Data, Share>, "startingSourcePosition" | "reduced" | "share"> & {
         // Wrap reduced in a function to prevent mutable data from being reused
         // as new walkers are created with the same lexeme definition.
         reduced?: (() => Data) | null
+        share?: (() => Share) | null
     }
 }) & {
     id: string,
@@ -36,8 +37,8 @@ export type RGXLexeme<Data> = {
     data?: Data
 };
 
-export type RGXLexemeDefinitions<Data> = Readonly<Record<string, ReadonlyArray<RGXLexemeDefinition<Data>>>>;
-type MutableRGXLexemeDefinitions<Data> = Record<string, ReadonlyArray<RGXLexemeDefinition<Data>>>;
+export type RGXLexemeDefinitions<Data, Share=unknown> = Readonly<Record<string, ReadonlyArray<RGXLexemeDefinition<Data, Share>>>>;
+type MutableRGXLexemeDefinitions<Data, Share=unknown> = Record<string, ReadonlyArray<RGXLexemeDefinition<Data, Share>>>;
 
 export type RGXLexemeLocation = {
     index: number;
@@ -54,12 +55,12 @@ export function rgxLexemeLocationFromIndex(source: string, index: number): RGXLe
     return { index, line, column };
 }
 
-export class RGXLexer<Data> {
+export class RGXLexer<Data, Share=unknown> {
     readonly source: string;
     _position: number;
 
     // Map mode to the lexeme definitions for that mode.
-    readonly lexemeDefinitions: RGXLexemeDefinitions<Data>;
+    readonly lexemeDefinitions: RGXLexemeDefinitions<Data, Share>;
     readonly matched: RGXLexeme<Data>[] = [];
 
     static check = createRGXClassGuardFunction(RGXLexer);
@@ -76,11 +77,11 @@ export class RGXLexer<Data> {
 
     constructor(
         source: string,
-        lexemeDefinitions: RGXLexemeDefinitions<Data> = {},
+        lexemeDefinitions: RGXLexemeDefinitions<Data, Share> = {},
         startingPosition: number = 0
     ) {
         // Copy to ensure we don't modify the original, which will be used across constructions.
-        const lexemeDefinitionsCopy = { ...lexemeDefinitions } as MutableRGXLexemeDefinitions<Data>;
+        const lexemeDefinitionsCopy = { ...lexemeDefinitions } as MutableRGXLexemeDefinitions<Data, Share>;
         
         lexemeDefinitionsCopy["default"] ??= [];
 
@@ -100,7 +101,7 @@ export class RGXLexer<Data> {
         this.position = startingPosition;
     }
 
-    private matchDefinition(lexemeDefinition: RGXLexemeDefinition<Data>, advance: boolean): RGXLexeme<Data> {
+    private matchDefinition(lexemeDefinition: RGXLexemeDefinition<Data, Share>, advance: boolean): RGXLexeme<Data> {
         const id = lexemeDefinition.id;
         const startPosition = this.position;
         let endPosition: number;
@@ -119,11 +120,12 @@ export class RGXLexer<Data> {
             
             // No data part for token lexemes.
         } else {
-            const { tokens, options: {reduced, ...options}={} } = lexemeDefinition;
+            const { tokens, options: {reduced, share, ...options}={} } = lexemeDefinition;
 
-            const walker = new RGXWalker<Data>(this.source, tokens, {
+            const walker = new RGXWalker<Data, Share>(this.source, tokens, {
                 ...options,
                 reduced: reduced?.() ?? undefined,
+                share: share?.() ?? undefined,
                 startingSourcePosition: startPosition
             });
             
@@ -278,4 +280,6 @@ export class RGXLexer<Data> {
     }
 }
 
-export const rgxLexer = <Data>(...args: ConstructorParameters<typeof RGXLexer<Data>>): RGXLexer<Data> => new RGXLexer(...args);
+export const rgxLexer = <Data, Share = unknown>(
+    ...args: ConstructorParameters<typeof RGXLexer<Data, Share>>
+): RGXLexer<Data, Share> => new RGXLexer(...args);

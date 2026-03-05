@@ -1,6 +1,6 @@
 import { CloneDepth, depthDecrement, extClone } from "@ptolemy2002/immutability-utils";
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
-import { assertInRange, RGXInvalidWalkerError } from "src/errors";
+import { assertInRange, RGXInvalidWalkerError, RGXPartValidationFailedError, RGXRegexNotMatchedAtPositionError } from "src/errors";
 import { RGXToken } from "src/types";
 import { RGXPart, RGXCapture } from "./part";
 import { resolveRGXToken } from "src/resolve";
@@ -9,9 +9,10 @@ import { isRGXArrayToken } from "src/typeGuards";
 import { RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 
-export type RGXWalkerOptions<R> = {
+export type RGXWalkerOptions<R, S = unknown> = {
     startingSourcePosition?: number;
     reduced?: R;
+    share?: S;
     infinite?: boolean;
     looping?: boolean;
 };
@@ -33,16 +34,17 @@ function createBranchGroups(tokens: RGXTokenCollectionInput): RGXToken {
     }
 }
 
-export type RGXTokenOrPart<R, T = unknown> = RGXToken | RGXPart<R, T>;
+export type RGXTokenOrPart<R, S = unknown, T = unknown> = RGXToken | RGXPart<R, S, T>;
 
-export class RGXWalker<R> {
+export class RGXWalker<R, S = unknown> {
     readonly source: string;
     _sourcePosition: number;
 
-    readonly tokens: RGXTokenOrPart<R>[];
+    readonly tokens: RGXTokenOrPart<R, S>[];
     _tokenPosition: number;
 
     reduced: R;
+    share: S;
 
     captures: RGXCapture[] = [];
     namedCaptures: Record<string, RGXCapture[]> = {};
@@ -79,7 +81,7 @@ export class RGXWalker<R> {
         return this._stopped;
     }
 
-    constructor(source: string, tokens: RGXTokenOrPart<R>[], options: RGXWalkerOptions<R> = {}) {
+    constructor(source: string, tokens: RGXTokenOrPart<R, S>[], options: RGXWalkerOptions<R, S> = {}) {
         this.source = source;
         this.sourcePosition = options.startingSourcePosition ?? 0;
         this.tokens = tokens;
@@ -87,6 +89,8 @@ export class RGXWalker<R> {
         this.tokenPosition = 0;
 
         this.reduced = options.reduced ?? null as unknown as R;
+        this.share = options.share ?? null as unknown as S;
+
         this.infinite = options.infinite ?? false;
         this.looping = options.looping ?? false;
     }
@@ -100,7 +104,7 @@ export class RGXWalker<R> {
         return this.tokenPosition >= this.tokens.length;
     }
 
-    hasNextToken(predicate: (token: RGXToken | RGXPart<R>) => boolean = () => true) {
+    hasNextToken(predicate: (token: RGXToken | RGXPart<R, S>) => boolean = () => true) {
         return !this.atTokenEnd() && predicate(this.currentToken()!);
     }
 
@@ -127,9 +131,9 @@ export class RGXWalker<R> {
         return this.source.slice(this.sourcePosition);
     }
 
-    capture(token: RGXTokenOrPart<R>, includeMatch: true): RegExpExecArray;
-    capture(token: RGXTokenOrPart<R>, includeMatch?: false): string;
-    capture(token: RGXTokenOrPart<R>, includeMatch = false): string | RegExpExecArray {
+    capture(token: RGXTokenOrPart<R, S>, includeMatch: true): RegExpExecArray;
+    capture(token: RGXTokenOrPart<R, S>, includeMatch?: false): string;
+    capture(token: RGXTokenOrPart<R, S>, includeMatch = false): string | RegExpExecArray {
         const regex = new RegExp(resolveRGXToken(RGXPart.check(token) ? token.token : token));
         const match = assertRegexMatchesAtPosition(regex, this.source, this.sourcePosition, 10, true);
         this.sourcePosition += match[0].length;
@@ -154,7 +158,7 @@ export class RGXWalker<R> {
 
         // Ask Part what to do — control flow via return values, not flags.
         if (isPart) {
-            const control = token.beforeCapture?.(token, this);
+            const control = token.beforeCapture?.(this.share, token, this);
 
             if (control === "stop") {
                 this._stopped = true;
@@ -179,7 +183,16 @@ export class RGXWalker<R> {
         if (isPart) branchedToken = createBranchGroups(token.token);
         else branchedToken = createBranchGroups(token);
 
-        const capture = this.capture(branchedToken, true);
+        let capture: RegExpExecArray;
+        try {
+            capture = this.capture(branchedToken, true);
+        } catch (e) {
+            if (isPart && e instanceof RGXRegexNotMatchedAtPositionError) {
+                token.afterFailure?.(e, this.share, token, this);
+            }
+
+            throw e;
+        }
 
         const raw = isPart ? token.rawTransform(capture[0]) : capture[0];
         const end = this.sourcePosition;
@@ -204,7 +217,15 @@ export class RGXWalker<R> {
 
         // Validate the part. If validation fails, it will throw an error, so nothing below will run.
         if (isPart) {
-            token.validate(captureResult, this);
+            try {
+                token.validate(captureResult, this.share, this);
+            } catch (e) {
+                if (e instanceof RGXPartValidationFailedError) {
+                    token.afterValidationFailure?.(e, this.share, token, this);
+                }
+
+                throw e;
+            }
         }
 
         // Skip adding the capture if in silent mode.
@@ -218,7 +239,7 @@ export class RGXWalker<R> {
 
         // Notify Part after capture
         if (isPart) {
-            token.afterCapture?.(captureResult, token, this);
+            token.afterCapture?.(captureResult, this.share, token, this);
         }
 
         if (!this.infinite || this.tokenPosition < this.tokens.length - 1) {
@@ -242,7 +263,7 @@ export class RGXWalker<R> {
         return this;
     }
 
-    stepToPart(predicate: (part: RGXPart<R, unknown>) => boolean = () => true) {
+    stepToPart(predicate: (part: RGXPart<R, S, unknown>) => boolean = () => true) {
         // If currently at a Part, step past it first so repeated
         // calls advance to the next Part rather than getting stuck.
         if (this.currentToken() instanceof RGXPart) {
@@ -266,6 +287,7 @@ export class RGXWalker<R> {
             this.source, extClone(this.tokens, depthDecrement(1)), {
                 startingSourcePosition: this.sourcePosition,
                 reduced: extClone(this.reduced, depthDecrement(1)),
+                share: extClone(this.share, depthDecrement(1)),
                 infinite: this.infinite,
                 looping: this.looping
             }
@@ -279,6 +301,6 @@ export class RGXWalker<R> {
     }
 }
 
-export function rgxWalker<R>(...args: ConstructorParameters<typeof RGXWalker<R>>) {
-    return new RGXWalker(...args);
+export function rgxWalker<R, S = unknown>(...args: ConstructorParameters<typeof RGXWalker<R, S>>) {
+    return new RGXWalker<R, S>(...args);
 };

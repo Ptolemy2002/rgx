@@ -70,6 +70,6 @@ export const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
 export type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;
 export type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;
 
-export type RGXWOptions<R = unknown> = RGXWalkerOptions<R> & {
+export type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & {
     multiline?: boolean;
 };

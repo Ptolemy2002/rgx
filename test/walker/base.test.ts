@@ -1,8 +1,9 @@
 import { RGXPart, rgxWalker, RGXWalker } from "src/walker";
 import { RGXTokenCollection } from "src/collection";
-import { RGXInvalidWalkerError, RGXOutOfBoundsError, RGXRegexNotMatchedAtPositionError } from "src/errors";
+import { RGXInvalidWalkerError, RGXOutOfBoundsError, RGXPartValidationFailedError, RGXRegexNotMatchedAtPositionError } from "src/errors";
 import { RGXClassToken, RGXClassUnionToken } from "src/class";
 import { rgxwa } from "src/index";
+import { expectError } from "../utils";
 
 export class TestClassToken1 extends RGXClassToken {
     toRgx() {
@@ -39,11 +40,12 @@ function constructorTest(constructor: typeof rgxWalker) {
     it("correctly initializes with options", () => {
         const source = "test";
         const tokens = ["t", "e", "s", "t"];
-        const options = { startingSourcePosition: 2, reduced: "reduced", infinite: true, looping: true };
+        const options = { startingSourcePosition: 2, reduced: "reduced", share: "share", infinite: true, looping: true };
         const instance = constructor(source, tokens, options);
 
         expect(instance.sourcePosition).toBe(options.startingSourcePosition);
         expect(instance.reduced).toBe(options.reduced);
+        expect(instance.share).toBe(options.share);
         expect(instance.infinite).toBe(options.infinite);
         expect(instance.looping).toBe(options.looping);
     });
@@ -399,8 +401,34 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("test", [part]);
 
             instance.step();
-            expect(beforeCapture).toHaveBeenCalledWith(part, instance);
+            expect(beforeCapture).toHaveBeenCalledWith(instance.share, part, instance);
         });
+
+        it("calls afterValidationFailure after a validation failure on Parts", () => {
+            const afterValidationFailure = jest.fn();
+            const part = new RGXPart("test", {
+                validate: () => false,
+                afterValidationFailure
+            });
+            const instance = new RGXWalker("test", [part]);
+
+            expectError(() => instance.step(), RGXPartValidationFailedError, (e) => {
+                expect(afterValidationFailure).toHaveBeenCalledWith(e, instance.share, part, instance);
+            });
+        });
+
+        it("calls afterFailure after a match failure on Parts", () => {
+            const afterFailure = jest.fn();
+            const part = new RGXPart("x", {
+                afterFailure
+            });
+            const instance = new RGXWalker("test", [part]);
+
+            expectError(() => instance.step(), RGXRegexNotMatchedAtPositionError, (e) => {
+                expect(afterFailure).toHaveBeenCalledWith(e, instance.share, part, instance);
+            });
+        });
+
 
         it("calls afterCapture on Parts with the capture result", () => {
             const afterCapture = jest.fn();
@@ -410,6 +438,7 @@ describe("RGXWalker", () => {
             instance.step();
             expect(afterCapture).toHaveBeenCalledWith(
                 { raw: "test", value: "test", start: 0, end: 4, ownerId: part.id, branch: 0, groups: null },
+                instance.share,
                 part,
                 instance
             );
@@ -426,6 +455,7 @@ describe("RGXWalker", () => {
             instance.step();
             expect(validate).toHaveBeenCalledWith(
                 expect.objectContaining({ raw: "TEST" }),
+                instance.share,
                 part,
                 instance
             );
@@ -555,7 +585,7 @@ describe("RGXWalker", () => {
         describe("afterCapture calls stop()", () => {
             it("sets stopped after capturing", () => {
                 const part = new RGXPart("t", {
-                    afterCapture: (_, __, walker) => walker.stop()
+                    afterCapture: (_, __, ___, walker) => walker.stop()
                 });
                 const instance = new RGXWalker("test", [part]);
 
@@ -632,7 +662,7 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("test", [
                 "t",
                 new RGXPart("e", {
-                    afterCapture: (_, __, walker) => walker.stop()
+                    afterCapture: (_, __, ___, walker) => walker.stop()
                 }),
                 "s",
                 "t"
@@ -704,7 +734,7 @@ describe("RGXWalker", () => {
 
         it("stops if the initial Part step triggers stop via afterCapture", () => {
             const part1 = new RGXPart("e", {
-                afterCapture: (_, __, walker) => walker.stop()
+                afterCapture: (_, __, ___, walker) => walker.stop()
             });
             const part2 = new RGXPart("s");
             const instance = new RGXWalker("test", ["t", part1, part2, "t"]);
@@ -765,7 +795,7 @@ describe("RGXWalker", () => {
         it("preserves properties", () => {
             const source = "test";
             const tokens = ["t", "e", "s", "t"];
-            const options = { startingSourcePosition: 2, reduced: "reduced", infinite: true };
+            const options = { startingSourcePosition: 2, reduced: "reduced", share: "share", infinite: true };
             const instance = rgxWalker(source, tokens, options);
             const clone = instance.clone();
 
@@ -781,6 +811,7 @@ describe("RGXWalker", () => {
             expect(clone.tokenPosition).toBe(instance.tokenPosition);
 
             expect(clone.reduced).toEqual(instance.reduced);
+            expect(clone.share).toEqual(instance.share);
 
             expect(clone.captures).toEqual(instance.captures);
             expect(clone.namedCaptures).toEqual(instance.namedCaptures);

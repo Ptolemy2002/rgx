@@ -17,7 +17,7 @@ type RGXConvertibleToken = {
     readonly rgxIsRepeatable?: boolean
 };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
-type RGXTokenOrPart<R, T = unknown> = RGXToken | RGXPart<R, T>;
+type RGXTokenOrPart<R, S = unknown, T = unknown> = RGXToken | RGXPart<R, S, T>;
 
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken;
@@ -104,23 +104,26 @@ type RGXCapture<T = unknown> = {
     branch: number;
 };
 
-type RGXPartOptions<R, T=string> = {
+type RGXPartOptions<R, S = unknown, T=string> = {
     id: string;
     rawTransform: (captured: string) => string;
     transform: (captured: string) => T;
-    validate: (captured: RGXCapture<T>, part: RGXPart<R, T>, walker: RGXWalker<R>) => boolean | string;
-    beforeCapture: ((part: RGXPart<R, T>, walker: RGXWalker<R>) => RGXPartControl) | null;
-    afterCapture: ((capture: RGXCapture<T>, part: RGXPart<R, T>, walker: RGXWalker<R>) => void) | null;
+    validate: (captured: RGXCapture<T>, share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => boolean | string;
+    beforeCapture: ((share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => RGXPartControl) | null;
+    afterCapture: ((capture: RGXCapture<T>, share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => void) | null;
+    afterFailure: ((e: RGXRegexNotMatchedAtPositionError, share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => void) | null;
+    afterValidationFailure: ((e: RGXPartValidationFailedError, share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => void) | null;
 };
 
-type RGXWalkerOptions<R> = {
+type RGXWalkerOptions<R, S = unknown> = {
     startingSourcePosition?: number;
     reduced?: R;
+    share?: S;
     infinite?: boolean;
     looping?: boolean;
 };
 
-type RGXWOptions<R = unknown> = RGXWalkerOptions<R> & {
+type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & {
     multiline?: boolean;
 };
 
@@ -148,19 +151,20 @@ type RGXLexeme<Data> = {
     data?: Data;
 };
 
-type RGXLexemeDefinition<Data> = Readonly<({
+type RGXLexemeDefinition<Data, Share=unknown> = Readonly<({
     type: "resolve";
     token: RGXToken;
 } | {
     type: "walk";
-    tokens: RGXTokenOrPart<Data>[];
-    options?: Omit<RGXWalkerOptions<Data>, "startingSourcePosition" | "reduced"> & {
+    tokens: RGXTokenOrPart<Data, Share>[];
+    options?: Omit<RGXWalkerOptions<Data, Share>, "startingSourcePosition" | "reduced" | "share"> & {
         reduced?: (() => Data) | null;
+        share?: (() => Share) | null;
     };
 }) & {
     id: string;
     priority?: number;
 }>;
 
-type RGXLexemeDefinitions<Data> = Readonly<Record<string, ReadonlyArray<RGXLexemeDefinition<Data>>>>;
+type RGXLexemeDefinitions<Data, Share=unknown> = Readonly<Record<string, ReadonlyArray<RGXLexemeDefinition<Data, Share>>>>;
 ```

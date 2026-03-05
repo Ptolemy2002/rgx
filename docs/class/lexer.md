@@ -13,11 +13,12 @@ type RGXConvertibleToken = {
     readonly rgxIsRepeatable?: boolean
 };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
-type RGXTokenOrPart<R, T = unknown> = RGXToken | RGXPart<R, T>;
+type RGXTokenOrPart<R, S = unknown, T = unknown> = RGXToken | RGXPart<R, S, T>;
 
-type RGXWalkerOptions<R> = {
+type RGXWalkerOptions<R, S = unknown> = {
     startingSourcePosition?: number;
     reduced?: R;
+    share?: S;
     infinite?: boolean;
     looping?: boolean;
 };
@@ -42,30 +43,31 @@ type RGXLexeme<Data> = {
     data?: Data;
 };
 
-type RGXLexemeDefinition<Data> = Readonly<({
+type RGXLexemeDefinition<Data, Share=unknown> = Readonly<({
     type: "resolve";
     token: RGXToken;
 } | {
     type: "walk";
-    tokens: RGXTokenOrPart<Data>[];
-    options?: Omit<RGXWalkerOptions<Data>, "startingSourcePosition" | "reduced"> & {
+    tokens: RGXTokenOrPart<Data, Share>[];
+    options?: Omit<RGXWalkerOptions<Data, Share>, "startingSourcePosition" | "reduced" | "share"> & {
         reduced?: (() => Data) | null;
+        share?: (() => Share) | null;
     };
 }) & {
     id: string;
     priority?: number;
 }>;
 
-type RGXLexemeDefinitions<Data> = Readonly<Record<string, ReadonlyArray<RGXLexemeDefinition<Data>>>>;
+type RGXLexemeDefinitions<Data, Share=unknown> = Readonly<Record<string, ReadonlyArray<RGXLexemeDefinition<Data, Share>>>>;
 ```
 
 # Lexeme Definition
-Each `RGXLexemeDefinition<Data>` entry in a mode's array has:
+Each `RGXLexemeDefinition<Data, Share>` entry in a mode's array has:
 - `id` (`string`): A name for lexemes produced by this definition. Used for identification and by `expectConsume`/`expectPeek`.
 - `priority` (`number`, optional): Higher values are tried first within the same mode. Defaults to `0`.
 - `type` (`"resolve" | "walk"`): Determines how the lexeme is matched:
   - `"resolve"`: The definition holds a single `token` (`RGXToken`) that is resolved to a regex and matched at the current position. No structured data is attached to the resulting lexeme.
-  - `"walk"`: The definition holds an array of `tokens` (`RGXTokenOrPart<Data>[]`) that are matched sequentially by a temporary `RGXWalker`. The walker's `reduced` value at the end of the walk becomes the lexeme's `data`. An `options` object (excluding `startingSourcePosition`) can configure the walker, including a `reduced` factory function (called once per match attempt) to provide a fresh initial value.
+  - `"walk"`: The definition holds an array of `tokens` (`RGXTokenOrPart<Data, Share>[]`) that are matched sequentially by a temporary `RGXWalker`. The walker's `reduced` value at the end of the walk becomes the lexeme's `data`. An `options` object (excluding `startingSourcePosition`, `reduced`, and `share`) can configure the walker, including a `reduced` factory function and a `share` factory function (each called once per match attempt) to provide fresh initial values. The `share` factory is used instead of passing `share` directly to prevent mutable state from being reused across multiple match attempts.
 
 # Utilities
 ## rgxLexemeLocationFromIndex
@@ -84,8 +86,8 @@ Computes the `RGXLexemeLocation` (index, line, and column) for a character posit
   - `line` (`number`): The 1-based line number (number of `\n` characters before `index`, plus 1).
   - `column` (`number`): The 1-based column number (number of characters since the last `\n`, plus 1).
 
-# RGXLexer\<Data\>
-A class that tokenizes a source string into a sequence of `RGXLexeme` objects according to a set of named lexeme definitions grouped by mode. Each mode maps to an ordered list of `RGXLexemeDefinition` entries; the lexer tries them in priority order and uses the first one that matches. When using a `"walk"` definition, a temporary `RGXWalker` is created to match a sequence of tokens — its reduced value becomes the lexeme's `data`. The generic type `Data` is the type of the structured data attached to walk-type lexemes.
+# RGXLexer\<Data, Share=unknown\>
+A class that tokenizes a source string into a sequence of `RGXLexeme` objects according to a set of named lexeme definitions grouped by mode. Each mode maps to an ordered list of `RGXLexemeDefinition` entries; the lexer tries them in priority order and uses the first one that matches. When using a `"walk"` definition, a temporary `RGXWalker` is created to match a sequence of tokens — its reduced value becomes the lexeme's `data`. The generic type `Data` is the type of the structured data attached to walk-type lexemes. The generic type `Share` is the type of the shared value passed to all Part callbacks within walk-type walkers.
 
 A function `rgxLexer` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
 
@@ -95,16 +97,16 @@ A function `rgxLexer` is provided with the same parameters as this class' constr
 
 ## Constructor
 ```typescript
-constructor(source: string, lexemeDefinitions?: RGXLexemeDefinitions<Data>, startingPosition?: number)
+constructor(source: string, lexemeDefinitions?: RGXLexemeDefinitions<Data, Share>, startingPosition?: number)
 ```
 - `source` (`string`): The string to lex.
-- `lexemeDefinitions` (`RGXLexemeDefinitions<Data>`, optional): A map from mode name to an ordered array of lexeme definitions. A `"default"` mode is created automatically if not provided. Within each mode, definitions are sorted by `priority` (descending) at construction time, so higher-priority definitions are tried first. Defaults to `{}`.
+- `lexemeDefinitions` (`RGXLexemeDefinitions<Data, Share>`, optional): A map from mode name to an ordered array of lexeme definitions. A `"default"` mode is created automatically if not provided. Within each mode, definitions are sorted by `priority` (descending) at construction time, so higher-priority definitions are tried first. Defaults to `{}`.
 - `startingPosition` (`number`, optional): The starting index in the source string. Defaults to `0`.
 
 ## Properties
 - `source` (`string`): The source string being lexed (readonly).
 - `position` (`number`): The current index in the source string. Setting this validates that the value is >= 0 and <= `source.length`, throwing `RGXOutOfBoundsError` if not. Non-integer values are floored before being stored.
-- `lexemeDefinitions` (`RGXLexemeDefinitions<Data>`): The finalized, priority-sorted map of mode names to lexeme definition arrays (readonly).
+- `lexemeDefinitions` (`RGXLexemeDefinitions<Data, Share>`): The finalized, priority-sorted map of mode names to lexeme definition arrays (readonly).
 - `matched` (`RGXLexeme<Data>[]`): The array of lexemes that have been consumed and logged so far (i.e., produced by `consume` or `expectConsume` with `log` enabled).
 
 ## Methods

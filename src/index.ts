@@ -40,13 +40,13 @@ export default function rgx(flags: string = '', multiline=true) {
     };
 }
 
-export function rgxwa<R = unknown, T = unknown>(source: string, tokens: RGXTokenOrPart<R, T>[], options: Omit<t.RGXWOptions<R>, "multiline"> = {}) {
+export function rgxwa<R = unknown, S = unknown, T = unknown>(source: string, tokens: RGXTokenOrPart<R, S, T>[], options: Omit<t.RGXWOptions<R, S>, "multiline"> = {}) {
     assureAcceptance(tokens.map(t => RGXPart.check(t) ? t.token : t), '' as t.ValidRegexFlags);
-    return new RGXWalker<R>(source, tokens, options);
+    return new RGXWalker<R, S>(source, tokens, options);
 }
 
-export function rgxw<R = unknown, T = unknown>(source: string, {multiline=true, ...options}: t.RGXWOptions<R> = {}) {
-    return (strings: TemplateStringsArray, ...tokens: RGXTokenOrPart<R, T>[]) => {
-        return rgxwa<R, T>(source, taggedTemplateToArray(strings, tokens, multiline), options);
+export function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {multiline=true, ...options}: t.RGXWOptions<R, S> = {}) {
+    return (strings: TemplateStringsArray, ...tokens: RGXTokenOrPart<R, S, T>[]) => {
+        return rgxwa<R, S, T>(source, taggedTemplateToArray(strings, tokens, multiline), options);
     };
 }
