@@ -1,5 +1,5 @@
 import { RGXClassToken } from "src/class";
-import { RGXInvalidTokenError } from "src/errors";
+import { RGXInvalidPartError } from "src/errors";
 import { rgxPart, RGXPart, RGXWalker } from "src/walker";
 import { RGXPartValidationFailedError } from "src/errors";
 import { expectError } from "../utils";
@@ -94,12 +94,12 @@ describe("RGXPart", () => {
             expect(isRGXPart(undefined)).toBe(false);
             expect(isRGXPart(instance)).toBe(false);
 
-            expect(() => assertRGXPart({})).toThrow(RGXInvalidTokenError);
-            expect(() => assertRGXPart("test")).toThrow(RGXInvalidTokenError);
-            expect(() => assertRGXPart(123)).toThrow(RGXInvalidTokenError);
-            expect(() => assertRGXPart(null)).toThrow(RGXInvalidTokenError);
-            expect(() => assertRGXPart(undefined)).toThrow(RGXInvalidTokenError);
-            expect(() => assertRGXPart(instance)).toThrow(RGXInvalidTokenError);
+            expect(() => assertRGXPart({})).toThrow(RGXInvalidPartError);
+            expect(() => assertRGXPart("test")).toThrow(RGXInvalidPartError);
+            expect(() => assertRGXPart(123)).toThrow(RGXInvalidPartError);
+            expect(() => assertRGXPart(null)).toThrow(RGXInvalidPartError);
+            expect(() => assertRGXPart(undefined)).toThrow(RGXInvalidPartError);
+            expect(() => assertRGXPart(instance)).toThrow(RGXInvalidPartError);
         });
     });
 

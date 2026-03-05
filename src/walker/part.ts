@@ -1,10 +1,10 @@
 import { isRGXGroupedToken, isRGXToken } from "src/typeGuards";
 import { RGXConvertibleToken, RGXToken } from "src/types";
 import type { RGXWalker } from "./base";
-import { createAssertClassGuardFunction, createClassGuardFunction } from "src/internal";
+import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { cloneRGXToken } from "src/clone";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
-import { RGXPartValidationFailedError } from "src/errors";
+import { RGXInvalidPartError, RGXPartValidationFailedError } from "src/errors";
 
 // Return values from beforeCapture to control walker behavior.
 // - void/undefined: proceed normally
@@ -42,8 +42,10 @@ export class RGXPart<R, T=string> {
     readonly beforeCapture: RGXPartOptions<R, T>["beforeCapture"];
     readonly afterCapture: RGXPartOptions<R, T>["afterCapture"];
 
-    static check = createClassGuardFunction(RGXPart);
-    static assert = createAssertClassGuardFunction(RGXPart);
+    static check = createRGXClassGuardFunction(RGXPart);
+    static assert = createAssertRGXClassGuardFunction(RGXPart,
+        (value, constructor) => new RGXInvalidPartError("Invalid Part", value, constructor.name)
+    );
 
     constructor(token: RGXToken, options: Partial<RGXPartOptions<R, T>> = {}) {
         this.id = options.id ?? null;

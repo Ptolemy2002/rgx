@@ -1,6 +1,6 @@
 import { RGXPart, rgxWalker, RGXWalker } from "src/walker";
 import { RGXTokenCollection } from "src/collection";
-import { RGXInvalidTokenError, RGXOutOfBoundsError, RGXRegexNotMatchedAtPositionError } from "src/errors";
+import { RGXInvalidWalkerError, RGXOutOfBoundsError, RGXRegexNotMatchedAtPositionError } from "src/errors";
 import { RGXClassToken, RGXClassUnionToken } from "src/class";
 import { rgxwa } from "src/index";
 
@@ -85,12 +85,12 @@ describe("RGXWalker", () => {
             expect(isRGXWalker(undefined)).toBe(false);
             expect(isRGXWalker(instance)).toBe(false);
 
-            expect(() => assertIsRGXWalker({})).toThrow(RGXInvalidTokenError);
-            expect(() => assertIsRGXWalker("test")).toThrow(RGXInvalidTokenError);
-            expect(() => assertIsRGXWalker(123)).toThrow(RGXInvalidTokenError);
-            expect(() => assertIsRGXWalker(null)).toThrow(RGXInvalidTokenError);
-            expect(() => assertIsRGXWalker(undefined)).toThrow(RGXInvalidTokenError);
-            expect(() => assertIsRGXWalker(instance)).toThrow(RGXInvalidTokenError);
+            expect(() => assertIsRGXWalker({})).toThrow(RGXInvalidWalkerError);
+            expect(() => assertIsRGXWalker("test")).toThrow(RGXInvalidWalkerError);
+            expect(() => assertIsRGXWalker(123)).toThrow(RGXInvalidWalkerError);
+            expect(() => assertIsRGXWalker(null)).toThrow(RGXInvalidWalkerError);
+            expect(() => assertIsRGXWalker(undefined)).toThrow(RGXInvalidWalkerError);
+            expect(() => assertIsRGXWalker(instance)).toThrow(RGXInvalidWalkerError);
         });
     });
 

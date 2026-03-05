@@ -4,7 +4,8 @@ import { RGXGroupToken } from "./group";
 import { isRGXGroupedToken, isRGXToken } from "src/typeGuards";
 import { assertInRange, RGXNotSupportedError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
-import { createAssertClassGuardFunction, createClassGuardFunction, createConstructFunction } from "src/internal";
+import { createConstructFunction } from "src/internal";
+import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
 
@@ -14,8 +15,8 @@ export class RGXRepeatToken extends RGXClassToken {
     _max: number | null = null;
     lazy: boolean = false;
 
-    static check = createClassGuardFunction(RGXRepeatToken);
-    static assert = createAssertClassGuardFunction(RGXRepeatToken);
+    static check = createRGXClassGuardFunction(RGXRepeatToken);
+    static assert = createAssertRGXClassGuardFunction(RGXRepeatToken);
 
     get min() {
         return this._min;

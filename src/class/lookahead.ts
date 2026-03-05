@@ -1,12 +1,13 @@
 import { RGXToken } from "src/types";
-import { createAssertClassGuardFunction, createClassGuardFunction, createConstructFunction } from "src/internal";
+import { createConstructFunction } from "src/internal";
+import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { RGXLookaroundToken } from "./lookaround";
 import { RGXLookbehindToken } from "./lookbehind";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 
 export class RGXLookaheadToken extends RGXLookaroundToken {
-    static check = createClassGuardFunction(RGXLookaheadToken);
-    static assert = createAssertClassGuardFunction(RGXLookaheadToken);
+    static check = createRGXClassGuardFunction(RGXLookaheadToken);
+    static assert = createAssertRGXClassGuardFunction(RGXLookaheadToken);
 
     negate() {
         return new RGXLookaheadToken(this.tokens, !this.positive);

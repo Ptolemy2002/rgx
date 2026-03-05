@@ -467,3 +467,33 @@ constructor(message: string, got: unknown, constructorName?: string)
 ### Properties
 - `got` (`unknown`): The value that failed the instance check.
 - `constructorName` (`string`): The name of the expected constructor class.
+
+## RGXInvalidWalkerError
+A specific error class for values that were expected to be an `RGXWalker` instance but were not. This error is thrown by `RGXWalker.assert` when its argument is not an instance of the expected walker constructor. The error code is set to `INVALID_RGX_WALKER` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: unknown, constructorName?: string)
+```
+- `message` (`string`): The error message.
+- `got` (`unknown`): The value that failed the instance check.
+- `constructorName` (`string`, optional): The name of the constructor class that was expected. Defaults to `"RGXWalker"`.
+
+### Properties
+- `got` (`unknown`): The value that failed the instance check.
+- `constructorName` (`string`): The name of the expected constructor class.
+
+## RGXInvalidPartError
+A specific error class for values that were expected to be an `RGXPart` instance but were not. This error is thrown by `RGXPart.assert` when its argument is not an instance of the expected part constructor. The error code is set to `INVALID_RGX_PART` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: unknown, constructorName?: string)
+```
+- `message` (`string`): The error message.
+- `got` (`unknown`): The value that failed the instance check.
+- `constructorName` (`string`, optional): The name of the constructor class that was expected. Defaults to `"RGXPart"`.
+
+### Properties
+- `got` (`unknown`): The value that failed the instance check.
+- `constructorName` (`string`): The name of the expected constructor class.

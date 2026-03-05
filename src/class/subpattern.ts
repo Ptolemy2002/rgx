@@ -2,7 +2,8 @@ import { RGXClassToken } from "./base";
 import { assertValidIdentifier } from "src/typeGuards";
 import { assertInRange } from "src/errors";
 import { CloneDepth } from "@ptolemy2002/immutability-utils";
-import { createAssertClassGuardFunction, createClassGuardFunction, createConstructFunction } from "src/internal";
+import { createConstructFunction } from "src/internal";
+import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 
 export class RGXSubpatternToken extends RGXClassToken {
     _pattern: string | number;
@@ -21,8 +22,8 @@ export class RGXSubpatternToken extends RGXClassToken {
         }
     }
 
-    static check = createClassGuardFunction(RGXSubpatternToken);
-    static assert = createAssertClassGuardFunction(RGXSubpatternToken);
+    static check = createRGXClassGuardFunction(RGXSubpatternToken);
+    static assert = createAssertRGXClassGuardFunction(RGXSubpatternToken);
 
     constructor(pattern: string | number) {
         super();

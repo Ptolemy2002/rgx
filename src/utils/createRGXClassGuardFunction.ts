@@ -1,10 +1,10 @@
 import { RGXError, RGXInvalidTokenError } from "src/errors";
 
-export function createClassGuardFunction<T extends new (...args: unknown[]) => unknown>(constructor: T) {
+export function createRGXClassGuardFunction<T extends new (...args: unknown[]) => unknown>(constructor: T) {
     return (value: unknown): value is InstanceType<T> => value instanceof constructor;
 }
 
-export function createAssertClassGuardFunction<T extends new (...args: unknown[]) => unknown>(
+export function createAssertRGXClassGuardFunction<T extends new (...args: unknown[]) => unknown>(
     constructor: T,
     constructError: (value: unknown, constructor: T) => RGXError =
         (value, constructor) =>

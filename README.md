@@ -17,6 +17,7 @@ Because there is so much to document, it has been broken up into multiple files.
   - [escapeRegex](./docs/util/escapeRegex.md) - The `escapeRegex` function, which escapes special regex characters in a given string and assures you that the result is valid Regex.
   - [regexMatchAtPosition](./docs/util/regexMatchAtPosition.md) - The `regexMatchAtPosition` function and related functions, which attempt to match a given regular expression at a specific position in a string.
   - [regexWithFlags](./docs/util/regexWithFlags.md) - The `regexWithFlags` function, which creates a new regular expression with the same source as a given regular expression but with different flags.
+  - [createRGXClassGuardFunction](./docs/util/createRGXClassGuardFunction.md) - The `createRGXClassGuardFunction` and `createAssertRGXClassGuardFunction` utilities for creating type guard and assertion functions for class instances.
 - `class` - A directory containing documentation for all classes in the library.
   - [collection](./docs/class/collection.md) - The `RGXTokenCollection` class, which is a collection of tokens.
   - [RGXError](./docs/class/RGXError.md) - Details on all custom error classes and the base `RGXError` class.

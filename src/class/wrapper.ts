@@ -1,15 +1,16 @@
 import { RGXToken } from "src/types";
 import { RGXClassToken } from "./base";
 import { isRGXGroupedToken, isRGXToken } from "src/typeGuards";
-import { createAssertClassGuardFunction, createClassGuardFunction, createConstructFunction } from "src/internal";
+import { createConstructFunction } from "src/internal";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
+import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 
 export class RGXClassWrapperToken extends RGXClassToken {
     token: RGXToken;
 
-    static check = createClassGuardFunction(RGXClassWrapperToken);
-    static assert = createAssertClassGuardFunction(RGXClassWrapperToken);
+    static check = createRGXClassGuardFunction(RGXClassWrapperToken);
+    static assert = createAssertRGXClassGuardFunction(RGXClassWrapperToken);
 
     constructor(token: RGXToken) {
         super();

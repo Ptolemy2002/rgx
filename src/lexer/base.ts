@@ -7,7 +7,7 @@ import {
 } from "src/errors";
 import { RGXTokenOrPart, RGXWalker, RGXWalkerOptions } from "src/walker";
 import { assertRegexMatchesAtPosition, regexMatchAtPosition } from "src/utils";
-import { createAssertClassGuardFunction, createClassGuardFunction } from "src/internal";
+import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { rgxConstant } from "src/constants";
 
 export type RGXLexemeDefinition<Data> = Readonly<({
@@ -62,8 +62,8 @@ export class RGXLexer<Data> {
     readonly lexemeDefinitions: RGXLexemeDefinitions<Data>;
     readonly matched: RGXLexeme<Data>[] = [];
 
-    static check = createClassGuardFunction(RGXLexer);
-    static assert = createAssertClassGuardFunction(RGXLexer, (value, c) => new RGXInvalidLexerError("Invalid Lexer", value, c.name));
+    static check = createRGXClassGuardFunction(RGXLexer);
+    static assert = createAssertRGXClassGuardFunction(RGXLexer, (value, c) => new RGXInvalidLexerError("Invalid Lexer", value, c.name));
 
     get position() {
         return this._position;

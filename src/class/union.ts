@@ -1,15 +1,16 @@
-import { createAssertClassGuardFunction, createClassGuardFunction, createConstructFunction } from "src/internal";
+import { createConstructFunction } from "src/internal";
 import { RGXToken } from "src/types";
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 import { RGXClassToken } from "./base";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
+import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 
 export type RGXUnionInsertionPosition = 'prefix' | 'suffix';
 export class RGXClassUnionToken extends RGXClassToken {
     tokens: RGXTokenCollection;
     
-    static check = createClassGuardFunction(RGXClassUnionToken);
-    static assert = createAssertClassGuardFunction(RGXClassUnionToken);
+    static check = createRGXClassGuardFunction(RGXClassUnionToken);
+    static assert = createAssertRGXClassGuardFunction(RGXClassUnionToken);
 
     constructor(tokens: RGXTokenCollectionInput = []) {
         super();

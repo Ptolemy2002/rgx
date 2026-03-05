@@ -94,7 +94,7 @@ A function `rgxPart` is provided with the same parameters as this class' constru
 
 ## Static Properties
 - `check(value: unknown): value is RGXPart`: A type guard that checks if the given value is an instance of `RGXPart`.
-- `assert(value: unknown): asserts value is RGXPart`: An assertion that checks if the given value is an instance of `RGXPart`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+- `assert(value: unknown): asserts value is RGXPart`: An assertion that checks if the given value is an instance of `RGXPart`. If the assertion fails, an `RGXInvalidPartError` will be thrown.
 
 ## Constructor
 ```typescript
@@ -129,7 +129,7 @@ A function `rgxWalker` is provided with the same parameters as this class' const
 
 ## Static Properties
 - `check(value: unknown): value is RGXWalker`: A type guard that checks if the given value is an instance of `RGXWalker`.
-- `assert(value: unknown): asserts value is RGXWalker`: An assertion that checks if the given value is an instance of `RGXWalker`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+- `assert(value: unknown): asserts value is RGXWalker`: An assertion that checks if the given value is an instance of `RGXWalker`. If the assertion fails, an `RGXInvalidWalkerError` will be thrown.
 
 ## Constructor
 ```typescript

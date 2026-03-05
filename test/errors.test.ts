@@ -5,7 +5,7 @@ import {
     RGXFlagTransformerConflictError, RGXNotSupportedError, RGXInsertionRejectedError,
     RGXConstantConflictError, RGXInvalidConstantKeyError, RGXRegexNotMatchedAtPositionError,
     RGXPartValidationFailedError, RGXInvalidLexerModeError, RGXLexemeNotMatchedAtPositionError,
-    RGXInvalidLexerError, isLexemeNotMatchedCauseError
+    RGXInvalidLexerError, RGXInvalidWalkerError, RGXInvalidPartError, isLexemeNotMatchedCauseError
 } from 'src/index';
 
 class TestClassToken extends RGXClassToken {
@@ -1081,5 +1081,89 @@ describe("RGXInvalidLexerError", () => {
     it('formats the error message correctly when the constructor name is specified and got is a class instance', () => {
         const error = new RGXInvalidLexerError('Invalid lexer', new TestClassToken(), 'CustomLexer');
         expect(error.toString()).toBe('RGXInvalidLexerError: Invalid lexer; Expected: [instance of CustomLexer]; Got: [instance of TestClassToken]');
+    });
+});
+
+describe("RGXInvalidWalkerError", () => {
+    it('has the correct name', () => {
+        const error = new RGXInvalidWalkerError('Invalid walker', null);
+        expect(error.name).toBe('RGXInvalidWalkerError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXInvalidWalkerError('Invalid walker', null);
+        expect(error.code).toBe('INVALID_RGX_WALKER');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXInvalidWalkerError('Invalid walker', 'gotValue');
+        expect(error.got).toBe('gotValue');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInvalidWalkerError('Invalid walker', 'gotValue');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly when the constructor name is unspecified and got is a string', () => {
+        const error = new RGXInvalidWalkerError('Invalid walker', 'gotValue');
+        expect(error.toString()).toBe('RGXInvalidWalkerError: Invalid walker; Expected: [instance of RGXWalker]; Got: ["gotValue"]');
+    });
+
+    it('formats the error message correctly when the constructor name is specified and got is a string', () => {
+        const error = new RGXInvalidWalkerError('Invalid walker', 'gotValue', 'CustomWalker');
+        expect(error.toString()).toBe('RGXInvalidWalkerError: Invalid walker; Expected: [instance of CustomWalker]; Got: ["gotValue"]');
+    });
+
+    it('formats the error message correctly when the constructor name is unspecified and got is a class instance', () => {
+        const error = new RGXInvalidWalkerError('Invalid walker', new TestClassToken());
+        expect(error.toString()).toBe('RGXInvalidWalkerError: Invalid walker; Expected: [instance of RGXWalker]; Got: [instance of TestClassToken]');
+    });
+
+    it('formats the error message correctly when the constructor name is specified and got is a class instance', () => {
+        const error = new RGXInvalidWalkerError('Invalid walker', new TestClassToken(), 'CustomWalker');
+        expect(error.toString()).toBe('RGXInvalidWalkerError: Invalid walker; Expected: [instance of CustomWalker]; Got: [instance of TestClassToken]');
+    });
+});
+
+describe("RGXInvalidPartError", () => {
+    it('has the correct name', () => {
+        const error = new RGXInvalidPartError('Invalid part', null);
+        expect(error.name).toBe('RGXInvalidPartError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXInvalidPartError('Invalid part', null);
+        expect(error.code).toBe('INVALID_RGX_PART');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXInvalidPartError('Invalid part', 'gotValue');
+        expect(error.got).toBe('gotValue');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInvalidPartError('Invalid part', 'gotValue');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly when the constructor name is unspecified and got is a string', () => {
+        const error = new RGXInvalidPartError('Invalid part', 'gotValue');
+        expect(error.toString()).toBe('RGXInvalidPartError: Invalid part; Expected: [instance of RGXPart]; Got: ["gotValue"]');
+    });
+
+    it('formats the error message correctly when the constructor name is specified and got is a string', () => {
+        const error = new RGXInvalidPartError('Invalid part', 'gotValue', 'CustomPart');
+        expect(error.toString()).toBe('RGXInvalidPartError: Invalid part; Expected: [instance of CustomPart]; Got: ["gotValue"]');
+    });
+
+    it('formats the error message correctly when the constructor name is unspecified and got is a class instance', () => {
+        const error = new RGXInvalidPartError('Invalid part', new TestClassToken());
+        expect(error.toString()).toBe('RGXInvalidPartError: Invalid part; Expected: [instance of RGXPart]; Got: [instance of TestClassToken]');
+    });
+
+    it('formats the error message correctly when the constructor name is specified and got is a class instance', () => {
+        const error = new RGXInvalidPartError('Invalid part', new TestClassToken(), 'CustomPart');
+        expect(error.toString()).toBe('RGXInvalidPartError: Invalid part; Expected: [instance of CustomPart]; Got: [instance of TestClassToken]');
     });
 });

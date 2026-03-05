@@ -1,13 +1,13 @@
 import { CloneDepth, depthDecrement, extClone } from "@ptolemy2002/immutability-utils";
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
-import { assertInRange } from "src/errors";
+import { assertInRange, RGXInvalidWalkerError } from "src/errors";
 import { RGXToken } from "src/types";
 import { RGXPart, RGXCapture } from "./part";
 import { resolveRGXToken } from "src/resolve";
 import { assertRegexMatchesAtPosition } from "src/utils";
 import { isRGXArrayToken } from "src/typeGuards";
 import { RGXClassUnionToken, RGXGroupToken } from "src/class";
-import { createAssertClassGuardFunction, createClassGuardFunction } from "src/internal";
+import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 
 export type RGXWalkerOptions<R> = {
     startingSourcePosition?: number;
@@ -52,8 +52,10 @@ export class RGXWalker<R> {
 
     private _stopped: boolean = false;
 
-    static check = createClassGuardFunction(RGXWalker);
-    static assert = createAssertClassGuardFunction(RGXWalker);
+    static check = createRGXClassGuardFunction(RGXWalker);
+    static assert = createAssertRGXClassGuardFunction(RGXWalker,
+        (value, constructor) => new RGXInvalidWalkerError("Invalid Walker", value, constructor.name)
+    );
 
     get sourcePosition() {
         return this._sourcePosition;

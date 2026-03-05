@@ -17,7 +17,9 @@ export type RGXErrorCode =
     'PART_VALIDATION_FAILED' |
     'INVALID_LEXER_MODE' |
     'LEXEME_NOT_MATCHED_AT_POSITION' |
-    'INVALID_RGX_LEXER'
+    'INVALID_RGX_LEXER' |
+    'INVALID_RGX_WALKER' |
+    'INVALID_RGX_PART'
 ;
 
 export class RGXError extends Error {

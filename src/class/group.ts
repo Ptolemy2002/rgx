@@ -1,6 +1,7 @@
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 import { RGXClassToken } from "./base";
-import { createAssertClassGuardFunction, createClassGuardFunction, createConstructFunction } from "src/internal";
+import { createConstructFunction } from "src/internal";
+import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { assertValidIdentifier } from "src/typeGuards";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 
@@ -14,8 +15,8 @@ export class RGXGroupToken extends RGXClassToken {
     _name: string | null = null;
     _capturing: boolean = true;
 
-    static check = createClassGuardFunction(RGXGroupToken);
-    static assert = createAssertClassGuardFunction(RGXGroupToken);
+    static check = createRGXClassGuardFunction(RGXGroupToken);
+    static assert = createAssertRGXClassGuardFunction(RGXGroupToken);
 
     get name() {
         return this._name;

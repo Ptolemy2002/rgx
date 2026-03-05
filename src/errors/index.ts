@@ -17,3 +17,5 @@ export * from './partValidationFailed';
 export * from './invalidLexerMode';
 export * from './lexemeNotMatchedAtPosition';
 export * from './invalidLexer';
+export * from './invalidWalker';
+export * from './invalidPart';
