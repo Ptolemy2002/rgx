@@ -21,6 +21,7 @@ Because there is so much to document, it has been broken up into multiple files.
   - [collection](./docs/class/collection.md) - The `RGXTokenCollection` class, which is a collection of tokens.
   - [RGXError](./docs/class/RGXError.md) - Details on all custom error classes and the base `RGXError` class.
   - [walker](./docs/class/walker.md) - Details on both `RGXWalker` and `RGXPart`, which are used for creating custom matchers that can validate partial matches and transform captured values with custom logic.
+  - [lexer](./docs/class/lexer.md) - Details on `RGXLexer`, which tokenizes a source string into structured lexemes using named lexeme definitions grouped by mode.
   - `token` - A directory containing documentation for all token classes in the library, which are classes that represent specific types of tokens that can be used in regular expressions.
     - [base](./docs/class/token/base.md) - The `RGXClassToken` class, which is the base class for all token classes in the library.
     - [group](./docs/class/token/group.md) - The `RGXGroupToken` class, which represents a group of tokens that can be treated as a single unit in a regular expression.

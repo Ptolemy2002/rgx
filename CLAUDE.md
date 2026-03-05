@@ -6,6 +6,8 @@ The project is a Regular Expression library with all source files in `./src` and
 
 The folder `./docs` should contain documentation for every public component (Table of contents in `./README.md`), so reading the relevant parts of that is a good way to give you an overview without needing to search specific sections. Reading just the "RGX" section of `./README.md` (top-level heading) gives you a very high-level overview of what the library is. Other files have details. Notably, you may be given a task in a state where there are currently unstaged changes or untracked files, in which case the docsmay not be up to date. If you find yourself needing to check for any additions, use `git status` and `git diff`. If you update any `Type Reference` section, search for other references to that type in the `docs` folder, as docs files redundantly list relevant types at the top of them for ease of reference, so you will need to update those as well.
 
+If you find yourself needing to write a new docs file, read `./DOCS_GUIDE.md` for detailed instructions on file placement, structure, and formatting conventions.
+
 While `./src/types.ts` contains most types, there are some types that are exported directly from their respective files. The "Type Reference" section of the README contains all types.
 
 The `test` directory contains tests for all public and internal components, aiming for 100% collective test coverage. They are organized similarly to `src`, but not exactly. Notably, individual test files may not cover all functionality, because the functionality is being provided by another component with its own tests in other files. So, don't get too ambitious and try to make tests that cover every possible case, since that will likely end up being redundant.

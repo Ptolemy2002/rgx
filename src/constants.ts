@@ -114,6 +114,10 @@ export const RGX_PREDEFINED_CONSTANTS = {
         rgxGroupWrap: false,
         toRgx() { return /\s/; }
     },
+    "whitespace-block": {
+        rgxGroupWrap: false,
+        toRgx() { return /\s+/; }
+    },
     "non-whitespace": {
         rgxGroupWrap: false,
         toRgx() { return /\S/; }

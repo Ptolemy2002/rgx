@@ -1,18 +1,20 @@
 export function expectError<
     T extends new (...args: unknown[]) => Error
->(fn: () => void, errorClass: T, errorValidator?: (error: InstanceType<T>) => boolean) {
-    let didError = false;
+>(fn: () => void, errorClass: T, errorValidator?: (error: InstanceType<T>) => void) {
+    let error: Error | null = null;
 
-    try {
-        fn();
-    } catch (error) {
-        didError = true;
-        expect(error).toBeInstanceOf(errorClass);
-        
-        if (errorValidator) {
-            expect(errorValidator(error as InstanceType<T>)).toBe(true);
+    const capturingFn = () => {
+        try {
+            fn();
+        } catch (e) {
+            error = e;
+            throw e;
         }
-    }
+    };
 
-    expect(didError).toBe(true);
+    expect(capturingFn).toThrow(errorClass);
+    
+    if (errorValidator) {
+        errorValidator(error as InstanceType<T>);
+    }
 }

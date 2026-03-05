@@ -3,7 +3,10 @@ import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 import { assertInRange } from "src/errors";
 import { RGXToken } from "src/types";
 import { RGXPart, RGXCapture } from "./part";
-import { assertRegexMatchesAtPosition, isRGXArrayToken, rgxa, RGXClassUnionToken, RGXGroupToken } from "src/index";
+import { resolveRGXToken } from "src/resolve";
+import { assertRegexMatchesAtPosition } from "src/utils";
+import { isRGXArrayToken } from "src/typeGuards";
+import { RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { createAssertClassGuardFunction, createClassGuardFunction } from "src/internal";
 
 export type RGXWalkerOptions<R> = {
@@ -58,7 +61,7 @@ export class RGXWalker<R> {
 
     set sourcePosition(value: number) {
         assertInRange(value, { min: 0, max: this.source.length }, "sourcePosition is outside the bounds of the source string");
-        this._sourcePosition = value;
+        this._sourcePosition = Math.floor(value);
     }
 
     get tokenPosition() {
@@ -67,7 +70,7 @@ export class RGXWalker<R> {
 
     set tokenPosition(value: number) {
         assertInRange(value, { min: 0, max: this.tokens.length }, "tokenPosition is outside the bounds of the token collection");
-        this._tokenPosition = value;
+        this._tokenPosition = Math.floor(value);
     }
 
     get stopped() {
@@ -125,7 +128,7 @@ export class RGXWalker<R> {
     capture(token: RGXTokenOrPart<R>, includeMatch: true): RegExpExecArray;
     capture(token: RGXTokenOrPart<R>, includeMatch?: false): string;
     capture(token: RGXTokenOrPart<R>, includeMatch = false): string | RegExpExecArray {
-        const regex = rgxa([RGXPart.check(token) ? token.token : token]);
+        const regex = new RegExp(resolveRGXToken(RGXPart.check(token) ? token.token : token));
         const match = assertRegexMatchesAtPosition(regex, this.source, this.sourcePosition, 10, true);
         this.sourcePosition += match[0].length;
         return includeMatch ? match : match[0];

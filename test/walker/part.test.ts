@@ -175,7 +175,7 @@ describe("RGXPart", () => {
         it("throws with custom message if validation fails with a string", () => {
             const instance = new RGXPart("test", { validate: () => "Custom error message" });
             expectError(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4, ownerId: null, branch: 0, groups: null }, new RGXWalker("test", [])), RGXPartValidationFailedError, (e) => {
-                return e.message === `Custom error message; ID: unknown; Got: test (transformed: "test")`;
+                expect(e.message).toBe(`Custom error message; ID: unknown; Got: test (transformed: "test")`);
             });
         });
     });

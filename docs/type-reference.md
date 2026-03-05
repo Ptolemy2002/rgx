@@ -127,4 +127,40 @@ type RGXWOptions<R = unknown> = RGXWalkerOptions<R> & {
 // See src/constants.ts for the actual mapping of predefined constant names to their token values
 type RGXPredefinedConstant = keyof typeof RGX_PREDEFINED_CONSTANTS;
 type RGXConstantName = RGXPredefinedConstant | (string & {});
+
+type LexemeNotMatchedCauseError = RGXRegexNotMatchedAtPositionError | RGXPartValidationFailedError;
+type LexemeNotMatchedCause = {
+    id: string;
+    error: LexemeNotMatchedCauseError;
+};
+
+type RGXLexemeLocation = {
+    index: number;
+    line: number;
+    column: number;
+};
+
+type RGXLexeme<Data> = {
+    id: string;
+    raw: string;
+    start: RGXLexemeLocation;
+    end: RGXLexemeLocation;
+    data?: Data;
+};
+
+type RGXLexemeDefinition<Data> = Readonly<({
+    type: "resolve";
+    token: RGXToken;
+} | {
+    type: "walk";
+    tokens: RGXTokenOrPart<Data>[];
+    options?: Omit<RGXWalkerOptions<Data>, "startingSourcePosition" | "reduced"> & {
+        reduced?: (() => Data) | null;
+    };
+}) & {
+    id: string;
+    priority?: number;
+}>;
+
+type RGXLexemeDefinitions<Data> = Readonly<Record<string, ReadonlyArray<RGXLexemeDefinition<Data>>>>;
 ```

@@ -255,6 +255,13 @@ describe("rgxConstant", () => {
         });
     });
 
+    describe("whitespace-block constant", () => {
+        it("resolves correctly", () => {
+            const result = resolveRGXToken(rgxConstant("whitespace-block"));
+            expect(result).toBe("\\s+");
+        });
+    });
+
     describe("non-whitespace constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("non-whitespace"));

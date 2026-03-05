@@ -14,3 +14,6 @@ export * from './constantConflict';
 export * from './invalidConstantKey';
 export * from './regexNotMatchedAtPosition';
 export * from './partValidationFailed';
+export * from './invalidLexerMode';
+export * from './lexemeNotMatchedAtPosition';
+export * from './invalidLexer';

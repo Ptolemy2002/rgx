@@ -426,28 +426,28 @@ describe('rgxConcat', () => {
     it('Throws the correct error for a convertible token that rejects insertion', () => {
         const token = { toRgx: () => "foo", rgxAcceptInsertion: () => false };
         expectError(() => rgxConcat(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
-            return e.message === "Insertion rejected; Additional info: index 1, token type unknown";
+            expect(e.message).toBe("Insertion rejected; Additional info: index 1, token type unknown");
         });
     });
 
     it('Throws the correct error for a convertible token that rejects insertion with a message', () => {
         const token = { toRgx: () => "foo", rgxAcceptInsertion: () => "Always rejects" };
         expectError(() => rgxConcat(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
-            return e.message === "Insertion rejected; Reason: Always rejects; Additional info: index 1, token type unknown";
+            expect(e.message).toBe("Insertion rejected; Reason: Always rejects; Additional info: index 1, token type unknown");
         });
     });
 
     it('Throws the correct error for a class token that rejects insertion', () => {
         const token = new TestClassToken1();
         expectError(() => rgxConcat(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
-            return e.message === "Insertion rejected; Additional info: index 1, token type TestClassToken1";
+            expect(e.message).toBe("Insertion rejected; Additional info: index 1, token type TestClassToken1");
         });
     });
 
     it('Throws the correct error for a class token that rejects insertion with a message', () => {
         const token = new TestClassToken2();
         expectError(() => rgxConcat(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
-            return e.message === "Insertion rejected; Reason: class: always rejects; Additional info: index 1, token type TestClassToken2";
+            expect(e.message).toBe("Insertion rejected; Reason: class: always rejects; Additional info: index 1, token type TestClassToken2");
         });
     });
 });

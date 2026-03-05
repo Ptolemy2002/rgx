@@ -74,6 +74,7 @@ Since these are defined as native tokens (strings), they are automatically wrapp
 | `"digit"` | `\d` | Any digit |
 | `"non-digit"` | `\D` | Any non-digit |
 | `"whitespace"` | `\s` | Any whitespace character |
+| `"whitespace-block"` | `\s+` | One or more consecutive whitespace characters |
 | `"non-whitespace"` | `\S` | Any non-whitespace character |
 | `"vertical-whitespace"` | `\v` | Vertical whitespace character |
 | `"word-char"` | `\w` | Any word character (letter, digit, or underscore) |

@@ -8,7 +8,7 @@ export class RGXRegexNotMatchedAtPositionError extends RGXError {
     contextSize: number | null;
 
     set position(value: number) {
-        assertInRange(value, { min: 0, max: this.source.length, inclusiveRight: false }, "position is outside the bounds of the source string");
+        assertInRange(value, { min: 0, max: this.source.length }, "position is outside the bounds of the source string");
         this._position = value;
     }
 

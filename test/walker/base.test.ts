@@ -105,11 +105,16 @@ describe("RGXWalker", () => {
             expect(() => instance.sourcePosition = 5).toThrow(RGXOutOfBoundsError);
         });
 
-        // Unlike the original, source.length IS valid (represents "fully consumed")
         it("accepts source.length (fully consumed position)", () => {
             const instance = new RGXWalker("test", []);
             instance.sourcePosition = 4;
             expect(instance.sourcePosition).toBe(4);
+        });
+
+        it("floors non-integer values", () => {
+            const instance = new RGXWalker("test", []);
+            instance.sourcePosition = 2.7;
+            expect(instance.sourcePosition).toBe(2);
         });
 
         it("accepts valid values", () => {
@@ -131,6 +136,12 @@ describe("RGXWalker", () => {
         it("throws if set to a value greater than the token collection length", () => {
             const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
             expect(() => instance.tokenPosition = 5).toThrow(RGXOutOfBoundsError);
+        });
+
+        it("floors non-integer values", () => {
+            const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
+            instance.tokenPosition = 2.7;
+            expect(instance.tokenPosition).toBe(2);
         });
 
         it("accepts valid values", () => {

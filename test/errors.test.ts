@@ -4,7 +4,8 @@ import {
     RGXInvalidRegexFlagsError, isInRange, assertInRange, RGXInvalidFlagTransformerKeyError,
     RGXFlagTransformerConflictError, RGXNotSupportedError, RGXInsertionRejectedError,
     RGXConstantConflictError, RGXInvalidConstantKeyError, RGXRegexNotMatchedAtPositionError,
-    RGXPartValidationFailedError
+    RGXPartValidationFailedError, RGXInvalidLexerModeError, RGXLexemeNotMatchedAtPositionError,
+    RGXInvalidLexerError, isLexemeNotMatchedCauseError
 } from 'src/index';
 
 class TestClassToken extends RGXClassToken {
@@ -179,6 +180,33 @@ describe('RGXInvalidVanillaRegexFlagsError', () => {
     it('formats the error message correctly', () => {
         const error = new RGXInvalidVanillaRegexFlagsError('Invalid vanilla regex flags', 'gg');
         expect(error.toString()).toBe('RGXInvalidVanillaRegexFlagsError: Invalid vanilla regex flags; Got: "gg"');
+    });
+});
+
+describe('RGXInvalidLexerModeError', () => {
+    it('has the correct name', () => {
+        const error = new RGXInvalidLexerModeError('Invalid lexer mode', 'mode1');
+        expect(error.name).toBe('RGXInvalidLexerModeError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXInvalidLexerModeError('Invalid lexer mode', 'mode1');
+        expect(error.code).toBe('INVALID_LEXER_MODE');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXInvalidLexerModeError('Invalid lexer mode', 'mode1');
+        expect(error.got).toBe('mode1');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInvalidLexerModeError('Invalid lexer mode', 'mode1');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXInvalidLexerModeError('Invalid lexer mode', 'mode1');
+        expect(error.toString()).toBe('RGXInvalidLexerModeError: Invalid lexer mode; Got: "mode1"');
     });
 });
 
@@ -650,14 +678,18 @@ describe('RGXRegexNotMatchedAtPositionError', () => {
         expect(() => new RGXRegexNotMatchedAtPositionError('No match', pattern, source, -1)).toThrow(RGXOutOfBoundsError);
     });
 
-    it('throws RGXOutOfBoundsError when position is >= source length', () => {
-        expect(() => new RGXRegexNotMatchedAtPositionError('No match', pattern, source, source.length)).toThrow(RGXOutOfBoundsError);
+    it('throws RGXOutOfBoundsError when position is > source length', () => {
+        expect(() => new RGXRegexNotMatchedAtPositionError('No match', pattern, source, source.length + 1)).toThrow(RGXOutOfBoundsError);
     });
+
+    it('does not throw when position is equal to source length', () => {
+        expect(() => new RGXRegexNotMatchedAtPositionError('No match', pattern, source, source.length)).not.toThrow();
+    })
 
     it('throws RGXOutOfBoundsError when setting position out of bounds', () => {
         const error = new RGXRegexNotMatchedAtPositionError('No match', pattern, source, 0);
         expect(() => { error.position = -1; }).toThrow(RGXOutOfBoundsError);
-        expect(() => { error.position = source.length; }).toThrow(RGXOutOfBoundsError);
+        expect(() => { error.position = source.length + 1; }).toThrow(RGXOutOfBoundsError);
     });
 
     describe('sourceContext', () => {
@@ -776,6 +808,204 @@ describe('RGXRegexNotMatchedAtPositionError', () => {
     });
 });
 
+describe('RGXLexemeNotMatchedAtPositionError', () => {
+    const source = 'hello world foobar';
+    const mode = 'MODE1';
+
+    it('has the correct name', () => {
+        const error = new RGXLexemeNotMatchedAtPositionError('No lexer mode match', source, mode, 0);
+        expect(error.name).toBe('RGXLexemeNotMatchedAtPositionError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXLexemeNotMatchedAtPositionError('No lexer mode match', source, mode, 0);
+        expect(error.code).toBe('LEXEME_NOT_MATCHED_AT_POSITION');
+    });
+
+    it('exposes the mode property', () => {
+        const error = new RGXLexemeNotMatchedAtPositionError('No lexer mode match', source, mode, 0);
+        expect(error.mode).toBe(mode);
+    });
+
+    it('exposes the source property', () => {
+        const error = new RGXLexemeNotMatchedAtPositionError('No lexer mode match', source, mode, 0);
+        expect(error.source).toBe(source);
+    });
+
+    it('exposes the position property', () => {
+        const error = new RGXLexemeNotMatchedAtPositionError('No lexer mode match', source, mode, 5);
+        expect(error.position).toBe(5);
+    });
+
+    it('exposes the causes property', () => {
+        const causes = [{
+            id: "cause1",
+            error: new RGXRegexNotMatchedAtPositionError('No regex match', /foo/, source, 0)
+        }];
+        const error = new RGXLexemeNotMatchedAtPositionError('No lexer mode match', source, mode, 0, causes);
+        expect(error.causes).toBe(causes);
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXLexemeNotMatchedAtPositionError('No lexer mode match', source, mode, 0);
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('throws RGXOutOfBoundsError when position is negative', () => {
+        expect(() => new RGXLexemeNotMatchedAtPositionError('No match', source, mode, -1)).toThrow(RGXOutOfBoundsError);
+    });
+
+    it('throws RGXOutOfBoundsError when position is > source length', () => {
+        expect(() => new RGXLexemeNotMatchedAtPositionError('No match', source, mode, source.length + 1)).toThrow(RGXOutOfBoundsError);
+    });
+
+    it('does not throw when position is equal to source length', () => {
+        expect(() => new RGXLexemeNotMatchedAtPositionError('No match', source, mode, source.length)).not.toThrow();
+    });
+
+    it('throws RGXOutOfBoundsError when setting position out of bounds', () => {
+        const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 0);
+        expect(() => { error.position = -1; }).toThrow(RGXOutOfBoundsError);
+        expect(() => { error.position = source.length + 1; }).toThrow(RGXOutOfBoundsError);
+    });
+
+    describe('isLexemeNotMatchedCauseError', () => {
+        it('accepts RGXRegexNotMatchedAtPositionError instances', () => {
+            const causeError = new RGXRegexNotMatchedAtPositionError('No regex match', /foo/, source, 0);
+            expect(isLexemeNotMatchedCauseError(causeError)).toBe(true);
+        });
+
+        it('accepts RGXPartValidationFailedError instances', () => {
+            const causeError = new RGXPartValidationFailedError('Part validation failed', 'partName', 'value', 'expectedType');
+            expect(isLexemeNotMatchedCauseError(causeError)).toBe(true);
+        });
+
+        it('rejects other error types', () => {
+            const causeError1 = new RGXOutOfBoundsError('Value out of bounds', 5, { min: 0, max: 10 });
+            const causeError2 = new RGXInvalidIdentifierError('Invalid identifier', '123abc');
+            expect(isLexemeNotMatchedCauseError(causeError1)).toBe(false);
+            expect(isLexemeNotMatchedCauseError(causeError2)).toBe(false);
+        });
+    });
+
+
+    describe('sourceContext', () => {
+        it('returns the full source when contextSize is null', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 5);
+            expect(error.sourceContext()).toBe(source);
+        });
+
+        it('returns the full source when contextSize covers the entire string', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 5, [], 100);
+            expect(error.sourceContext()).toBe(source);
+        });
+
+        it('returns a substring around the position based on contextSize', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 8, [], 3);
+            expect(error.sourceContext()).toBe(source.slice(5, 11));
+        });
+
+        it('clamps the start to 0', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 1, [], 3);
+            expect(error.sourceContext()).toBe(source.slice(0, 4));
+        });
+
+        it('clamps the end to source length', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, source.length - 1, [], 3);
+            expect(error.sourceContext()).toBe(source.slice(source.length - 4, source.length));
+        });
+    });
+
+    describe('hasLeftContext', () => {
+        it('returns false when contextSize is null', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 5);
+            expect(error.hasLeftContext()).toBe(false);
+        });
+
+        it('returns true when position - contextSize >= 0', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 5, [], 3);
+            expect(error.hasLeftContext()).toBe(true);
+        });
+
+        it('returns false when position - contextSize < 0', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 1, [], 3);
+            expect(error.hasLeftContext()).toBe(false);
+        });
+    });
+
+    describe('hasRightContext', () => {
+        it('returns false when contextSize is null', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 5);
+            expect(error.hasRightContext()).toBe(false);
+        });
+
+        it('returns true when position + contextSize <= source length', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 5, [], 3);
+            expect(error.hasRightContext()).toBe(true);
+        });
+
+        it('returns false when position + contextSize > source length', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, source.length - 1, [], 3);
+            expect(error.hasRightContext()).toBe(false);
+        });
+    });
+
+    describe('hasFullContext', () => {
+        it('returns true when contextSize is null', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 5);
+            expect(error.hasFullContext()).toBe(true);
+        });
+
+        it('returns true when contextSize covers the entire string', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 5, [], 100);
+            expect(error.hasFullContext()).toBe(true);
+        });
+
+        it('returns false when either side has context truncated', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 8, [], 3);
+            expect(error.hasFullContext()).toBe(false);
+        });
+    });
+
+    describe('toString', () => {
+        it('formats correctly with no contextSize (full source shown)', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 5);
+            expect(error.toString()).toBe(
+                `RGXLexemeNotMatchedAtPositionError: No match; Mode: ${mode}, Position: 5, Context: ${source}`
+            );
+        });
+
+        it('formats correctly with contextSize that covers the full source', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 5, [], 100);
+            expect(error.toString()).toBe(
+                `RGXLexemeNotMatchedAtPositionError: No match; Mode: ${mode}, Position: 5, Context: ${source}`
+            );
+        });
+
+        it('formats correctly with ellipsis on both sides', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 8, [], 3);
+            expect(error.toString()).toBe(
+                `RGXLexemeNotMatchedAtPositionError: No match; Mode: ${mode}, Position: 8, Context: ...${source.slice(5, 11)}...`
+            );
+        });
+
+        it('formats correctly with ellipsis only on the right', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, 1, [], 3);
+            expect(error.toString()).toBe(
+                `RGXLexemeNotMatchedAtPositionError: No match; Mode: ${mode}, Position: 1, Context: ${source.slice(0, 4)}...`
+            );
+        });
+
+        it('formats correctly with ellipsis only on the left', () => {
+            const error = new RGXLexemeNotMatchedAtPositionError('No match', source, mode, source.length - 1, [], 3);
+            expect(error.toString()).toBe(
+                `RGXLexemeNotMatchedAtPositionError: No match; Mode: ${mode}, Position: ${source.length - 1}, Context: ...${source.slice(source.length - 4, source.length)}`
+            );
+        });
+    });
+});
+
+
 describe("RGXPartValidationFailedError", () => {
     it('has the correct name', () => {
         const error = new RGXPartValidationFailedError(null, 'Validation failed', 'rawValue', 'transformedValue');
@@ -809,5 +1039,47 @@ describe("RGXPartValidationFailedError", () => {
         expect(error.toString()).toBe(
             `RGXPartValidationFailedError: Validation failed; ID: PART_ID; Got: rawValue (transformed: "transformedValue")`
         );
+    });
+});
+
+describe("RGXInvalidLexerError", () => {
+    it('has the correct name', () => {
+        const error = new RGXInvalidLexerError('Invalid lexer', null);
+        expect(error.name).toBe('RGXInvalidLexerError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXInvalidLexerError('Invalid lexer', null);
+        expect(error.code).toBe('INVALID_RGX_LEXER');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXInvalidLexerError('Invalid lexer', 'gotValue');
+        expect(error.got).toBe('gotValue');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInvalidLexerError('Invalid lexer', 'gotValue');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly when the constructor name is unspecified and got is a string', () => {
+        const error = new RGXInvalidLexerError('Invalid lexer', 'gotValue');
+        expect(error.toString()).toBe('RGXInvalidLexerError: Invalid lexer; Expected: [instance of RGXLexer]; Got: ["gotValue"]');
+    });
+
+    it('formats the error message correctly when the constructor name is specified and got is a string', () => {
+        const error = new RGXInvalidLexerError('Invalid lexer', 'gotValue', 'CustomLexer');
+        expect(error.toString()).toBe('RGXInvalidLexerError: Invalid lexer; Expected: [instance of CustomLexer]; Got: ["gotValue"]');
+    });
+
+    it('formats the error message correctly when the constructor name is unspecified and got is a class instance', () => {
+        const error = new RGXInvalidLexerError('Invalid lexer', new TestClassToken());
+        expect(error.toString()).toBe('RGXInvalidLexerError: Invalid lexer; Expected: [instance of RGXLexer]; Got: [instance of TestClassToken]');
+    });
+
+    it('formats the error message correctly when the constructor name is specified and got is a class instance', () => {
+        const error = new RGXInvalidLexerError('Invalid lexer', new TestClassToken(), 'CustomLexer');
+        expect(error.toString()).toBe('RGXInvalidLexerError: Invalid lexer; Expected: [instance of CustomLexer]; Got: [instance of TestClassToken]');
     });
 });

@@ -44,6 +44,12 @@ type RegExpFlagTransformer = (exp: RegExp) => RegExp;
 const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
 type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;
 type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;
+
+type LexemeNotMatchedCauseError = RGXRegexNotMatchedAtPositionError | RGXPartValidationFailedError;
+type LexemeNotMatchedCause = {
+    id: string;
+    error: LexemeNotMatchedCauseError;
+};
 ```
 
 # RGXError
@@ -374,7 +380,7 @@ constructor(message: string, pattern: RegExp, source: string, position: number, 
 ### Properties
 - `pattern` (`RegExp`): The regex pattern that failed to match.
 - `source` (`string`): The string that was being matched against.
-- `position` (`number`): The position where the match was expected. Setting this validates that the value is >= 0 and < `source.length`, throwing `RGXOutOfBoundsError` if not.
+- `position` (`number`): The position where the match was expected. Setting this validates that the value is >= 0 and <= `source.length`, throwing `RGXOutOfBoundsError` if not.
 - `contextSize` (`number | null`): The number of characters on each side of the position to include in contextual output, or `null` for the full source.
 
 ### Methods
@@ -399,3 +405,65 @@ constructor(id: string | null, message: string, gotRaw: string, gotTransformed: 
 - `id` (`string`): The ID of the part that failed validation. Defaults to `"unknown"` if `null` was provided.
 - `gotRaw` (`string`): The raw captured string value that failed validation.
 - `gotTransformed` (`unknown`): The transformed value that was produced by the part's `transform` function, which also failed validation.
+
+## RGXInvalidLexerModeError
+A specific error class for invalid lexer mode names. This error is thrown when a mode string is passed to a lexer method but that mode does not exist in the lexer's `lexemeDefinitions` map. The error code is set to `INVALID_LEXER_MODE` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The mode string that was not found in the lexer's definitions.
+
+### Properties
+- `got` (`string`): The mode string that was not found in the lexer's definitions.
+
+## RGXLexemeNotMatchedAtPositionError
+A specific error class for lexeme match failures at a given position. This error is thrown when no lexeme definition in the active mode matches the source at the current position (e.g., from `RGXLexer.consume` or `RGXLexer.expectConsume`). The error code is set to `LEXEME_NOT_MATCHED_AT_POSITION` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, source: string, mode: string, position: number, causes?: LexemeNotMatchedCause[], contextSize?: number | null)
+```
+- `message` (`string`): The error message.
+- `source` (`string`): The string that was being lexed.
+- `mode` (`string`): The lexer mode that was active when matching was attempted.
+- `position` (`number`): The zero-based index in the source string where matching was attempted. Must be >= 0 and <= `source.length`, or an `RGXOutOfBoundsError` will be thrown.
+- `causes` (`LexemeNotMatchedCause[]`, optional): An array of per-definition failure causes, each containing the definition `id` and the error thrown when that definition was tried. Defaults to `[]`.
+- `contextSize` (`number | null`, optional): The number of characters on each side of the position to include in contextual output. Defaults to `null` (full source shown).
+
+### Properties
+- `source` (`string`): The string that was being lexed.
+- `mode` (`string`): The lexer mode that was active.
+- `position` (`number`): The position where matching was attempted. Setting this validates that the value is >= 0 and <= `source.length`, throwing `RGXOutOfBoundsError` if not.
+- `contextSize` (`number | null`): The number of characters on each side of the position to include in contextual output, or `null` for the full source.
+- `causes` (`LexemeNotMatchedCause[]`): The list of per-definition failures that occurred before giving up.
+
+### Methods
+- `sourceContext() => string`: Returns the relevant portion of the source string around the position. When `contextSize` is `null` or covers the entire string, returns the full source. Otherwise, returns a substring from `max(0, position - contextSize)` to `min(source.length, position + contextSize)`.
+- `hasLeftContext() => boolean`: Returns `true` if the context window starts after the beginning of the source string. Returns `false` when `contextSize` is `null`.
+- `hasRightContext() => boolean`: Returns `true` if the context window ends before the end of the source string. Returns `false` when `contextSize` is `null`.
+- `hasFullContext() => boolean`: Returns `true` when the full source is shown (neither side is truncated).
+
+### Type Guards
+#### isLexemeNotMatchedCauseError
+```typescript
+function isLexemeNotMatchedCauseError(error: unknown): error is LexemeNotMatchedCauseError
+```
+Checks if the given value is one of the error types that can be recorded as a `LexemeNotMatchedCause` — namely `RGXRegexNotMatchedAtPositionError` or `RGXPartValidationFailedError`. These are the errors thrown by individual lexeme definition matching attempts that are caught and collected before a `RGXLexemeNotMatchedAtPositionError` is thrown.
+
+## RGXInvalidLexerError
+A specific error class for values that were expected to be an `RGXLexer` instance but were not. This error is thrown by `RGXLexer.assert` when its argument is not an instance of the expected lexer constructor. The error code is set to `INVALID_RGX_LEXER` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: unknown, constructorName?: string)
+```
+- `message` (`string`): The error message.
+- `got` (`unknown`): The value that failed the instance check.
+- `constructorName` (`string`, optional): The name of the constructor class that was expected. Defaults to `"RGXLexer"`.
+
+### Properties
+- `got` (`unknown`): The value that failed the instance check.
+- `constructorName` (`string`): The name of the expected constructor class.
