@@ -131,28 +131,28 @@ describe('RGXInvalidTokenError', () => {
 
 describe('RGXInvalidRegexStringError', () => {
     it('has the correct name', () => {
-        const error = new RGXInvalidRegexStringError('Invalid regex string', 'abc[');
+        const error = new RGXInvalidRegexStringError('Invalid regex string', 'abc[', new SyntaxError());
         expect(error.name).toBe('RGXInvalidRegexStringError');
     });
 
     it('has the correct code', () => {
-        const error = new RGXInvalidRegexStringError('Invalid regex string', 'abc[');
+        const error = new RGXInvalidRegexStringError('Invalid regex string', 'abc[', new SyntaxError());
         expect(error.code).toBe('INVALID_REGEX_STRING');
     });
 
     it('exposes the got property', () => {
-        const error = new RGXInvalidRegexStringError('Invalid regex string', 'abc[');
+        const error = new RGXInvalidRegexStringError('Invalid regex string', 'abc[', new SyntaxError());
         expect(error.got).toBe('abc[');
     });
 
     it('is an instance of RGXError', () => {
-        const error = new RGXInvalidRegexStringError('Invalid regex string', 'abc[');
+        const error = new RGXInvalidRegexStringError('Invalid regex string', 'abc[', new SyntaxError());
         expect(error).toBeInstanceOf(RGXError);
     });
 
     it('formats the error message correctly', () => {
-        const error = new RGXInvalidRegexStringError('Invalid regex string', 'abc[');
-        expect(error.toString()).toBe('RGXInvalidRegexStringError: Invalid regex string; Got: "abc["');
+        const error = new RGXInvalidRegexStringError('Invalid regex string', 'abc[', new SyntaxError("This is a cause"));
+        expect(error.toString()).toBe('RGXInvalidRegexStringError: Invalid regex string; Got: "abc["; Cause: This is a cause');
     });
 });
 

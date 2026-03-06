@@ -14,7 +14,8 @@ type RGXConvertibleToken = {
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
     readonly rgxGroupWrap?: boolean,
     readonly rgxIsGroup?: boolean,
-    readonly rgxIsRepeatable?: boolean
+    readonly rgxIsRepeatable?: boolean,
+    readonly rgxInterpolate?: boolean
 };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 type RGXTokenOrPart<R, S = unknown, T = unknown> = RGXToken | RGXPart<R, S, T>;
@@ -123,9 +124,12 @@ type RGXWalkerOptions<R, S = unknown> = {
     looping?: boolean;
 };
 
-type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & {
+type RGXOptions = {
     multiline?: boolean;
+    verbatim?: boolean;
 };
+
+type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & RGXOptions;
 
 // See src/constants.ts for the actual mapping of predefined constant names to their token values
 type RGXPredefinedConstant = keyof typeof RGX_PREDEFINED_CONSTANTS;

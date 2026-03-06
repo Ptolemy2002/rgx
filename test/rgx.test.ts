@@ -400,6 +400,35 @@ describe('rgx', () => {
         expectRegexpEqual(regex, expectedString.replaceAll('\n', '\\n').replaceAll('/', '\\/'));
         expect(regex.test(expectedString)).toBe(true);
     });
+
+    it('does not escape template string literals when verbatim is false and multiline is false', () => {
+        const regex = rgx('', false, false)`foo|${'bar'}|baz`;
+        expectRegexpEqual(regex, 'foo|bar|baz');
+    });
+
+    it('does not escape template string literals when verbatim is false and multiline is true', () => {
+        const regex = rgx('', true, false)`
+            foo |
+            ${'bar'} |
+            baz
+        `;
+        expectRegexpEqual(regex, 'foo |bar |baz');
+    });
+
+    it("still escapes interpolated strings when verbatim is false and multiline is false", () => {
+        const regex = rgx('', false, false)`foo|${'bar|'}|baz`;
+        expectRegexpEqual(regex, 'foo|bar\\||baz');
+    });
+
+    it("still escapes interpolated strings when verbatim is false and multiline is true", () => {
+        const regex = rgx('', true, false)`
+            foo |
+            ${'bar|'} |
+            baz
+        `;
+
+        expectRegexpEqual(regex, 'foo |bar\\| |baz');
+    });
 });
 
 describe('rgxConcat', () => {

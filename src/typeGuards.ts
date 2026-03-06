@@ -38,10 +38,11 @@ export function assertRGXNativeToken(value: unknown): asserts value is t.RGXNati
 
 export function isRGXConvertibleToken(value: unknown, returnCheck: boolean = true): value is t.RGXConvertibleToken {
     if (typeof value === 'object' && value !== null && 'toRgx' in value) {
-        // The rgxGroupWrap, rgxIsRepeatable, and rgxIsGroup properties are optional, but if they exist they must be booleans.
+        // The rgxGroupWrap, interpolate, rgxIsRepeatable, and rgxIsGroup properties are optional, but if they exist they must be booleans.
         if ('rgxGroupWrap' in value && typeof value.rgxGroupWrap !== 'boolean') return false;
         if ('rgxIsRepeatable' in value && typeof value.rgxIsRepeatable !== 'boolean') return false;
         if ('rgxIsGroup' in value && typeof value.rgxIsGroup !== 'boolean') return false;
+        if ('rgxInterpolate' in value && typeof value.rgxInterpolate !== 'boolean') return false;
 
         // If the rgxAcceptInsertion property exists, it must be a function that returns a string or boolean.
         if ('rgxAcceptInsertion' in value) {
@@ -57,8 +58,8 @@ export function isRGXConvertibleToken(value: unknown, returnCheck: boolean = tru
             if (!returnCheck) return true;
             const rv = value.toRgx();
             return isRGXNativeToken(rv) || isRGXLiteralToken(rv) || 
-                   isRGXNoOpToken(rv) || isRGXArrayToken(rv) ||
-                   isRGXConvertibleToken(rv);
+                isRGXNoOpToken(rv) || isRGXArrayToken(rv) ||
+                isRGXConvertibleToken(rv);
         }
 
         return false;
@@ -199,14 +200,32 @@ export function isValidRegexString(value: string): value is t.ValidRegexString {
     try {
         new RegExp(value);
         return true;
-    } catch {
-        return false;
+    } catch (e) {
+        if (e instanceof SyntaxError) {
+            return false;
+        }
+
+        // This is ignored because I don't know what king of
+        // unexpected errors might happen.
+        /* istanbul ignore next */
+        throw e;
     }
 }
 
 export function assertValidRegexString(value: string): asserts value is t.ValidRegexString {
     if (!isValidRegexString(value)) {
-        throw new e.RGXInvalidRegexStringError("Invalid regex string", value);
+        try {
+            new RegExp(value);
+        } catch (err) {
+            if (err instanceof SyntaxError) {
+                throw new e.RGXInvalidRegexStringError("Invalid regex string", value, err);
+            }
+
+            // This is ignored because I don't know what king of
+            // unexpected errors might happen.
+            /* istanbul ignore next */
+            throw err;
+        }
     }
 }
 

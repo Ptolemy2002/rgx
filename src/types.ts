@@ -13,6 +13,7 @@ export type RGXConvertibleToken = {
     readonly rgxGroupWrap?: boolean,
     readonly rgxIsGroup?: boolean,
     readonly rgxIsRepeatable?: boolean
+    readonly rgxInterpolate?: boolean,
 };
 export type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 
@@ -70,6 +71,9 @@ export const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
 export type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;
 export type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;
 
-export type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & {
+export type RGXOptions = {
     multiline?: boolean;
+    verbatim?: boolean;
 };
+
+export type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & RGXOptions;

@@ -47,4 +47,6 @@ describe('isValidRegex', () => {
         expect(isValidRegexString('foo{3,2}bar')).toBe(false);
         expect(() => assertValidRegexString('foo{3,2}bar')).toThrow(RGXInvalidRegexStringError);
     });
+
+
 });

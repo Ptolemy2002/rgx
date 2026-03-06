@@ -10,7 +10,8 @@ type RGXConvertibleToken = {
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
     readonly rgxGroupWrap?: boolean,
     readonly rgxIsGroup?: boolean,
-    readonly rgxIsRepeatable?: boolean
+    readonly rgxIsRepeatable?: boolean,
+    readonly rgxInterpolate?: boolean
 };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 
@@ -39,14 +40,17 @@ type RGXWalkerOptions<R> = {
     looping?: boolean;
 };
 
-type RGXWOptions<R = unknown> = RGXWalkerOptions<R> & {
+type RGXOptions = {
     multiline?: boolean;
+    verbatim?: boolean;
 };
+
+type RGXWOptions<R = unknown> = RGXWalkerOptions<R> & RGXOptions;
 ```
 
 # rgx (default export)
 ```typescript
-function rgx(flags?: string, multiline?: boolean): (strings: TemplateStringsArray, ...tokens: RGXToken[]) => ExtRegExp
+function rgx(flags?: string, multiline?: boolean, verbatim?: boolean): (strings: TemplateStringsArray, ...tokens: RGXToken[]) => ExtRegExp
 ```
 
 Creates and returns a template tag function that constructs an `ExtRegExp` object from the provided template literal with the provided flags. The template literal can contain RGX tokens, which will be resolved and concatenated with the literal parts to form the final regex pattern. Before constructing the pattern, any convertible token that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown with details about the reason and exactly where the rejection occurred.
@@ -54,6 +58,8 @@ Creates and returns a template tag function that constructs an `ExtRegExp` objec
 When `multiline` is `true` (the default), the literal string parts of the template are processed to strip newlines, trim leading whitespace from each line, and remove empty lines, then joined together. This allows you to write regex patterns across multiple lines in the source code for readability without the newlines and indentation becoming part of the pattern. Only the literal string parts between tokens are affected — interpolated values (tokens) are preserved as-is, including string tokens passed via `${"..."}`. Also, comments (denoted with `//`) ending a line or on a line by themselves are stripped. If a command ends a line, that line is also stripped of whitespace on the right side.
 
 When `multiline` is `false`, all literal string parts are preserved exactly as written, including newlines and whitespace.
+
+When `verbatim` is `true` (the default), the literal string parts of the template are treated as verbatim text to be matched literally: special regex characters (such as `|`, `.`, `*`) are escaped before being inserted into the pattern. When `verbatim` is `false`, literal string parts are inserted as raw regex syntax — special characters are not escaped and work as regex operators. Note that interpolated values (tokens) are always resolved normally regardless of this setting: string tokens via `${"..."}` are always escaped.
 
 The provided `flags` are passed as `currentFlags` to the resolver, enabling inline modifier groups for any `RegExp` literal tokens whose localizable flags (`i`, `m`, `s`) differ from the parent flags. For example, embedding `/foo/i` in a no-flag context produces `(?i:foo)`, while embedding `/bar/` in an `i`-flag context produces `(?-i:bar)`.
 
@@ -91,6 +97,7 @@ const pattern6 = rgx()`
 **Direct**
   - `flags` (`string`, optional): The regex flags to apply to the resulting `ExtRegExp` object (e.g., 'g', 'i', 'm', or custom registered flags). If not provided, no flags will be applied. If provided and not valid regex flags (vanilla or registered custom), an `RGXInvalidRegexFlagsError` will be thrown.
   - `multiline` (`boolean`, optional): Whether to strip newlines and trim leading whitespace from the literal string parts of the template. Defaults to `true`. When `true`, each literal string part is split by newlines, each line has its leading whitespace trimmed, empty lines are removed, comments (denoted with `//`) ending a line or on a line by themselves are stripped, and the remaining lines are joined together. Interpolated tokens (including string tokens via `${"..."}`) are not affected. When `false`, literal string parts are preserved exactly as written.
+  - `verbatim` (`boolean`, optional): Whether to treat literal string parts of the template as verbatim text. Defaults to `true`. When `true`, literal string parts are escaped so that special regex characters are matched literally. When `false`, literal string parts are inserted as raw regex syntax without escaping. Interpolated values (including string tokens via `${"..."}`) are always escaped regardless of this setting.
 
 **Template Tag**
   - `strings` (`TemplateStringsArray`): The literal parts of the template string.
@@ -117,7 +124,7 @@ As an alternative to using the `rgx` template tag, you can directly call `rgxa` 
 function resolveRGXToken(token: RGXToken, groupWrap?: boolean, topLevel?: boolean, currentFlags?: string): ValidRegexString
 ```
 
-Resolves an RGX token to a string. No-op tokens resolve to an empty string, literal tokens are included as-is (wrapped in a non-capturing group when `groupWrap` is `true`), native tokens are converted to strings and escaped, convertible tokens are converted using their `toRgx` method and then resolved recursively, and arrays of tokens are resolved as unions of their resolved elements (repeats removed, placed in a non-capturing group when `groupWrap` is `true`).
+Resolves an RGX token to a string. No-op tokens resolve to an empty string, literal tokens are included as-is (wrapped in a non-capturing group when `groupWrap` is `true`), native tokens are converted to strings and escaped, convertible tokens are converted using their `toRgx` method and then resolved recursively (or, if `rgxInterpolate` is `true`, their `toRgx` result is used as-is without further resolution or escaping), and arrays of tokens are resolved as unions of their resolved elements (repeats removed, placed in a non-capturing group when `groupWrap` is `true`).
 
 For literal tokens (`RegExp` instances), if the token's flags differ from `currentFlags` in any of the localizable flags (`i`, `m`, `s`), the token is wrapped in an inline modifier group (e.g., `(?i:...)`, `(?-i:...)`, `(?ms-i:...)`) instead of a plain non-capturing group. Non-localizable flags (such as `g`, `u`, `y`, `d`, `v`) are ignored when computing the diff. When an inline modifier group is used, it always wraps the token regardless of the `groupWrap` setting, since the modifier group itself serves as a group.
 
@@ -127,22 +134,21 @@ For convertible tokens, if the token has an `rgxGroupWrap` property, that value 
   - `token` (`RGXToken`): The RGX token to resolve.
   - `groupWrap` (`boolean`, optional): Whether to wrap literal tokens and array unions in non-capturing groups (`(?:...)`). Defaults to `true`. When `false`, literals use their raw source and array unions omit the wrapping group. For convertible tokens, the token's `rgxGroupWrap` property always takes precedence; otherwise, this value is only passed through at the top level (in recursive calls it falls back to `true`). Array union elements always use `groupWrap=true` internally. Note that when a literal token requires an inline modifier group due to a localizable flag diff, it is always wrapped regardless of this setting.
   - `topLevel` (`boolean`, optional): Tracks whether the current call is the initial (top-level) invocation. Defaults to `true`. **Warning**: This parameter is intended for internal use by the resolver's own recursion. External callers should not set this parameter, as doing so may produce unexpected wrapping behavior.
-  - `currentFlags` (`string`, optional): The flags of the current regex context, used to compute inline modifier groups for literal tokens. Defaults to `''`. When a literal token's localizable flags (`i`, `m`, `s`) differ from this value, the resolver wraps the token in an inline modifier group that adds or removes the differing flags locally.
+  - `currentFlags` (`string`, optional): The flags of the current regex context, used to compute inline modifier groups for literal tokens. Defaults to `''`. When a literal token's localizable flags (`i`, `m`, `s`) differ from this value, the resolver wraps the token in an inline modifier group that adds or removes the differing flags locally. If invalid regex flags are provided, an `RGXInvalidRegexFlagsError` will be thrown.
 
 ## Returns
-- `ValidRegexString`: The resolved string representation of the RGX token. This is guaranteed to be a valid regex string, as convertible tokens are validated to only produce valid regex strings or arrays of valid regex strings.
+- `ValidRegexString`: The resolved string representation of the RGX token. The result is asserted to be a valid regex string before being returned; if it is not (e.g. due to an `rgxInterpolate` token whose `toRgx` produces invalid regex syntax), an `RGXInvalidRegexStringError` is thrown.
 
 # rgxConcat
 ```typescript
 function rgxConcat(tokens: RGXToken[], groupWrap?: boolean, currentFlags?: string): ValidRegexString
 ```
-
 A helper function that resolves an array of RGX tokens and concatenates their resolved string representations together. This is useful for cases where you want to concatenate multiple tokens without creating a union between them. Before returning, any convertible token in the array that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown with details about the reason and exactly where the rejection occurred.
 
 ## Parameters
   - `tokens` (`RGXToken[]`): The array of RGX tokens to resolve and concatenate.
   - `groupWrap` (`boolean`, optional): Whether to wrap individual resolved tokens in non-capturing groups. Passed through to `resolveRGXToken`. Defaults to `true`.
-  - `currentFlags` (`string`, optional): The flags of the current regex context, passed through to `resolveRGXToken` as its `currentFlags` parameter. Used to compute inline modifier groups for literal tokens whose localizable flags differ. Defaults to `''`.
+  - `currentFlags` (`string`, optional): The flags of the current regex context, passed through to `resolveRGXToken` as its `currentFlags` parameter. Used to compute inline modifier groups for literal tokens whose localizable flags differ. Defaults to `''`. If invalid regex flags are provided, an `RGXInvalidRegexFlagsError` will be thrown.
 
 ## Returns
-- `ValidRegexString`: The concatenated string representation of the resolved RGX tokens. This is guaranteed to be a valid regex string, as it is composed of the resolved forms of RGX tokens, which are all valid regex strings.
+- `ValidRegexString`: The concatenated string representation of the resolved RGX tokens. Each token is asserted to be a valid regex string before concatenation; if any token produces invalid regex syntax (e.g. via an `rgxInterpolate` token), an `RGXInvalidRegexStringError` is thrown.

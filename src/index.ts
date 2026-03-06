@@ -2,7 +2,7 @@ import * as t from "./types";
 import { rgxClassInit } from "./class";
 import { registerCustomFlagTransformers } from "./flag-transformer";
 import { rgxConcat } from "./concat";
-import { assureAcceptance, taggedTemplateToArray } from "./internal";
+import { assureAcceptance, rgxTaggedTemplateToArray } from "./internal";
 import { assertValidRegexFlags, ExtRegExp, extRegExp } from "./ExtRegExp";
 import { RGXPart, RGXTokenOrPart, RGXWalker } from "./walker";
 
@@ -33,20 +33,24 @@ export function rgxa(tokens: t.RGXToken[], flags: string = ''): ExtRegExp {
     return extRegExp(pattern, flags);
 }
 
-export default function rgx(flags: string = '', multiline=true) {
+export default function rgx(flags: string = '', multiline=true, verbatim=true) {
     assertValidRegexFlags(flags);
     return (strings: TemplateStringsArray, ...tokens: t.RGXToken[]) => {
-        return rgxa(taggedTemplateToArray(strings, tokens, multiline), flags);
+        // It is safe to assert the result because we know there will be no parts passed in here.
+        return rgxa(rgxTaggedTemplateToArray(strings, tokens, multiline, verbatim) as t.RGXToken[], flags);
     };
 }
 
-export function rgxwa<R = unknown, S = unknown, T = unknown>(source: string, tokens: RGXTokenOrPart<R, S, T>[], options: Omit<t.RGXWOptions<R, S>, "multiline"> = {}) {
+export function rgxwa<R = unknown, S = unknown, T = unknown>(
+    source: string, tokens: RGXTokenOrPart<R, S, T>[],
+    options: Omit<t.RGXWOptions<R, S>, "multiline"> = {}
+) {
     assureAcceptance(tokens.map(t => RGXPart.check(t) ? t.token : t), '' as t.ValidRegexFlags);
     return new RGXWalker<R, S>(source, tokens, options);
 }
 
-export function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {multiline=true, ...options}: t.RGXWOptions<R, S> = {}) {
+export function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {multiline=true, verbatim=true, ...options}: t.RGXWOptions<R, S> = {}) {
     return (strings: TemplateStringsArray, ...tokens: RGXTokenOrPart<R, S, T>[]) => {
-        return rgxwa<R, S, T>(source, taggedTemplateToArray(strings, tokens, multiline), options);
+        return rgxwa<R, S, T>(source, rgxTaggedTemplateToArray(strings, tokens, multiline, verbatim), options);
     };
 }

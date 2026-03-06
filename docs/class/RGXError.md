@@ -97,13 +97,15 @@ A specific error class for invalid regex strings. This error is thrown when a st
 
 ### Constructor
 ```typescript
-constructor(message: string, got: string)
+constructor(message: string, got: string, cause: SyntaxError)
 ```
 - `message` (`string`): The error message.
 - `got` (`string`): The actual string that was received, which failed validation.
+- `cause` (`SyntaxError`): The underlying `SyntaxError` thrown when attempting to construct a `RegExp` from the invalid string.
 
 ### Properties
 - `got` (`string`): The actual string that was received, which failed validation.
+- `cause` (`SyntaxError`): The underlying `SyntaxError` thrown when attempting to construct a `RegExp` from the invalid string. Its message is appended to the formatted error output.
 
 ### Type Guards
 #### isValidRegexString
@@ -119,7 +121,7 @@ Checks if the given string is a valid regular expression by attempting to create
 ```typescript
 function assertValidRegexString(value: string): asserts value is ValidRegexString
 ```
-Asserts that the given string is a valid regular expression by attempting to create a new `RegExp` object with it. If it succeeds, the string is branded as a `ValidRegexString`. If it fails, an `RGXInvalidRegexStringError` will be thrown.
+Asserts that the given string is a valid regular expression by attempting to create a new `RegExp` object with it. If it succeeds, the string is branded as a `ValidRegexString`. If it fails, an `RGXInvalidRegexStringError` will be thrown. Note that failure is only detected with a `SyntaxError`. Other errors are rethrown as-is.
 - `value` (`string`): The string to assert.
 
 **Returns:** `void` - If the string is a valid regular expression, the function returns without error. If the string is invalid, an `RGXInvalidRegexStringError` is thrown with the provided message and the invalid string.
@@ -142,7 +144,7 @@ constructor(message: string, got: string)
 ```typescript
 function isValidVanillaRegexFlags(value: string): value is ValidVanillaRegexFlags
 ```
-Checks if the given string is a valid combination of vanilla regex flags (g, i, m, s, u, y). Each flag can only appear once.
+Checks if the given string is a valid combination of vanilla regex flags (g, i, m, s, u, y, d, v). Each flag can only appear once.
 - `value` (`string`): The string to check.
 
 **Returns:** `boolean` - `true` if the string is a valid combination of vanilla regex flags, otherwise `false`.
@@ -151,7 +153,7 @@ Checks if the given string is a valid combination of vanilla regex flags (g, i, 
 ```typescript
 function assertValidVanillaRegexFlags(value: string): asserts value is ValidVanillaRegexFlags
 ```
-Asserts that the given string is a valid combination of vanilla regex flags (g, i, m, s, u, y). Each flag can only appear once. If the assertion fails, an `RGXInvalidVanillaRegexFlagsError` will be thrown.
+Asserts that the given string is a valid combination of vanilla regex flags (g, i, m, s, u, y, d, v). Each flag can only appear once. If the assertion fails, an `RGXInvalidVanillaRegexFlagsError` will be thrown.
 - `value` (`string`): The string to assert.
 
 **Returns:** `void` - If the string is a valid combination of vanilla regex flags, the function returns without error. If the string is invalid, an `RGXInvalidVanillaRegexFlagsError` is thrown with the provided message and the invalid string.
@@ -174,7 +176,7 @@ constructor(message: string, got: string)
 ```typescript
 function isValidRegexFlags(flags: string): flags is ValidRegexFlags
 ```
-Checks if the given string is a valid combination of regex flags, including both vanilla flags (g, i, m, s, u, y) and any custom flags registered via `registerFlagTransformer`. Custom flag characters are stripped before validating the remaining characters as vanilla flags.
+Checks if the given string is a valid combination of regex flags, including both vanilla flags (g, i, m, s, u, y, d, v) and any custom flags registered via `registerFlagTransformer`. Custom flag characters are stripped before validating the remaining characters as vanilla flags.
 - `flags` (`string`): The string to check.
 
 **Returns:** `boolean` - `true` if the string is a valid combination of regex flags, otherwise `false`.
@@ -183,7 +185,7 @@ Checks if the given string is a valid combination of regex flags, including both
 ```typescript
 function assertValidRegexFlags(flags: string): asserts flags is ValidRegexFlags
 ```
-Asserts that the given string is a valid combination of regex flags, including both vanilla flags (g, i, m, s, u, y) and any custom flags registered via `registerFlagTransformer`. Custom flag characters are stripped before validating the remaining characters as vanilla flags. If the assertion fails, an `RGXInvalidRegexFlagsError` will be thrown.
+Asserts that the given string is a valid combination of regex flags, including both vanilla flags (g, i, m, s, u, y, d, v) and any custom flags registered via `registerFlagTransformer`. Custom flag characters are stripped before validating the remaining characters as vanilla flags. If the assertion fails, an `RGXInvalidRegexFlagsError` will be thrown.
 - `flags` (`string`): The string to assert.
 
 **Returns:** `void` - If the string is a valid combination of regex flags, the function returns without error. If the string is invalid, an `RGXInvalidRegexFlagsError` is thrown with the provided message and the invalid string.

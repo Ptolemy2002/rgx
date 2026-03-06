@@ -13,7 +13,8 @@ type RGXConvertibleToken = {
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
     readonly rgxGroupWrap?: boolean,
     readonly rgxIsGroup?: boolean,
-    readonly rgxIsRepeatable?: boolean
+    readonly rgxIsRepeatable?: boolean,
+    readonly rgxInterpolate?: boolean
 };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 

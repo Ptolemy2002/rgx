@@ -302,6 +302,18 @@ describe('Type Guards', () => {
             expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
         });
 
+        it('accepts objects with an rgxInterpolate property that is a boolean', () => {
+            const token = { toRgx: () => 'foo', rgxInterpolate: true };
+            expect(isRGXConvertibleToken(token)).toBe(true);
+            expect(() => assertRGXConvertibleToken(token)).not.toThrow();
+        });
+
+        it('rejects objects with an rgxInterpolateproperty that is not a boolean', () => {
+            const token = { toRgx: () => 'foo', rgxInterpolate: 'not a boolean' };
+            expect(isRGXConvertibleToken(token)).toBe(false);
+            expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
+        });
+
         it('accepts objects with an rgxAcceptInsertion property that is a function returning a string', () => {
             const token = { toRgx: () => 'foo', rgxAcceptInsertion: () => 'accepted' };
             expect(isRGXConvertibleToken(token)).toBe(true);

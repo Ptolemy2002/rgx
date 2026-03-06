@@ -14,7 +14,8 @@ type RGXConvertibleToken = {
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
     readonly rgxGroupWrap?: boolean,
     readonly rgxIsGroup?: boolean,
-    readonly rgxIsRepeatable?: boolean
+    readonly rgxIsRepeatable?: boolean,
+    readonly rgxInterpolate?: boolean
 };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 type RGXTokenOrPart<R, S = unknown, T = unknown> = RGXToken | RGXPart<R, S, T>;
@@ -50,9 +51,12 @@ type RGXPartOptions<R, S = unknown, T=string> = {
     afterValidationFailure: ((e: RGXPartValidationFailedError, share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => void) | null;
 };
 
-type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & {
+type RGXOptions = {
     multiline?: boolean;
+    verbatim?: boolean;
 };
+
+type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & RGXOptions;
 ```
 
 # Constructor Utilities
@@ -60,7 +64,7 @@ The following are utilities for creating `RGXWalker` instances without the need 
 
 ## rgxw
 ```typescript
-function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {multiline=true, ...options}: RGXWOptions<R, S> = {}): (strings: TemplateStringsArray, ...tokens: RGXTokenOrPart<R, S, T>[]) => RGXWalker<R, S>
+function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {multiline=true, verbatim=true, ...options}: RGXWOptions<R, S> = {}): (strings: TemplateStringsArray, ...tokens: RGXTokenOrPart<R, S, T>[]) => RGXWalker<R, S>
 ```
 Creates an `RGXWalker` instance from an interpolation of strings and tokens. Plain tokens are processed exactly like in `rgx`; `RGXPart` instances are tested for their inner token to accept insertion, then passed through. Instead of returning an `ExtRegExp`, it returns an `RGXWalker` that can be used to walk through matches of the regex pattern in the source string.
 
@@ -69,6 +73,7 @@ Creates an `RGXWalker` instance from an interpolation of strings and tokens. Pla
   - `options` (`RGXWOptions<R, S>`, optional): Additional options for configuring the behavior of the resulting `RGXWalker`. This includes:
     - `startingSourcePosition` (`number`, optional): An optional initial value for the walker's `sourcePosition` property, which tracks the current position in the source string during walking. Defaults to `0`.
     - `multiline` (`boolean`, optional): Whether to strip newlines and trim leading whitespace from the literal string parts of the template. Defaults to `true`. When `true`, each literal string part is split by newlines, each line has its leading whitespace trimmed, empty lines are removed, comments (denoted with `//`) ending a line or on a line by themselves are stripped, and the remaining lines are joined together. Interpolated tokens (including string tokens via `${"..."}`) are not affected. When `false`, literal string parts are preserved exactly as written.
+    - `verbatim` (`boolean`, optional): Whether to treat literal string parts of the template as verbatim text. Defaults to `true`. When `true`, literal string parts are escaped so that special regex characters are matched literally. When `false`, literal string parts are inserted as raw regex syntax without escaping. Interpolated values (including string tokens via `${"..."}`) are always escaped regardless of this setting.
     - `reduced` (`R`, optional): An optional initial value for the walker's `reduced` property, which can be used to accumulate results across matches.
     - `share` (`S`, optional): An optional initial value for the walker's `share` property, which is passed to all Part callbacks and can be used as shared mutable state across parts without being accumulated in `reduced`.
 
