@@ -105,15 +105,20 @@ type RGXCapture<T = unknown> = {
     branch: number;
 };
 
+type RGXPartContext<R, S = unknown, T = string> = {
+    part: RGXPart<R, S, T>;
+    walker: RGXWalker<R, S>;
+};
+
 type RGXPartOptions<R, S = unknown, T=string> = {
     id: string;
     rawTransform: (captured: string) => string;
     transform: (captured: string) => T;
-    validate: (captured: RGXCapture<T>, share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => boolean | string;
-    beforeCapture: ((share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => RGXPartControl) | null;
-    afterCapture: ((capture: RGXCapture<T>, share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => void) | null;
-    afterFailure: ((e: RGXRegexNotMatchedAtPositionError, share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => void) | null;
-    afterValidationFailure: ((e: RGXPartValidationFailedError, share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => void) | null;
+    validate: (captured: RGXCapture<T>, context: RGXPartContext<R, S, T>) => boolean | string;
+    beforeCapture: ((context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
+    afterCapture: ((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => void) | null;
+    afterFailure: ((e: RGXRegexNotMatchedAtPositionError, context: RGXPartContext<R, S, T>) => void) | null;
+    afterValidationFailure: ((e: RGXPartValidationFailedError, context: RGXPartContext<R, S, T>) => void) | null;
 };
 
 type RGXWalkerOptions<R, S = unknown> = {

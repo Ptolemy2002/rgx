@@ -401,7 +401,7 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("test", [part]);
 
             instance.step();
-            expect(beforeCapture).toHaveBeenCalledWith(instance.share, part, instance);
+            expect(beforeCapture).toHaveBeenCalledWith({ part, walker: instance });
         });
 
         it("calls afterValidationFailure after a validation failure on Parts", () => {
@@ -413,7 +413,7 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("test", [part]);
 
             expectError(() => instance.step(), RGXPartValidationFailedError, (e) => {
-                expect(afterValidationFailure).toHaveBeenCalledWith(e, instance.share, part, instance);
+                expect(afterValidationFailure).toHaveBeenCalledWith(e, { part, walker: instance });
             });
         });
 
@@ -425,7 +425,7 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("test", [part]);
 
             expectError(() => instance.step(), RGXRegexNotMatchedAtPositionError, (e) => {
-                expect(afterFailure).toHaveBeenCalledWith(e, instance.share, part, instance);
+                expect(afterFailure).toHaveBeenCalledWith(e, { part, walker: instance });
             });
         });
 
@@ -438,9 +438,7 @@ describe("RGXWalker", () => {
             instance.step();
             expect(afterCapture).toHaveBeenCalledWith(
                 { raw: "test", value: "test", start: 0, end: 4, ownerId: part.id, branch: 0, groups: null },
-                instance.share,
-                part,
-                instance
+                { part, walker: instance }
             );
         });
 
@@ -455,9 +453,7 @@ describe("RGXWalker", () => {
             instance.step();
             expect(validate).toHaveBeenCalledWith(
                 expect.objectContaining({ raw: "TEST" }),
-                instance.share,
-                part,
-                instance
+                { part, walker: instance }
             );
         });
 
@@ -585,7 +581,7 @@ describe("RGXWalker", () => {
         describe("afterCapture calls stop()", () => {
             it("sets stopped after capturing", () => {
                 const part = new RGXPart("t", {
-                    afterCapture: (_, __, ___, walker) => walker.stop()
+                    afterCapture: (_, { walker }) => walker.stop()
                 });
                 const instance = new RGXWalker("test", [part]);
 
@@ -662,7 +658,7 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("test", [
                 "t",
                 new RGXPart("e", {
-                    afterCapture: (_, __, ___, walker) => walker.stop()
+                    afterCapture: (_, { walker }) => walker.stop()
                 }),
                 "s",
                 "t"
@@ -734,7 +730,7 @@ describe("RGXWalker", () => {
 
         it("stops if the initial Part step triggers stop via afterCapture", () => {
             const part1 = new RGXPart("e", {
-                afterCapture: (_, __, ___, walker) => walker.stop()
+                afterCapture: (_, { walker }) => walker.stop()
             });
             const part2 = new RGXPart("s");
             const instance = new RGXWalker("test", ["t", part1, part2, "t"]);
@@ -781,6 +777,14 @@ describe("RGXWalker", () => {
                 { raw: "es", value: "ES", start: 1, end: 3, ownerId: part.id, branch: 0, groups: null },
                 { raw: "t", value: "t", start: 3, end: 4, ownerId: null, branch: 0, groups: null },
             ]);
+        });
+
+        it("returns the reduced value", () => {
+            const instance = new RGXWalker<string>("test", ["t", "e", "s", new RGXPart("t", {
+                afterCapture: (_, { walker }) => walker.reduced = "reduced"
+            })], { reduced: "not-reduced" });
+            const result = instance.walk();
+            expect(result).toBe("reduced");
         });
     });
 

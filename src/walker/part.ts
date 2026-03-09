@@ -23,15 +23,20 @@ export type RGXCapture<T = unknown> = {
     groups: Record<string, string> | null; // The groups captured by the token that captured this, or null if the token didn't capture any groups
 };
 
+export type RGXPartContext<R, S= unknown, T=string> = {
+    part: RGXPart<R, S, T>;
+    walker: RGXWalker<R, S>;
+};
+
 export type RGXPartOptions<R, S = unknown, T=string> = {
     id: string;
     rawTransform: (captured: string) => string;
     transform: (captured: string) => T;
-    validate: (captured: RGXCapture<T>, share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => boolean | string;
-    beforeCapture: ((share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => RGXPartControl) | null;
-    afterCapture: ((capture: RGXCapture<T>, share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => void) | null;
-    afterFailure: ((e: RGXRegexNotMatchedAtPositionError, share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => void) | null;
-    afterValidationFailure: ((e: RGXPartValidationFailedError, share: S, part: RGXPart<R, S, T>, walker: RGXWalker<R, S>) => void) | null;
+    validate: (captured: RGXCapture<T>, context: RGXPartContext<R, S, T>) => boolean | string;
+    beforeCapture: ((context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
+    afterCapture: ((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => void) | null;
+    afterFailure: ((e: RGXRegexNotMatchedAtPositionError, context: RGXPartContext<R, S, T>) => void) | null;
+    afterValidationFailure: ((e: RGXPartValidationFailedError, context: RGXPartContext<R, S, T>) => void) | null;
 };
 
 export class RGXPart<R, S = unknown, T=string> {
@@ -67,8 +72,8 @@ export class RGXPart<R, S = unknown, T=string> {
         return this.id !== null;
     }
 
-    validate(capture: RGXCapture<T>, share: S, walker: RGXWalker<R, S>) {
-        const result = this._validate(capture, share, this, walker);
+    validate(capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) {
+        const result = this._validate(capture, context);
         if (result === true) return;
         
         const message = typeof result === "string" ? result : "Part Validation Failed";

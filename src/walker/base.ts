@@ -104,7 +104,7 @@ export class RGXWalker<R, S = unknown> {
         return this.tokenPosition >= this.tokens.length;
     }
 
-    hasNextToken(predicate: (token: RGXToken | RGXPart<R, S>) => boolean = () => true) {
+    hasNextToken(predicate: (token: RGXToken | RGXPart<R, S, unknown>) => boolean = () => true) {
         return !this.atTokenEnd() && predicate(this.currentToken()!);
     }
 
@@ -158,7 +158,7 @@ export class RGXWalker<R, S = unknown> {
 
         // Ask Part what to do — control flow via return values, not flags.
         if (isPart) {
-            const control = token.beforeCapture?.(this.share, token, this);
+            const control = token.beforeCapture?.({part: token, walker: this});
 
             if (control === "stop") {
                 this._stopped = true;
@@ -188,7 +188,7 @@ export class RGXWalker<R, S = unknown> {
             capture = this.capture(branchedToken, true);
         } catch (e) {
             if (isPart && e instanceof RGXRegexNotMatchedAtPositionError) {
-                token.afterFailure?.(e, this.share, token, this);
+                token.afterFailure?.(e, { part: token, walker: this });
             }
 
             throw e;
@@ -218,10 +218,10 @@ export class RGXWalker<R, S = unknown> {
         // Validate the part. If validation fails, it will throw an error, so nothing below will run.
         if (isPart) {
             try {
-                token.validate(captureResult, this.share, this);
+                token.validate(captureResult, { part: token, walker: this });
             } catch (e) {
                 if (e instanceof RGXPartValidationFailedError) {
-                    token.afterValidationFailure?.(e, this.share, token, this);
+                    token.afterValidationFailure?.(e, { part: token, walker: this });
                 }
 
                 throw e;
@@ -239,7 +239,7 @@ export class RGXWalker<R, S = unknown> {
 
         // Notify Part after capture
         if (isPart) {
-            token.afterCapture?.(captureResult, this.share, token, this);
+            token.afterCapture?.(captureResult, { part: token, walker: this });
         }
 
         if (!this.infinite || this.tokenPosition < this.tokens.length - 1) {
@@ -277,7 +277,8 @@ export class RGXWalker<R, S = unknown> {
     }
 
     walk() {
-        return this.stepToToken(() => false);
+        this.stepToToken(() => false);
+        return this.reduced;
     }
 
     // Clone method

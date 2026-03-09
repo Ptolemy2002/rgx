@@ -164,17 +164,17 @@ describe("RGXPart", () => {
     describe("validate", () => {
         it("returns true if validation passes", () => {
             const instance = new RGXPart("test", { validate: () => true });
-            expect(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4, ownerId: null, branch: 0, groups: null }, {}, new RGXWalker("test", []))).not.toThrow();
+            expect(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4, ownerId: null, branch: 0, groups: null }, { part: instance, walker: new RGXWalker("test", []) })).not.toThrow();
         });
 
         it("throws if validation fails with false", () => {
             const instance = new RGXPart("test", { validate: () => false });
-            expect(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4, ownerId: null, branch: 0, groups: null }, {}, new RGXWalker("test", []))).toThrow(RGXPartValidationFailedError);
+            expect(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4, ownerId: null, branch: 0, groups: null }, { part: instance, walker: new RGXWalker("test", []) })).toThrow(RGXPartValidationFailedError);
         });
 
         it("throws with custom message if validation fails with a string", () => {
             const instance = new RGXPart("test", { validate: () => "Custom error message" });
-            expectError(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4, ownerId: null, branch: 0, groups: null }, {}, new RGXWalker("test", [])), RGXPartValidationFailedError, (e) => {
+            expectError(() => instance.validate({ raw: "test", value: "test", start: 0, end: 4, ownerId: null, branch: 0, groups: null }, { part: instance, walker: new RGXWalker("test", []) }), RGXPartValidationFailedError, (e) => {
                 expect(e.message).toBe(`Custom error message; ID: unknown; Got: test (transformed: "test")`);
             });
         });

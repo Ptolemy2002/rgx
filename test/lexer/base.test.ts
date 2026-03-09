@@ -319,7 +319,7 @@ describe("RGXLexer", () => {
                         type: "walk",
                         tokens: [
                             rgxPart("foo", {
-                                afterCapture(c, _, __, w) {
+                                afterCapture(c, { walker: w }) {
                                     w.reduced.capture = c.raw;
                                 }
                             })
@@ -358,7 +358,7 @@ describe("RGXLexer", () => {
                         type: "walk",
                         tokens: [
                             rgxPart("foo", {
-                                afterCapture(c, _, __, w) {
+                                afterCapture(c, { walker: w }) {
                                     w.reduced.capture = c.raw;
                                 }
                             })
@@ -575,7 +575,7 @@ describe("RGXLexer", () => {
                         type: "walk",
                         tokens: [
                             rgxPart("foo", {
-                                afterCapture(c, _, __, w) {
+                                afterCapture(c, { walker: w }) {
                                     w.reduced.capture = c.raw;
                                 }
                             })
@@ -614,7 +614,7 @@ describe("RGXLexer", () => {
                         type: "walk",
                         tokens: [
                             rgxPart("foo", {
-                                afterCapture(c, _, __, w) {
+                                afterCapture(c, { walker: w }) {
                                     w.reduced.capture = c.raw;
                                 }
                             })
