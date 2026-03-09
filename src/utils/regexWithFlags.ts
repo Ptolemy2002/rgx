@@ -1,12 +1,11 @@
-import { assertValidRegexFlags } from "src/ExtRegExp";
 import { normalizeRegexFlags } from "./normalizeRegexFlags";
 import { ExtRegExp } from "src/ExtRegExp";
+import { createRegex } from "./createRegex";
 
 export function regexWithFlags(exp: RegExp | ExtRegExp, flags: string, replace=false): ExtRegExp {
-    assertValidRegexFlags(flags);
-    if (replace) return new ExtRegExp(exp.source, flags);
+    if (replace) return createRegex(exp.source, flags, true);
 
     const existingFlags = exp.flags;
     const newFlags = existingFlags + flags;
-    return new ExtRegExp(exp.source, normalizeRegexFlags(newFlags));
+    return createRegex(exp.source, normalizeRegexFlags(newFlags), true);
 }

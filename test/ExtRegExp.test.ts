@@ -3,7 +3,9 @@ import {
     RGXInvalidFlagTransformerKeyError, RGXInvalidRegexFlagsError,
     unregisterFlagTransformer, isFlagKeyAvailable, applyFlagTransformers,
     extractCustomRegexFlags, extractVanillaRegexFlags, isValidRegexFlags,
-    assertValidRegexFlags
+    assertValidRegexFlags, RegExpFlagTransformer,
+    RGXInvalidVanillaRegexFlagsError,
+    RGXNotDirectRegExpError
 } from "src/index";
 
 describe("ExtRegExp", () => {
@@ -21,9 +23,7 @@ describe("ExtRegExp", () => {
     });
 
     it("accepts custom flags", () => {
-        const customFlagTransformer = (exp: RegExp) => {
-            return new RegExp("transformed", exp.flags);
-        };
+        const customFlagTransformer: RegExpFlagTransformer = (exp: RegExp) => ["transformed", exp.flags];
 
         registerFlagTransformer("x", customFlagTransformer);
 
@@ -35,9 +35,7 @@ describe("ExtRegExp", () => {
     });
 
     it("preserves custom flags in derived regexes", () => {
-        const customFlagTransformer = (exp: RegExp) => {
-            return new RegExp("transformed", exp.flags);
-        };
+        const customFlagTransformer: RegExpFlagTransformer = (exp: RegExp) => ["transformed", exp.flags];
 
         registerFlagTransformer("x", customFlagTransformer);
 
@@ -51,7 +49,7 @@ describe("ExtRegExp", () => {
     });
 
     it("returns custom flags in .flags property", () => {
-        const customFlagTransformer = (exp: RegExp) => exp;
+        const customFlagTransformer:RegExpFlagTransformer = (exp: RegExp) => [exp.source, exp.flags];
         registerFlagTransformer("x", customFlagTransformer);
 
         const regex = new ExtRegExp("test", "gx");
@@ -82,7 +80,7 @@ describe("isFlagKeyAvailable", () => {
     });
 
     it("returns false for keys that already have transformers", () => {
-        const customFlagTransformer = (exp: RegExp) => exp;
+        const customFlagTransformer: RegExpFlagTransformer = (exp: RegExp) => [exp.source, exp.flags];
         registerFlagTransformer("x", customFlagTransformer);
 
         expect(isFlagKeyAvailable("x")).toBe(false);
@@ -97,19 +95,19 @@ describe("isFlagKeyAvailable", () => {
 
 describe("registerFlagTransformer", () => {
     it("registers a valid transformer", () => {
-        const customFlagTransformer = (exp: RegExp) => exp;
+        const customFlagTransformer: RegExpFlagTransformer = (exp: RegExp) => [exp.source, exp.flags];
         registerFlagTransformer("x", customFlagTransformer);
         expect(isFlagKeyAvailable("x")).toBe(false);
         unregisterFlagTransformer("x");
     });
 
     it("throws an error for invalid keys", () => {
-        expect(() => registerFlagTransformer("xx", (exp) => exp)).toThrow(RGXInvalidFlagTransformerKeyError);
-        expect(() => registerFlagTransformer("g", (exp) => exp)).toThrow(RGXFlagTransformerConflictError);
+        expect(() => registerFlagTransformer("xx", (exp) => [exp.source, exp.flags])).toThrow(RGXInvalidFlagTransformerKeyError);
+        expect(() => registerFlagTransformer("g", (exp) => [exp.source, exp.flags])).toThrow(RGXFlagTransformerConflictError);
     });
 
     it("throws an error for duplicate keys", () => {
-        const customFlagTransformer = (exp: RegExp) => exp;
+        const customFlagTransformer: RegExpFlagTransformer = (exp: RegExp) => [exp.source, exp.flags];
         registerFlagTransformer("x", customFlagTransformer);
         expect(() => registerFlagTransformer("x", customFlagTransformer)).toThrow(RGXFlagTransformerConflictError);
         unregisterFlagTransformer("x");
@@ -118,7 +116,7 @@ describe("registerFlagTransformer", () => {
 
 describe("unregisterFlagTransformer", () => {
     it("unregisters an existing transformer", () => {
-        const customFlagTransformer = (exp: RegExp) => exp;
+        const customFlagTransformer: RegExpFlagTransformer = (exp: RegExp) => [exp.source, exp.flags];
         registerFlagTransformer("x", customFlagTransformer);
         expect(isFlagKeyAvailable("x")).toBe(false);
         unregisterFlagTransformer("x");
@@ -131,10 +129,14 @@ describe("unregisterFlagTransformer", () => {
 });
 
 describe("applyFlagTransformers", () => {
+    it("rejects non-direct RegExp instances", () => {
+        class CustomRegExp extends RegExp {}
+        const customRegex = new CustomRegExp("test");
+        expect(() => applyFlagTransformers(customRegex, "x")).toThrow(RGXNotDirectRegExpError);
+    });
+
     it("applies registered transformers to a regex", () => {
-        const customFlagTransformer = (exp: RegExp) => {
-            return new RegExp("transformed", exp.flags);
-        };
+        const customFlagTransformer: RegExpFlagTransformer = (exp: RegExp) => ["transformed", exp.flags];
 
         registerFlagTransformer("x", customFlagTransformer);
 
@@ -145,15 +147,22 @@ describe("applyFlagTransformers", () => {
         unregisterFlagTransformer("x");
     });
 
+    it("Throws an RGXInvalidVanillaRegexFlagsError if a transformer produces invalid vanilla flags", () => {
+        registerFlagTransformer("x", (r) => [r.source, "invalid"]);
+
+        const regex = /test/;
+        expect(() => applyFlagTransformers(regex, "x")).toThrow(RGXInvalidVanillaRegexFlagsError);
+        
+        unregisterFlagTransformer("x");
+    });
+
     it("does not throw an error if a transformer is not found", () => {
         const regex = /test/;
         expect(() => applyFlagTransformers(regex, "x")).not.toThrow();
     });
 
     it("skips already applied transformers", () => {
-        const customFlagTransformer = (exp: RegExp) => {
-            return new RegExp("transformed" + exp.source, exp.flags);
-        };
+        const customFlagTransformer: RegExpFlagTransformer = (exp: RegExp) => ["transformed" + exp.source, exp.flags];
 
         registerFlagTransformer("x", customFlagTransformer);
 
@@ -168,7 +177,7 @@ describe("applyFlagTransformers", () => {
 
 describe("extractCustomRegexFlags", () => {
     it("extracts custom flags from a flags string", () => {
-        const customFlagTransformer = (exp: RegExp) => exp;
+        const customFlagTransformer: RegExpFlagTransformer = (exp: RegExp) => [exp.source, exp.flags];
         registerFlagTransformer("x", customFlagTransformer);
         registerFlagTransformer("z", customFlagTransformer);
 
@@ -185,7 +194,7 @@ describe("extractCustomRegexFlags", () => {
 
 describe("extractVanillaRegexFlags", () => {
     it("extracts vanilla flags from a flags string", () => {
-        const customFlagTransformer = (exp: RegExp) => exp;
+        const customFlagTransformer: RegExpFlagTransformer = (exp: RegExp) => [exp.source, exp.flags];
         registerFlagTransformer("x", customFlagTransformer);
         registerFlagTransformer("z", customFlagTransformer);
 
@@ -224,7 +233,7 @@ describe("isValidRegexFlags", () => {
     });
 
     it("returns true for valid flags with custom flags included", () => {
-        const customFlagTransformer = (exp: RegExp) => exp;
+        const customFlagTransformer: RegExpFlagTransformer = (exp: RegExp) => [exp.source, exp.flags];
         registerFlagTransformer("x", customFlagTransformer);
 
         expect(isValidRegexFlags("gix")).toBe(true);

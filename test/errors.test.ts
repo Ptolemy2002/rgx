@@ -5,7 +5,8 @@ import {
     RGXFlagTransformerConflictError, RGXNotSupportedError, RGXInsertionRejectedError,
     RGXConstantConflictError, RGXInvalidConstantKeyError, RGXRegexNotMatchedAtPositionError,
     RGXPartValidationFailedError, RGXInvalidLexerModeError, RGXLexemeNotMatchedAtPositionError,
-    RGXInvalidLexerError, RGXInvalidWalkerError, RGXInvalidPartError, isLexemeNotMatchedCauseError
+    RGXInvalidLexerError, RGXInvalidWalkerError, RGXInvalidPartError, isLexemeNotMatchedCauseError,
+    RGXNotDirectRegExpError
 } from 'src/index';
 
 class TestClassToken extends RGXClassToken {
@@ -1165,5 +1166,32 @@ describe("RGXInvalidPartError", () => {
     it('formats the error message correctly when the constructor name is specified and got is a class instance', () => {
         const error = new RGXInvalidPartError('Invalid part', new TestClassToken(), 'CustomPart');
         expect(error.toString()).toBe('RGXInvalidPartError: Invalid part; Expected: [instance of CustomPart]; Got: [instance of TestClassToken]');
+    });
+});
+
+describe("RGXNotDirectRegExpError", () => {
+    it('has the correct name', () => {
+        const error = new RGXNotDirectRegExpError('Not a direct RegExp', "gotValue");
+        expect(error.name).toBe('RGXNotDirectRegExpError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXNotDirectRegExpError('Not a direct RegExp', "gotValue");
+        expect(error.code).toBe('NOT_DIRECT_REGEXP');
+    });
+
+    it('exposes the gotConstructorName property', () => {
+        const error = new RGXNotDirectRegExpError('Not a direct RegExp', 'gotValue');
+        expect(error.gotConstructorName).toBe('gotValue');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXNotDirectRegExpError('Not a direct RegExp', 'gotValue');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXNotDirectRegExpError('Not a direct RegExp', 'gotValue');
+        expect(error.toString()).toBe('RGXNotDirectRegExpError: Not a direct RegExp; Expected direct instance of RegExp; Got instance of gotValue');
     });
 });

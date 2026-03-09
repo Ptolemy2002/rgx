@@ -6,7 +6,7 @@ import {
     isLexemeNotMatchedCauseError, RGXInvalidLexerError
 } from "src/errors";
 import { RGXTokenOrPart, RGXWalker, RGXWalkerOptions } from "src/walker";
-import { assertRegexMatchesAtPosition, regexMatchAtPosition } from "src/utils";
+import { assertRegexMatchesAtPosition, createRegex, regexMatchAtPosition } from "src/utils";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { rgxConstant } from "src/constants";
 
@@ -110,7 +110,7 @@ export class RGXLexer<Data, Share=unknown> {
 
         if (lexemeDefinition.type === "resolve") {
             const { token } = lexemeDefinition;
-            const regex = new RegExp(resolveRGXToken(token));
+            const regex = createRegex(resolveRGXToken(token));
 
             // Since the assertion will throw an error if there is no match, this is safe.
             const match = assertRegexMatchesAtPosition(regex, this.source, startPosition, 10, true);
@@ -245,7 +245,7 @@ export class RGXLexer<Data, Share=unknown> {
 
     skipWhitespace(): void {
         if (this.isAtEnd()) return;
-        const regex = new RegExp(resolveRGXToken(rgxConstant("whitespace-block")));
+        const regex = createRegex(resolveRGXToken(rgxConstant("whitespace-block")));
         const match = regexMatchAtPosition(regex, this.source, this.position, true);
 
         if (match !== null) {

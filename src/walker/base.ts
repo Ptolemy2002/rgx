@@ -4,7 +4,7 @@ import { assertInRange, RGXInvalidWalkerError, RGXPartValidationFailedError, RGX
 import { RGXToken } from "src/types";
 import { RGXPart, RGXCapture } from "./part";
 import { resolveRGXToken } from "src/resolve";
-import { assertRegexMatchesAtPosition } from "src/utils";
+import { assertRegexMatchesAtPosition, createRegex } from "src/utils";
 import { isRGXArrayToken } from "src/typeGuards";
 import { RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
@@ -134,7 +134,7 @@ export class RGXWalker<R, S = unknown> {
     capture(token: RGXTokenOrPart<R, S>, includeMatch: true): RegExpExecArray;
     capture(token: RGXTokenOrPart<R, S>, includeMatch?: false): string;
     capture(token: RGXTokenOrPart<R, S>, includeMatch = false): string | RegExpExecArray {
-        const regex = new RegExp(resolveRGXToken(RGXPart.check(token) ? token.token : token));
+        const regex = createRegex(resolveRGXToken(RGXPart.check(token) ? token.token : token));
         const match = assertRegexMatchesAtPosition(regex, this.source, this.sourcePosition, 10, true);
         this.sourcePosition += match[0].length;
         return includeMatch ? match : match[0];

@@ -166,6 +166,11 @@ export function assertRGXToken<
 >(value: unknown, type: T = null as T, matchLength: boolean = true): asserts value is t.RGXTokenFromType<T> {
     if (!isRGXToken(value, type, matchLength)) {
         const flatType = rgxTokenTypeGuardInputToFlat(type);
+        /*
+            ts-ignore
+            This line sometimes throws a weird error in VSCode, but it doesn't prevent a build, and I don't know how to fix it.
+            It's an excessively deep type error on the `value` variable, which is typed as `unknown`.
+        */
         throw new e.RGXInvalidTokenError("Invalid RGX token", flatType === null ? null : {type: "tokenType", values: [flatType]}, value);
     }
 }
@@ -205,7 +210,7 @@ export function isValidRegexString(value: string): value is t.ValidRegexString {
             return false;
         }
 
-        // This is ignored because I don't know what king of
+        // This is ignored because I don't know what kind of
         // unexpected errors might happen.
         /* istanbul ignore next */
         throw e;

@@ -19,7 +19,8 @@ export type RGXErrorCode =
     'LEXEME_NOT_MATCHED_AT_POSITION' |
     'INVALID_RGX_LEXER' |
     'INVALID_RGX_WALKER' |
-    'INVALID_RGX_PART'
+    'INVALID_RGX_PART' |
+    'NOT_DIRECT_REGEXP'
 ;
 
 export class RGXError extends Error {

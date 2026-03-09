@@ -1,9 +1,10 @@
-import { RGXFlagTransformerConflictError, RGXInvalidFlagTransformerKeyError, RGXInvalidRegexFlagsError } from "./errors";
+import { RGXFlagTransformerConflictError, RGXInvalidFlagTransformerKeyError, RGXInvalidRegexFlagsError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError, RGXNotDirectRegExpError } from "./errors";
 import { createConstructFunction } from "./internal";
 import { isValidVanillaRegexFlags } from "./typeGuards";
 import { ValidRegexFlags } from "./types";
+import { createRegex } from "./utils";
 
-export type RegExpFlagTransformer = (exp: RegExp) => RegExp;
+export type RegExpFlagTransformer = (exp: RegExp) => [string, string];
 const flagTransformers: Record<string, RegExpFlagTransformer> = {};
 
 export class ExtRegExp extends RegExp {
@@ -18,7 +19,7 @@ export class ExtRegExp extends RegExp {
         const source = pattern instanceof RegExp ? pattern.source : pattern;
         const alreadyAppliedFlags = pattern instanceof RegExp ? pattern.flags : '';
 
-        const { source: transformedSource, flags: transformedFlags } = applyFlagTransformers(new RegExp(source, vanillaFlags), customFlags, alreadyAppliedFlags);
+        const { source: transformedSource, flags: transformedFlags } = applyFlagTransformers(createRegex(source, vanillaFlags), customFlags, alreadyAppliedFlags);
         super(transformedSource, transformedFlags);
         this.extFlags = customFlags;
     }
@@ -56,9 +57,30 @@ export function unregisterFlagTransformer(key: string): void {
 }
 
 export function applyFlagTransformers(regex: RegExp, flags: string, alreadyAppliedFlags: string = ''): RegExp {
+    if (Object.getPrototypeOf(regex) !== RegExp.prototype) {
+        throw new RGXNotDirectRegExpError("Cannot apply flag transformers to non-direct RegExp instances", regex.constructor.name);
+    }
+
     for (const flag in flagTransformers) {
         if (flags.includes(flag) && !alreadyAppliedFlags.includes(flag)) {
-            regex = flagTransformers[flag]!(regex);
+            const [newSource, newFlags] = flagTransformers[flag]!(regex);
+            try {
+                if (isValidVanillaRegexFlags(newFlags)) {
+                    regex = new RegExp(newSource, newFlags);
+                } else {
+                    throw new RGXInvalidVanillaRegexFlagsError(`Flag transformer for flag "${flag}" produced invalid vanilla regex flags.`, newFlags);
+                }
+            } catch (e: unknown) {
+                if (e instanceof SyntaxError) {
+                    throw new RGXInvalidRegexStringError(`Flag transformer for flag "${flag}" produced an invalid regex.`, newSource, e);
+                }
+
+                // This is ignored because I don't know what kind of
+                // unexpected errors might happen.
+                /* istanbul ignore next */
+                throw e;
+            }
+
             alreadyAppliedFlags += flag;
         }
     }

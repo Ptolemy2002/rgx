@@ -5,7 +5,7 @@ import { isRGXGroupedToken, isRGXToken } from "src/typeGuards";
 import { assertInRange, RGXNotSupportedError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
 import { createConstructFunction } from "src/internal";
-import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
+import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
 
@@ -99,7 +99,7 @@ export class RGXRepeatToken extends RGXClassToken {
         if (this.min === 0 && this.max === 0) return null;
         
         const resolvedSource = resolveRGXToken(this.token);
-        return new RegExp(`${resolvedSource}${this.repeaterSuffix}`);
+        return createRegex(`${resolvedSource}${this.repeaterSuffix}`);
     }
 
     clone(depth: CloneDepth="max") {

@@ -37,7 +37,7 @@ const validRegexFlagsSymbol = Symbol('rgx.ValidRegexFlags');
 type ValidRegexFlagsBrandSymbol = typeof validRegexFlagsSymbol;
 type ValidRegexFlags = Branded<string, [ValidRegexFlagsBrandSymbol]> | ValidVanillaRegexFlags;
 
-type RegExpFlagTransformer = (exp: RegExp) => RegExp;
+type RegExpFlagTransformer = (exp: RegExp) => [string, string];
 
 const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
 type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;

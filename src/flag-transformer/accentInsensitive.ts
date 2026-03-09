@@ -1,6 +1,7 @@
 import { rgxConstant } from "src/constants";
 import { RegExpFlagTransformer } from "src/ExtRegExp";
 import { resolveRGXToken } from "src/resolve";
+import { createRegex } from "src/utils";
 
 const accentPatterns: string[] = [
     "(a|á|à|ä|â|ã)", "(A|Á|À|Ä|Â|Ã)",
@@ -28,11 +29,11 @@ export const accentInsensitiveFlagTransformer: RegExpFlagTransformer = function 
 
     accentPatterns.forEach((pattern) => {
         // Replace any of the characters in the pattern with the pattern itself
-        source = source.replaceAll(new RegExp(
+        source = source.replaceAll(createRegex(
             nonEscapeBound + nonLocalizedFlagBound + nonCharacterClassBound + pattern,
             "g"
         ), pattern);
     });
 
-    return new RegExp(source, flags);
+    return [source, flags];
 };

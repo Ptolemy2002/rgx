@@ -10,7 +10,7 @@ const validRegexFlagsSymbol = Symbol('rgx.ValidRegexFlags');
 type ValidRegexFlagsBrandSymbol = typeof validRegexFlagsSymbol;
 type ValidRegexFlags = Branded<string, [ValidRegexFlagsBrandSymbol]> | ValidVanillaRegexFlags;
 
-type RegExpFlagTransformer = (exp: RegExp) => RegExp;
+type RegExpFlagTransformer = (exp: RegExp) => [string, string];
 ```
 
 # ExtRegExp
@@ -54,7 +54,7 @@ Registers a custom flag transformer under the given single-character key. The ke
 
 ### Parameters
   - `key` (`string`): A single-character string to use as the flag key. Must not be a vanilla regex flag or an already-registered key.
-  - `transformer` (`RegExpFlagTransformer`): A function that takes a `RegExp` and returns a transformed `RegExp`.
+  - `transformer` (`RegExpFlagTransformer`): A function that takes a `RegExp` and returns a `[source, flags]` tuple representing the transformed pattern. The returned flags must be valid vanilla regex flags; `applyFlagTransformers` will throw `RGXInvalidVanillaRegexFlagsError` if they are not, and `RGXInvalidRegexStringError` if the source is invalid regex syntax.
 
 ### Returns
 - `void`: This function does not return a value, but will throw an `RGXInvalidFlagTransformerKeyError` if the key is not a single character, or an `RGXFlagTransformerConflictError` if the key conflicts with a vanilla flag or an existing transformer.
@@ -94,13 +94,15 @@ function applyFlagTransformers(regex: RegExp, flags: string, alreadyAppliedFlags
 
 Applies all registered flag transformers whose keys appear in the given flags string to the provided `RegExp`, returning the resulting transformed `RegExp`. Flags present in `alreadyAppliedFlags` are skipped to avoid re-applying transformers.
 
+The `regex` parameter must be a **direct** instance of `RegExp` (i.e., `Object.getPrototypeOf(regex) === RegExp.prototype`). Passing a subclass instance such as `ExtRegExp` will throw an `RGXNotDirectRegExpError`. Each transformer is called with the current `RegExp` and must return a `[source, flags]` tuple. The returned flags are validated as vanilla regex flags before a new `RegExp` is constructed from the tuple.
+
 ### Parameters
-  - `regex` (`RegExp`): The regular expression to transform.
+  - `regex` (`RegExp`): The regular expression to transform. Must be a direct `RegExp` instance, not a subclass; an `RGXNotDirectRegExpError` will be thrown otherwise.
   - `flags` (`string`): The flags string containing custom flag characters to apply.
   - `alreadyAppliedFlags` (`string`, optional): A string of flag characters that have already been applied and should be skipped. Defaults to `''`.
 
 ### Returns
-- `RegExp`: The transformed `RegExp` after applying all matching flag transformers.
+- `RegExp`: The transformed `RegExp` after applying all matching flag transformers. If a transformer returns invalid vanilla flags, an `RGXInvalidVanillaRegexFlagsError` is thrown. If a transformer returns an invalid regex source (i.e., constructing a `RegExp` from it throws a `SyntaxError`), the error is wrapped in an `RGXInvalidRegexStringError` that identifies which flag's transformer caused the failure.
 
 ## extractCustomRegexFlags
 ```typescript

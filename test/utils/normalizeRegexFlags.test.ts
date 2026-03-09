@@ -40,7 +40,7 @@ describe('normalizeRegexFlags', () => {
     });
 
     it('accepts a custom flag', () => {
-        registerFlagTransformer('x', (regex) => regex);
+        registerFlagTransformer('x', (regex) => [regex.source, regex.flags]);
 
         expect(normalizeRegexFlags('gx')).toBe('gx');
         expect(normalizeRegexFlags('ix')).toBe('ix');

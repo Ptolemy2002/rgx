@@ -4,7 +4,7 @@ import { rgxConcat } from "./concat";
 import { CloneDepth, immutableMut, extClone, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { Collection } from "@ptolemy2002/ts-utils";
 import { createConstructFunction } from "./internal";
-import { createRGXClassGuardFunction, createAssertRGXClassGuardFunction } from "src/utils";
+import { createRGXClassGuardFunction, createAssertRGXClassGuardFunction, createRegex } from "src/utils";
 
 export type RGXTokenCollectionMode = 'union' | 'concat';
 export type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
@@ -42,7 +42,7 @@ export class RGXTokenCollection implements Collection<RGXToken>, RGXConvertibleT
             pattern = rgxConcat(this.tokens);
         }
 
-        return new RegExp(pattern);
+        return createRegex(pattern);
     }
 
     getTokens(): RGXToken[] {

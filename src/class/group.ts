@@ -1,7 +1,7 @@
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 import { RGXClassToken } from "./base";
 import { createConstructFunction } from "src/internal";
-import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
+import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
 import { assertValidIdentifier } from "src/typeGuards";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 
@@ -63,7 +63,7 @@ export class RGXGroupToken extends RGXClassToken {
         else if (!this.capturing) result = `(?:${result})`;
         else result = `(${result})`;
 
-        return new RegExp(result);
+        return createRegex(result);
     }
 
     clone(depth: CloneDepth="max") {

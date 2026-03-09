@@ -5,6 +5,7 @@ import { rgxConcat } from "./concat";
 import { assureAcceptance, rgxTaggedTemplateToArray } from "./internal";
 import { assertValidRegexFlags, ExtRegExp, extRegExp } from "./ExtRegExp";
 import { RGXPart, RGXTokenOrPart, RGXWalker } from "./walker";
+import { createRegex } from "./utils";
 
 export * from "./errors";
 export * from "./types";
@@ -30,11 +31,10 @@ export function rgxa(tokens: t.RGXToken[], flags: string = ''): ExtRegExp {
     assertValidRegexFlags(flags);
     assureAcceptance(tokens, flags);
     const pattern = rgxConcat(tokens, true, flags);
-    return extRegExp(pattern, flags);
+    return createRegex(pattern, flags, true);
 }
 
 export default function rgx(flags: string = '', multiline=true, verbatim=true) {
-    assertValidRegexFlags(flags);
     return (strings: TemplateStringsArray, ...tokens: t.RGXToken[]) => {
         // It is safe to assert the result because we know there will be no parts passed in here.
         return rgxa(rgxTaggedTemplateToArray(strings, tokens, multiline, verbatim) as t.RGXToken[], flags);

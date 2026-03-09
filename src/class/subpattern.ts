@@ -3,7 +3,7 @@ import { assertValidIdentifier } from "src/typeGuards";
 import { assertInRange } from "src/errors";
 import { CloneDepth } from "@ptolemy2002/immutability-utils";
 import { createConstructFunction } from "src/internal";
-import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
+import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
 
 export class RGXSubpatternToken extends RGXClassToken {
     _pattern: string | number;
@@ -32,9 +32,9 @@ export class RGXSubpatternToken extends RGXClassToken {
 
     toRgx() {
         if (typeof this.pattern === "string") {
-            return new RegExp(`\\k<${this.pattern}>`);
+            return createRegex(`\\k<${this.pattern}>`);
         } else {
-            return new RegExp(`\\${this.pattern}`);
+            return createRegex(`\\${this.pattern}`);
         }
     }
 

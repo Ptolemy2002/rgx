@@ -39,7 +39,7 @@ const validRegexFlagsSymbol = Symbol('rgx.ValidRegexFlags');
 type ValidRegexFlagsBrandSymbol = typeof validRegexFlagsSymbol;
 type ValidRegexFlags = Branded<string, [ValidRegexFlagsBrandSymbol]> | ValidVanillaRegexFlags;
 
-type RegExpFlagTransformer = (exp: RegExp) => RegExp;
+type RegExpFlagTransformer = (exp: RegExp) => [string, string];
 
 const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
 type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;
@@ -247,6 +247,19 @@ constructor(message: string, got: string)
 
 ### Properties
 - `got` (`string`): The conflicting key string.
+
+## RGXNotDirectRegExpError
+A specific error class for non-direct `RegExp` instances. This error is thrown by `applyFlagTransformers` when the provided `regex` argument is not a direct instance of `RegExp` (i.e., its prototype is not exactly `RegExp.prototype`), such as an `ExtRegExp`. The error code is set to `NOT_DIRECT_REGEXP` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, gotConstructorName: string)
+```
+- `message` (`string`): The error message.
+- `gotConstructorName` (`string`): The name of the actual constructor of the value that was passed.
+
+### Properties
+- `gotConstructorName` (`string`): The name of the actual constructor of the value that was passed. Its value is appended to the formatted error output.
 
 ## RGXInvalidConstantKeyError
 A specific error class for invalid constant keys. This error is thrown when attempting to access or assert an RGX constant with a name that does not exist. The error code is set to `INVALID_CONSTANT_KEY` on instantiation.
