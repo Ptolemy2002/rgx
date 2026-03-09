@@ -188,7 +188,17 @@ export class RGXWalker<R, S = unknown> {
             capture = this.capture(branchedToken, true);
         } catch (e) {
             if (isPart && e instanceof RGXRegexNotMatchedAtPositionError) {
-                token.afterFailure?.(e, { part: token, walker: this });
+                const control = token.afterFailure?.(e, { part: token, walker: this });
+                if (control === "stop") {
+                    this._stopped = true;
+                    return null;
+                }
+                if (control === "skip") {
+                    this.tokenPosition++;
+                    return null;
+                }
+                
+                // Handling silent is pointless here since it won't add a capture in either case, so we don't check for it.
             }
 
             throw e;
@@ -201,7 +211,7 @@ export class RGXWalker<R, S = unknown> {
         let branch = 0;
         // Determine branch index for captureResult by finding the first index
         // with non-undefined match group.
-        for (let i = 0; i < capture.length; i++) {
+        for (let i = 0; i < capture.length - 1; i++) {
             const branchKey = `rgx_branch_${i}`;
             if (capture.groups && capture.groups[branchKey] !== undefined) {
                 branch = i;
@@ -220,8 +230,20 @@ export class RGXWalker<R, S = unknown> {
             try {
                 token.validate(captureResult, { part: token, walker: this });
             } catch (e) {
+                this.sourcePosition = start; // Reset source position on validation failure
+                
                 if (e instanceof RGXPartValidationFailedError) {
-                    token.afterValidationFailure?.(e, { part: token, walker: this });
+                    const control = token.afterValidationFailure?.(e, { part: token, walker: this });
+                    if (control === "stop") {
+                        this._stopped = true;
+                        return null;
+                    }
+                    if (control === "skip") {
+                        this.tokenPosition++;
+                        return null;
+                    }
+
+                    // Handling silent is pointless here since it won't add a capture in either case, so we don't check for it.
                 }
 
                 throw e;

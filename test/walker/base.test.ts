@@ -594,6 +594,74 @@ describe("RGXWalker", () => {
             });
         });
 
+        describe("afterFailure returns 'stop'", () => {
+            it("sets stopped after a match failure", () => {
+                const part = new RGXPart("x", {
+                    afterFailure: () => "stop"
+                });
+                const instance = new RGXWalker("test", [part]);
+
+                const result = instance.step();
+                expect(result).toBe(null);
+                expect(instance.stopped).toBe(true);
+                // Neither position advances on failure
+                expect(instance.tokenPosition).toBe(0);
+                expect(instance.sourcePosition).toBe(0);
+            });
+        });
+
+        describe("afterFailure returns 'skip'", () => {
+            it("advances tokenPosition but not sourcePosition after a match failure", () => {
+                const part = new RGXPart("x", {
+                    afterFailure: () => "skip"
+                });
+                const instance = new RGXWalker("test", [part, "t"]);
+
+                const result = instance.step();
+                expect(result).toBe(null);
+                expect(instance.stopped).toBe(false);
+                // Token position advances past the failed Part
+                expect(instance.tokenPosition).toBe(1);
+                // Source position does NOT advance
+                expect(instance.sourcePosition).toBe(0);
+            });
+        });
+
+        describe("afterValidationFailure returns 'stop'", () => {
+            it("sets stopped after a validation failure", () => {
+                const part = new RGXPart("t", {
+                    validate: () => false,
+                    afterValidationFailure: () => "stop"
+                });
+                const instance = new RGXWalker("test", [part]);
+
+                const result = instance.step();
+                expect(result).toBe(null);
+                expect(instance.stopped).toBe(true);
+                // Neither position advances on failure
+                expect(instance.tokenPosition).toBe(0);
+                expect(instance.sourcePosition).toBe(0);
+            });
+        });
+
+        describe("afterValidationFailure returns 'skip'", () => {
+            it("advances tokenPosition but not sourcePosition after a validation failure", () => {
+                const part = new RGXPart("t", {
+                    validate: () => false,
+                    afterValidationFailure: () => "skip"
+                });
+                const instance = new RGXWalker("test", [part, "t"]);
+
+                const result = instance.step();
+                expect(result).toBe(null);
+                expect(instance.stopped).toBe(false);
+                // Token position advances past the failed Part
+                expect(instance.tokenPosition).toBe(1);
+                // Source position does NOT advance
+                expect(instance.sourcePosition).toBe(0);
+            });
+        });
+
         describe("infinite mode", () => {
             it("stays on the last token after capturing it", () => {
                 const instance = new RGXWalker("tt", ["t"], { infinite: true });
