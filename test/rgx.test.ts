@@ -501,7 +501,7 @@ describe('rgxw', () => {
     it('constructs a walker with no-op tokens', () => {
         const walker = rgxw("foobarbazqux")`foo${null}bar${undefined}bazqux`;
         walker.walk();
-        expect(walker.captures.map(c => c.value)).toEqual(['foo', 'bar', 'bazqux']);
+        expect(walker.captures.map(c => c.value)).toEqual(['foo', '', 'bar', '', 'bazqux']);
     });
 
     it('constructs a walker with convertible tokens', () => {
