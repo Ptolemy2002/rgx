@@ -345,7 +345,7 @@ describe('rgx', () => {
     });
 
     it('Strips newlines and trims whitespace when multiline is true', () => {
-        const regex = rgx('', true)`
+        const regex = rgx('', {multiline: true})`
             foo
             ${new RGXClassWrapperToken("bar")}
             baz quux
@@ -354,7 +354,7 @@ describe('rgx', () => {
     });
 
     it('Strips comments when multiline is true', () => {
-        const regex = rgx('', true)`
+        const regex = rgx('', {multiline: true})`
             foo
             // This is a comment
             ${new RGXClassWrapperToken("bar")}
@@ -364,7 +364,7 @@ describe('rgx', () => {
     });
 
     it('Does not remove newlines coming from the constant instead of the template when multiline is true', () => {
-        const regex = rgx('', true)`
+        const regex = rgx('', {multiline: true})`
             foo
             bar ${rgxConstant("newline")}
             baz quux
@@ -374,7 +374,7 @@ describe('rgx', () => {
     });
 
     it('Does not remove newlines as parts (instead of directly in the template) when multiline is true', () => {
-        const regex = rgx('', true)`
+        const regex = rgx('', {multiline: true})`
             foo
             bar ${"\n"}
             baz quux
@@ -384,7 +384,7 @@ describe('rgx', () => {
     });
     
     it('Preserves newlines, comments, and whitespace when multiline is false', () => {
-        const regex = rgx('', false)`
+        const regex = rgx('', {multiline: false})`
             foo
             // This is a comment
             ${new RGXClassWrapperToken("bar")}// Another comment
@@ -402,12 +402,12 @@ describe('rgx', () => {
     });
 
     it('does not escape template string literals when verbatim is false and multiline is false', () => {
-        const regex = rgx('', false, false)`foo|${'bar'}|baz`;
+        const regex = rgx('', {multiline: false, verbatim: false})`foo|${'bar'}|baz`;
         expectRegexpEqual(regex, 'foo|bar|baz');
     });
 
     it('does not escape template string literals when verbatim is false and multiline is true', () => {
-        const regex = rgx('', true, false)`
+        const regex = rgx('', {multiline: true, verbatim: false})`
             foo |
             ${'bar'} |
             baz
@@ -416,12 +416,12 @@ describe('rgx', () => {
     });
 
     it("still escapes interpolated strings when verbatim is false and multiline is false", () => {
-        const regex = rgx('', false, false)`foo|${'bar|'}|baz`;
+        const regex = rgx('', {multiline: false, verbatim: false})`foo|${'bar|'}|baz`;
         expectRegexpEqual(regex, 'foo|bar\\||baz');
     });
 
     it("still escapes interpolated strings when verbatim is false and multiline is true", () => {
-        const regex = rgx('', true, false)`
+        const regex = rgx('', {multiline: true, verbatim: false})`
             foo |
             ${'bar|'} |
             baz

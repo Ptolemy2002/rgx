@@ -26,3 +26,5 @@ coverage
 
 # NPM
 package-lock.json
+
+post.md
