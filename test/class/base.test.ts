@@ -51,6 +51,10 @@ describe("rgxClassInit", () => {
         expect(testToken1.repeat).toThrow(RGXNotImplementedError);
     });
 
+    it("doesn't implement the optional method before being called", () => {
+        expect(testToken1.optional).toThrow(RGXNotImplementedError);
+    });
+
     it("doesn't implement the asLookahead method before being called", () => {
         expect(testToken1.asLookahead).toThrow(RGXNotImplementedError);
     });
@@ -75,6 +79,12 @@ describe("rgxClassInit", () => {
         rgxClassInit();
         expect(testToken1.repeat).toBeDefined();
         expect(typeof testToken1.repeat).toBe("function");
+    });
+
+    it("implements the optional method after being called", () => {
+        rgxClassInit();
+        expect(testToken1.optional).toBeDefined();
+        expect(typeof testToken1.optional).toBe("function");
     });
 
     it("implements the asLookahead method after being called", () => {
@@ -286,12 +296,42 @@ describe("RGXClassToken", () => {
             rgxClassInit();
         });
 
-        it("wraps in a repeat token with min 0 and max 1", () => {
+        it("returns the self if already a repeat token with min 0", () => {
+            const repeatToken = testToken1.repeat(0, 1);
+            const result = repeatToken.optional();
+            expect(result).toBe(repeatToken);
+        });
+
+        it("returns a wrapper around the same token as the self if already a repeat token with min 1", () => {
+            const repeatToken = testToken1.repeat(1, 2);
+            const result = repeatToken.optional();
+            expect(result).toBeInstanceOf(RGXRepeatToken);
+
+            expect(result.token).toBeInstanceOf(RGXGroupToken);
+            expect((result.token as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+
+            expect(result.min).toBe(0);
+            expect(result.max).toBe(2);
+        });
+
+        it("wraps in a repeat token with min 0 and max 1 when not already a repeat token", () => {
             const result = testToken1.optional();
             expect(result).toBeInstanceOf(RGXRepeatToken);
 
             expect(result.token).toBeInstanceOf(RGXGroupToken);
             expect((result.token as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+
+            expect(result.min).toBe(0);
+            expect(result.max).toBe(1);
+        });
+
+        it("wraps in a repeat token with min 0 and max 1 when already a repeat token with min > 1", () => {
+            const repeatToken = testToken1.repeat(2, 5);
+            const result = repeatToken.optional();
+            expect(result).toBeInstanceOf(RGXRepeatToken);
+
+            expect(result.token).toBeInstanceOf(RGXGroupToken);
+            expect((result.token as RGXGroupToken).tokens.toArray()).toEqual([repeatToken]);
 
             expect(result.min).toBe(0);
             expect(result.max).toBe(1);

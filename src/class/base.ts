@@ -26,6 +26,10 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
         }
     };
 
+    get rgxInterpolate() {
+        return false;
+    }
+
     get rgxIsGroup() {
         return false;
     }
@@ -39,19 +43,19 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
     }
 
     or(...others: RGXTokenCollectionInput[]): RGXClassUnionToken {
-        throw new RGXNotImplementedError('RGXClassToken.or(...others)', 'call rgxClassInit() first.')
+        throw new RGXNotImplementedError('RGXClassToken.or(...others)', 'call rgxClassInit() first.');
     }
 
     group(args: RGXGroupTokenArgs = {}, ...others: RGXTokenCollectionInput[]): RGXGroupToken {
-        throw new RGXNotImplementedError('RGXClassToken.group(args)', 'call rgxClassInit() first.')
+        throw new RGXNotImplementedError('RGXClassToken.group(args)', 'call rgxClassInit() first.');
     }
 
     repeat(min: number = 1, max: number | null = min, lazy: boolean = false): RGXRepeatToken {
-        throw new RGXNotImplementedError('RGXClassToken.repeat(min, max, lazy)', 'call rgxClassInit() first.')
+        throw new RGXNotImplementedError('RGXClassToken.repeat(min, max, lazy)', 'call rgxClassInit() first.');
     }
 
     optional(lazy: boolean = false): RGXRepeatToken {
-        return this.repeat(0, 1, lazy);
+        throw new RGXNotImplementedError('RGXClassToken.optional(lazy)', 'call rgxClassInit() first.');
     }
 
     asLookahead(positive: boolean = true): RGXLookaheadToken {

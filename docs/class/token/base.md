@@ -28,6 +28,7 @@ Notably, certain methods will throw `RGXNotImplementedError` if `rgxClassInit` h
 - `or`
 - `group`
 - `repeat`
+- `optional`
 - `asLookahead`
 - `asLookbehind`
 
@@ -41,6 +42,7 @@ Notably, certain methods will throw `RGXNotImplementedError` if `rgxClassInit` h
 
 ## Properties
 These properties only have getters.
+- `rgxInterpolate` (`boolean`): Returns `false` by default. When `true`, the resolver uses the token's `toRgx()` result as-is without further resolution or escaping. Subclasses can override this to inject pre-built regex strings directly.
 - `rgxIsGroup` (`boolean`): Returns `false` by default. Subclasses can override this to indicate whether the token represents a group.
 - `rgxIsRepeatable` (`boolean`): Returns `true` by default. Subclasses can override this to indicate that the token cannot be wrapped in an `RGXRepeatToken`. When `false`, attempting to set this token as the `token` property of an `RGXRepeatToken` (including via `repeat()` or `optional()`) will throw an `RGXNotSupportedError`.
 - `rgxGroupWrap` (`boolean`): Returns `true` by default. Controls whether the resolver wraps this token's resolved output in a non-capturing group. Subclasses can override this to prevent double-wrapping (e.g., when the token already wraps itself in a group).
@@ -50,7 +52,7 @@ These properties only have getters.
 - `or(...others: RGXTokenCollectionInput[]) => RGXClassUnionToken`: Creates an `RGXClassUnionToken` that represents a union (alternation) of this token with the provided others. If any of the `others` are `RGXClassUnionToken` instances, their tokens are flattened into the union rather than nested. If `this` is already an `RGXClassUnionToken`, its existing tokens are preserved and the others are appended.
 - `group(args?: RGXGroupTokenArgs, ...others: RGXTokenCollectionInput[]) => RGXGroupToken`: Wraps this token in an `RGXGroupToken` with the provided arguments. The `args` parameter defaults to `{}`, which creates a capturing group with no name. Any additional `others` are included in the group alongside `this`. This is a convenience method that creates a new `RGXGroupToken` with `this` and the `others` as the tokens.
 - `repeat(min?: number, max?: number | null, lazy?: boolean) => RGXRepeatToken`: Wraps this token in an `RGXRepeatToken` with the given repetition bounds. `min` defaults to `1`, `max` defaults to `min`, `lazy` defaults to `false`. Pass `null` for `max` to allow unlimited repetitions. When `lazy` is `true`, the resulting quantifier will be non-greedy. This is a convenience method that creates a new `RGXRepeatToken` with `this` as the token. Throws `RGXNotSupportedError` if called on a token with `rgxIsRepeatable` set to `false` (e.g., `RGXLookaroundToken`).
-- `optional(lazy?: boolean) => RGXRepeatToken`: Shorthand for `repeat(0, 1, lazy)`. Wraps this token in an `RGXRepeatToken` that matches the token zero or one times. `lazy` defaults to `false`. Throws `RGXNotSupportedError` if called on a token with `rgxIsRepeatable` set to `false` (e.g., `RGXLookaroundToken`).
+- `optional(lazy?: boolean) => RGXRepeatToken`: Makes this token optional (matched zero or one times). `lazy` defaults to `false`. Throws `RGXNotSupportedError` if called on a token with `rgxIsRepeatable` set to `false` (e.g., `RGXLookaroundToken`). When called on an `RGXRepeatToken`, the behavior is smart: if `min` is already `0`, the token is returned as-is; if `min` is `1`, a new `RGXRepeatToken` is returned with `min` set to `0` and the same `max`, wrapping the existing inner token; otherwise (i.e., `min > 1`), the token is wrapped in a new `RGXRepeatToken` with `min=0` and `max=1` as usual.
 - `asLookahead(positive?: boolean) => RGXLookaheadToken`: Wraps this token in an `RGXLookaheadToken`. `positive` defaults to `true`. If this token is already an `RGXLookaheadToken`, it is returned as-is without re-wrapping.
 - `asLookbehind(positive?: boolean) => RGXLookbehindToken`: Wraps this token in an `RGXLookbehindToken`. `positive` defaults to `true`. If this token is already an `RGXLookbehindToken`, it is returned as-is without re-wrapping.
 - `resolve() => ValidRegexString`: A convenience method that resolves this token by calling `resolveRGXToken(this)`, returning the resolved regex string representation. Since this method is defined on `RGXClassToken`, it is available on all subclasses including `RGXClassUnionToken`, `RGXGroupToken`, `RGXRepeatToken`, and `RGXLookaroundToken`.
