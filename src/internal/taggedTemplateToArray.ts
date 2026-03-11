@@ -1,8 +1,10 @@
 import { RGXTokenOrPart } from "src/walker";
 
 export function rgxTaggedTemplateToArray<R = unknown, S = unknown, T = unknown>(
-    strings: TemplateStringsArray, tokens: RGXTokenOrPart<R, S, T>[], multiline: boolean, verbatim: boolean
+    _strings: TemplateStringsArray, tokens: RGXTokenOrPart<R, S, T>[], multiline: boolean, verbatim: boolean
 ): RGXTokenOrPart<R, S, T>[] {
+    // Process the strings with escape sequences left alone.
+    const strings = _strings.raw;
     const array: RGXTokenOrPart<R, S, T>[] = [];
 
     for (let i = 0; i < Math.max(strings.length, tokens.length); i++) {

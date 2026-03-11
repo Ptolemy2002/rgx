@@ -429,6 +429,11 @@ describe('rgx', () => {
 
         expectRegexpEqual(regex, 'foo |bar\\| |baz');
     });
+
+    it("leaves escape sequences alone", () => {
+        const regex = rgx('', {multiline: false, verbatim: false})`\w+`;
+        expectRegexpEqual(regex, '\\w+');
+    });
 });
 
 describe('rgxConcat', () => {
@@ -626,5 +631,11 @@ describe('rgxw', () => {
     it('Throws the correct error for a part containing a class token that rejects insertion with a message', () => {
         const token = new RGXPart(new TestClassToken2());
         expect(() => rgxw("barbaz")`bar${token}baz`).toThrow(RGXInsertionRejectedError);
+    });
+
+    it("leaves escape sequences alone", () => {
+        const walker = rgxw('foo', {multiline: false, verbatim: false})`\w+`;
+        walker.walk();
+        expect(walker.captures.map(c => c.value)).toEqual(['foo']);
     });
 });
