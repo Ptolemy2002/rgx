@@ -297,10 +297,17 @@ describe("rgxConstant", () => {
         });
     });
 
+    describe("escape-bound constant", () => {
+        it("resolves correctly", () => {
+            const result = resolveRGXToken(rgxConstant("escape-bound"));
+            expect(result).toBe("(?<=(?<!\\\\)\\\\(?:\\\\\\\\)*)");
+        });
+    });
+
     describe("non-escape-bound constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("non-escape-bound"));
-            expect(result).toBe("(?<=(?<!\\\\)(?:\\\\\\\\)*)(?=[^\\\\]|$)");
+            expect(result).toBe("(?<=(?<!\\\\)(?:\\\\\\\\)*)");
         });
     });
 });

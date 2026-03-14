@@ -141,12 +141,22 @@ export const RGX_PREDEFINED_CONSTANTS = {
     },
 
     // Complex Constructs
+    "escape-bound": {
+        rgxGroupWrap: false,
+        rgxIsRepeatable: false,
+        toRgx() {
+            // Put this before any pattern to ensure that the pattern is escaped, i.e., preceded by an odd number of backslashes.
+            return /(?<=(?<!\\)\\(?:\\\\)*)/;
+        }
+    },
+
     "non-escape-bound": {
         rgxGroupWrap: false,
         rgxIsRepeatable: false,
         toRgx() {
             // Put this before any pattern to ensure that the pattern is not escaped, i.e., not preceded by an odd number of backslashes.
-            return /(?<=(?<!\\)(?:\\\\)*)(?=[^\\]|$)/;
+            // Essentially equivalent to escape-bound, but without the extra backslash between the negative lookbehind and the non-capturing group.
+            return /(?<=(?<!\\)(?:\\\\)*)/;
         }
     },
 } as const satisfies Record<string, RGXToken>;

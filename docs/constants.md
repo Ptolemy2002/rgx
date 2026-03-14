@@ -85,7 +85,8 @@ Since these are defined as native tokens (strings), they are automatically wrapp
 ### Complex Constructs
 | Name | Resolves To | Description |
 | --- | --- | --- |
-| `"non-escape-bound"` | `(?<=(?<!\\)(?:\\\\)*)(?=[^\\]\|$)` | Matches a position that is not preceded by an odd number of backslashes, i.e., the next character is not escaped. Note that this doesn't match when the next character is a backslash, since allowing it to do that would cause non-escaped backslashes within a series of backslashes to be treated as escaped. For example, in the string `\\\a`, the first and third backslashes would be treated as escaped. |
+| `"escape-bound"` | `(?<=(?<!\\)\\(?:\\\\)*)` | Matches a position that is preceded by an odd number of backslashes, i.e., the next character is escaped. |
+| `"non-escape-bound"` | `(?<=(?<!\\)(?:\\\\)*)` | Matches a position that is not preceded by an odd number of backslashes, i.e., the next character is not escaped. |
 
 ## Functions
 ### listRGXConstants
