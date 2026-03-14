@@ -162,3 +162,12 @@ Also, characters part of a localized flag diff inline modifier (e.g., `(?i:a)`) 
 Finally, characters part of a character class are avoided for transformation, since that would introduce syntax errors again. For example, in the pattern `[a]`, the `a` is part of a character class and will not be replaced.
 
 These conditions (especially the last two) may cause some patterns that should be transformed to be skipped, but that is better than having the transformer produce invalid regex patterns.
+
+## beginningFlagTransformer
+A pre-built `RegExpFlagTransformer` that makes a regex pattern match only at the beginning of the string. It wraps the pattern in a non-capturing group and anchors it with `^`, so that the pattern must match from the start of the string. For example, the pattern `a|b` becomes `^(?:a|b)` (the non-capturing group ensures that the anchor applies to the entire alternation, not just the first branch).
+
+## endFlagTransformer
+A pre-built `RegExpFlagTransformer` that makes a regex pattern match only at the end of the string. It wraps the pattern in a non-capturing group and anchors it with `$`, so that the pattern must match up to the end of the string. For example, the pattern `a|b` becomes `(?:a|b)$` (the non-capturing group ensures that the anchor applies to the entire alternation, not just the last branch).
+
+## wholeFlagTransformer
+A pre-built `RegExpFlagTransformer` that makes a regex pattern match the whole string. It wraps the pattern in a non-capturing group and anchors it with `^` and `$`, so that the pattern must match from the start to the end of the string. For example, the pattern `a|b` becomes `^(?:a|b)$` (the non-capturing group ensures that the anchors apply to the entire alternation, not just the first or last branch).
