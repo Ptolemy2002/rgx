@@ -38,12 +38,7 @@ Because there is so much to document, it has been broken up into multiple files.
       - [lookbehind](./docs/class/token/lookaround/lookbehind.md) - The `RGXLookbehindToken` class, which represents a lookbehind assertion in a regular expression.
 
 ## Peer Dependencies
-- `@ptolemy2002/immutability-utils` ^2.0.0
-- `@ptolemy2002/js-utils` ^3.2.2
-- `@ptolemy2002/ts-brand-utils` ^1.0.0
-- `@ptolemy2002/ts-utils` ^3.4.0
-- `is-callable` ^1.2.7
-- `lodash.clonedeep` ^4.5.0
+N/A
 
 ## Commands
 The following commands exist in the project:
