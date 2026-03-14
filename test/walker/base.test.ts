@@ -1,4 +1,4 @@
-import { RGXPart, rgxWalker, RGXWalker } from "src/walker";
+import { rgxPart, RGXPart, rgxWalker, RGXWalker } from "src/walker";
 import { RGXTokenCollection } from "src/collection";
 import { RGXInvalidWalkerError, RGXOutOfBoundsError, RGXPartValidationFailedError, RGXRegexNotMatchedAtPositionError } from "src/errors";
 import { RGXClassToken, RGXClassUnionToken } from "src/class";
@@ -853,6 +853,31 @@ describe("RGXWalker", () => {
             })], { reduced: "not-reduced" });
             const result = instance.walk();
             expect(result).toBe("reduced");
+        });
+    });
+
+    describe("tryWalk", () => {
+        it("returns true on successful walk", () => {
+            const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
+            expect(instance.tryWalk()).toBe(true);
+            expect(instance.tokenPosition).toBe(4);
+            expect(instance.sourcePosition).toBe(4);
+        });
+
+        it("returns false and resets positions on failed walk", () => {
+            const instance = new RGXWalker("test", ["t", "e", "x", "t"]);
+            expect(instance.tryWalk()).toBe(false);
+            expect(instance.tokenPosition).toBe(0);
+            expect(instance.sourcePosition).toBe(0);
+        });
+
+        it("resets positions when an unexpected error is thrown", () => {
+            const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
+                validate: () => { throw new Error("Unexpected error"); }
+            })]);
+            expect(() => instance.tryWalk()).toThrow("Unexpected error");
+            expect(instance.tokenPosition).toBe(0);
+            expect(instance.sourcePosition).toBe(0);
         });
     });
 

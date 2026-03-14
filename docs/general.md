@@ -144,7 +144,7 @@ For convertible tokens, if the token has an `rgxGroupWrap` property, that value 
 ```typescript
 function rgxConcat(tokens: RGXToken[], groupWrap?: boolean, currentFlags?: string): ValidRegexString
 ```
-A helper function that resolves an array of RGX tokens and concatenates their resolved string representations together. This is useful for cases where you want to concatenate multiple tokens without creating a union between them. Before returning, any convertible token in the array that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown with details about the reason and exactly where the rejection occurred.
+A helper function that resolves an array of RGX tokens and concatenates their resolved string representations together. Before returning, any convertible token in the array that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown with details about the reason and exactly where the rejection occurred.
 
 ## Parameters
   - `tokens` (`RGXToken[]`): The array of RGX tokens to resolve and concatenate.

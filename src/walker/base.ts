@@ -34,6 +34,10 @@ function createBranchGroups(tokens: RGXTokenCollectionInput): RGXToken {
     }
 }
 
+function isMatchError(e: unknown): e is RGXRegexNotMatchedAtPositionError | RGXPartValidationFailedError {
+    return e instanceof RGXRegexNotMatchedAtPositionError || e instanceof RGXPartValidationFailedError;
+}
+
 export type RGXTokenOrPart<R, S = unknown, T = unknown> = RGXToken | RGXPart<R, S, T>;
 
 export class RGXWalker<R, S = unknown> {
@@ -301,6 +305,25 @@ export class RGXWalker<R, S = unknown> {
     walk() {
         this.stepToToken(() => false);
         return this.reduced;
+    }
+
+    tryWalk(): boolean {
+        const prevSourcePosition = this.sourcePosition;
+        const prevTokenPosition = this.tokenPosition;
+
+        try {
+            this.walk();
+            return true;
+        } catch (e) {
+            this.sourcePosition = prevSourcePosition;
+            this.tokenPosition = prevTokenPosition;
+
+            if (isMatchError(e)) {
+                return false;
+            }
+            
+            throw e;
+        }
     }
 
     // Clone method
