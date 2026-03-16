@@ -8,10 +8,10 @@ The folder `./docs` should contain documentation for every public component (Tab
 
 If you find yourself needing to write a new docs file, read `./DOCS_GUIDE.md` for detailed instructions on file placement, structure, and formatting conventions.
 
-While `./src/types.ts` contains most types, there are some types that are exported directly from their respective files. The "Type Reference" section of the README contains all types.
+While `./src/types.ts` contains most types, there are some types that are exported directly from their respective files.
 
 The `test` directory contains tests for all public and internal components, aiming for 100% collective test coverage. They are organized similarly to `src`, but not exactly. Notably, individual test files may not cover all functionality, because the functionality is being provided by another component with its own tests in other files. So, don't get too ambitious and try to make tests that cover every possible case, since that will likely end up being redundant.
 
-You can run `npm run test` to run all tests, and `npm run test:coverage` to run tests with a coverage report. In most cases, the printed coverage report in the terminal is sufficient, but if you want to see the detailed report, you can see `./coverage/lcov-report/index.html`.
+You can run `npm run test` to run all tests, and `npm run test:coverage` to run tests with a coverage report. In most cases, the printed coverage report in the terminal is sufficient, but if you want to see the detailed report, you can see `./coverage/index.html`.
 
 When writing tests, aim for 100% coverage generally, but I am intentionally not covering the full depth parameter for any overrides of `RGXClassToken.clone()`, only when depth is `"max"` and when it is `0`, because testing it fully is extremely complicated to set up. A note about this is in the README.
