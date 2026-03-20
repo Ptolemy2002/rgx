@@ -102,8 +102,9 @@ type RGXCapture<T = unknown> = {
     value: T;
     start: number;
     end: number;
-    ownerId: string | null;
-    branch: number;
+    ownerId: string | null; // The id of the RGXPart that captured this, if any
+    branch: number; // The branch index of the token that captured this, or 0 if there is only one branch
+    groups: Record<string, string> | null; // The groups captured by the token that captured this, or null if the token didn't capture any groups
 };
 
 type RGXPartContext<R, S = unknown, T = string> = {
