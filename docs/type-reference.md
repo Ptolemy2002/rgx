@@ -94,7 +94,8 @@ type RGXGroupTokenArgs = {
     capturing?: boolean;
 };
 
-type RGXPartControl = "skip" | "stop" | "silent" | void;
+type RGXPartControl = "skip" | "stop" | "silent" | "stop-silent" | void;
+type RGXWalkerStepDirective = "stop" | "skip" | "silent";
 
 type RGXCapture<T = unknown> = {
     raw: string;
@@ -116,7 +117,7 @@ type RGXPartOptions<R, S = unknown, T=string> = {
     transform: (captured: string) => T;
     validate: (captured: RGXCapture<T>, context: RGXPartContext<R, S, T>) => boolean | string;
     beforeCapture: ((context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
-    afterCapture: ((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => void) | null;
+    afterCapture: ((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
     afterFailure: ((e: RGXRegexNotMatchedAtPositionError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
     afterValidationFailure: ((e: RGXPartValidationFailedError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
 };

@@ -11,7 +11,8 @@ import { RGXInvalidPartError, RGXPartValidationFailedError, RGXRegexNotMatchedAt
 // - "skip": skip this token (advance token position, don't capture)
 // - "silent": capture (advance source) but don't record in captures
 // - "stop": halt immediately (don't capture, don't advance)
-export type RGXPartControl = "skip" | "stop" | "silent" | void;
+// - "stop-silent": halt immediately but don't record in captures
+export type RGXPartControl = "skip" | "stop" | "silent" | "stop-silent" | void;
 
 export type RGXCapture<T = unknown> = {
     raw: string;
@@ -34,7 +35,7 @@ export type RGXPartOptions<R, S = unknown, T=string> = {
     transform: (captured: string) => T;
     validate: (captured: RGXCapture<T>, context: RGXPartContext<R, S, T>) => boolean | string;
     beforeCapture: ((context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
-    afterCapture: ((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => void) | null;
+    afterCapture: ((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
     afterFailure: ((e: RGXRegexNotMatchedAtPositionError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
     afterValidationFailure: ((e: RGXPartValidationFailedError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
 };

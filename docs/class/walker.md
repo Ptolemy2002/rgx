@@ -19,6 +19,7 @@ type RGXConvertibleToken = {
 };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 type RGXTokenOrPart<R, S = unknown, T = unknown> = RGXToken | RGXPart<R, S, T>;
+type RGXWalkerStepDirective = "stop" | "skip" | "silent";
 
 type RGXWalkerOptions<R, S = unknown> = {
     startingSourcePosition?: number;
@@ -28,7 +29,7 @@ type RGXWalkerOptions<R, S = unknown> = {
     looping?: boolean;
 };
 
-type RGXPartControl = "skip" | "stop" | "silent" | void;
+type RGXPartControl = "skip" | "stop" | "silent" | "stop-silent" | void;
 
 type RGXCapture<T = unknown> = {
     raw: string;
@@ -51,7 +52,7 @@ type RGXPartOptions<R, S = unknown, T=string> = {
     transform: (captured: string) => T;
     validate: (captured: RGXCapture<T>, context: RGXPartContext<R, S, T>) => boolean | string;
     beforeCapture: ((context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
-    afterCapture: ((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => void) | null;
+    afterCapture: ((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
     afterFailure: ((e: RGXRegexNotMatchedAtPositionError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
     afterValidationFailure: ((e: RGXPartValidationFailedError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
 };
@@ -107,6 +108,18 @@ A class that wraps an `RGXToken` with optional callbacks for use within an `RGXW
 
 A function `rgxPart` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
 
+## Part Control Values
+
+Each Part callback returns an `RGXPartControl` value. The effect of each value depends on which callback returns it:
+
+| Value | `beforeCapture` | `afterCapture` | `afterFailure` / `afterValidationFailure` |
+|---|---|---|---|
+| `void`/`undefined` | Proceed normally | Proceed normally; capture is recorded and returned | Re-throw the error |
+| `"skip"` | Advance token, return `null`; no capture | Un-register capture, reset source position, advance token, return `null` | Advance token, return `null` without re-throwing |
+| `"stop"` | Set `stopped`, return `null`; no advance | Record capture, advance positions normally, set `stopped`, return `null` | Set `stopped`, return `null` without re-throwing |
+| `"stop-silent"` | Same as `"stop"` (no capture has occurred yet) | Un-register capture, advance positions normally, set `stopped`, return `null` | Same as `"stop"` |
+| `"silent"` | Capture without recording in `captures`/`namedCaptures` | Un-register capture, advance positions normally, return capture result | No distinct effect — error is still re-thrown |
+
 ## Static Properties
 - `check(value: unknown): value is RGXPart`: A type guard that checks if the given value is an instance of `RGXPart`.
 - `assert(value: unknown): asserts value is RGXPart`: An assertion that checks if the given value is an instance of `RGXPart`. If the assertion fails, an `RGXInvalidPartError` will be thrown.
@@ -120,10 +133,10 @@ constructor(token: RGXToken, options?: Partial<RGXPartOptions<R, S, T>>)
   - `id` (`string`, optional): An optional identifier for this part. Defaults to `null`, but must be a string if provided.
   - `rawTransform` (`(captured: string) => string`, optional): A function that transforms the raw captured string before it is stored as `raw` on the capture result and before `transform` is applied. Defaults to an identity function.
   - `transform` (`(captured: string) => T`, optional): A function that transforms the captured string into the desired type `T`. Defaults to an identity function that casts the string to `T`.
-  - `beforeCapture` (`((context: RGXPartContext<R, S, T>) => RGXPartControl) | null`, optional): A callback invoked before capturing this part during walking. Receives an `RGXPartContext` object containing `part` (this part) and `walker` (the active walker). Returns an `RGXPartControl` value to control walker behavior: `"skip"` to skip this token without capturing, `"silent"` to capture but not record in `captures`, `"stop"` to halt immediately without capturing or advancing, or `void`/`undefined` to proceed normally. Defaults to `null`.
-  - `afterCapture` (`((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => void) | null`, optional): A callback invoked after capturing this part during walking. Receives the typed `RGXCapture<T>` result and an `RGXPartContext` object containing `part` and `walker`. Can call `walker.stop()` to halt walking after this capture. Defaults to `null`.
-  - `afterFailure` (`((e: RGXRegexNotMatchedAtPositionError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null`, optional): A callback invoked when the regex match for this part fails (i.e., `RGXRegexNotMatchedAtPositionError` is thrown). Receives the error and an `RGXPartContext` object containing `part` and `walker`. Returns an `RGXPartControl` value to control walker behavior: `"stop"` to set `stopped` and return `null` without re-throwing the error; `"skip"` to advance the token position and return `null` without re-throwing the error; or `void`/`undefined` (and `"silent"`, which has no distinct effect here) to re-throw the error normally. Defaults to `null`.
-  - `afterValidationFailure` (`((e: RGXPartValidationFailedError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null`, optional): A callback invoked when validation fails for this part (i.e., `RGXPartValidationFailedError` is thrown). Receives the error and an `RGXPartContext` object containing `part` and `walker`. Returns an `RGXPartControl` value to control walker behavior: `"stop"` to set `stopped` and return `null` without re-throwing the error; `"skip"` to advance the token position and return `null` without re-throwing the error; or `void`/`undefined` (and `"silent"`, which has no distinct effect here) to re-throw the error normally. Defaults to `null`.
+  - `beforeCapture` (`((context: RGXPartContext<R, S, T>) => RGXPartControl) | null`, optional): Invoked before capturing. Receives an `RGXPartContext` with `part` and `walker`. Returns an `RGXPartControl` value — see [Part Control Values](#part-control-values). Defaults to `null`.
+  - `afterCapture` (`((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => RGXPartControl) | null`, optional): Invoked after capturing. Receives the typed `RGXCapture<T>` result and an `RGXPartContext` with `part` and `walker`. Returns an `RGXPartControl` value — see [Part Control Values](#part-control-values). Calling `walker.stop()` within this callback is also supported and behaves like returning `void` with a side-effectful stop. Defaults to `null`.
+  - `afterFailure` (`((e: RGXRegexNotMatchedAtPositionError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null`, optional): Invoked when the regex match fails (`RGXRegexNotMatchedAtPositionError` is thrown). Receives the error and an `RGXPartContext` with `part` and `walker`. Returns an `RGXPartControl` value — see [Part Control Values](#part-control-values). Defaults to `null`.
+  - `afterValidationFailure` (`((e: RGXPartValidationFailedError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null`, optional): Invoked when validation fails (`RGXPartValidationFailedError` is thrown). Receives the error and an `RGXPartContext` with `part` and `walker`. Returns an `RGXPartControl` value — see [Part Control Values](#part-control-values). Defaults to `null`.
   - `validate` (`((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => boolean | string) | null`, optional): A callback invoked during validation after capturing and transforming, but before `afterCapture`. Receives the capture result and an `RGXPartContext` object containing `part` and `walker`. Returns `true` if validation passes, `false` to fail with a generic error, or a string to fail with that string as the error message. Defaults to `null`.
 
 ## Properties
@@ -132,7 +145,7 @@ constructor(token: RGXToken, options?: Partial<RGXPartOptions<R, S, T>>)
 - `rawTransform` (`(captured: string) => string`, readonly): The raw transform function applied to the matched string before it is stored as `raw` and before `transform` is called.
 - `transform` (`(captured: string) => T`, readonly): The transform function used to convert captured strings to values of type `T`.
 - `beforeCapture` (`((context: RGXPartContext<R, S, T>) => RGXPartControl) | null`, readonly): The before-capture callback, or `null`.
-- `afterCapture` (`((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => void) | null`, readonly): The after-capture callback, or `null`.
+- `afterCapture` (`((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => RGXPartControl) | null`, readonly): The after-capture callback, or `null`.
 - `afterFailure` (`((e: RGXRegexNotMatchedAtPositionError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null`, readonly): The after-failure callback, or `null`.
 - `afterValidationFailure` (`((e: RGXPartValidationFailedError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null`, readonly): The after-validation-failure callback, or `null`.
 
@@ -174,7 +187,7 @@ constructor(source: string, tokens: RGXTokenOrPart<R, S>[], options?: RGXWalkerO
 - `namedCaptures` (`Record<string, RGXCapture[]>`): An object mapping capture IDs to their corresponding `RGXCapture` results. Only Parts with non-null IDs are included. The captures occur in the same order as they appear in the `captures` array.
 - `infinite` (`boolean`): Whether the walker is in infinite mode — stays at the last token when the token collection is exhausted until the source is consumed.
 - `looping` (`boolean`): Whether the walker is in looping mode — loops back to token position `0` when the token collection is exhausted until the source is consumed.
-- `stopped` (`boolean`, readonly): Whether the walker has been stopped, either by a Part's `beforeCapture`, `afterFailure`, or `afterValidationFailure` returning `"stop"`, or by calling `stop()` in an `afterCapture` callback.
+- `stopped` (`boolean`, readonly): Whether the walker has been stopped. Set to `true` when any Part callback returns `"stop"` or `"stop-silent"`, or when `stop()` is called directly.
 
 ## Methods
 - `stop() => this`: Sets `stopped` to `true`, causing any active `stepToToken`, `stepToPart`, or `walk` loop to halt after the current iteration. Typically called from an `afterCapture` callback to stop walking after the current capture.
@@ -187,7 +200,7 @@ constructor(source: string, tokens: RGXTokenOrPart<R, S>[], options?: RGXWalkerO
 - `remainingSource() => string | null`: Returns the remaining source string from the current position onward, or `null` if the source is fully consumed.
 - `capture(token: RGXTokenOrPart<R, S>, includeMatch?: false) => string`: Resolves the token (or part's inner token) to a regex, asserts that it matches at the current source position (throwing `RGXRegexNotMatchedAtPositionError` if not), and advances the source position by the match length. Returns the matched string.
 - `capture(token: RGXTokenOrPart<R, S>, includeMatch: true) => RegExpExecArray`: Same as above, but returns the full `RegExpExecArray` from the match instead of just the matched string.
-- `step() => RGXCapture | null`: Steps through the next token in the collection. If the token is an `RGXPart`, calls `beforeCapture` first, passing an `RGXPartContext` containing the part and walker — if it returns `"stop"`, sets `stopped` and returns `null` without advancing; if `"skip"`, advances the token position and returns `null` without capturing; if `"silent"`, captures but does not add to `captures` or `namedCaptures`. After capturing, validates by passing the capture and context. If validation fails, `afterValidationFailure` is called with the error and context — if it returns `"stop"`, sets `stopped` and returns `null` without re-throwing; if `"skip"`, advances the token position and returns `null` without re-throwing; otherwise the error is re-thrown. If the match itself fails, `afterFailure` is called with the error and context — if it returns `"stop"`, sets `stopped` and returns `null` without re-throwing; if `"skip"`, advances the token position and returns `null` without re-throwing; otherwise the error is re-thrown. After validating, calls `afterCapture` with the capture and context if present. Returns the `RGXCapture` result, or `null` if there are no more tokens (or no more source in `infinite`/`looping` mode), the step was skipped, or the walker was stopped.
+- `step() => RGXCapture | null`: Steps through the next token in the collection. For `RGXPart` tokens, invokes `beforeCapture`, then attempts a match, then validates, then invokes `afterCapture` — each callback's return value controls walker behavior as described in [Part Control Values](#part-control-values). Returns the `RGXCapture` result on success, or `null` if there are no more tokens (or no more source in `infinite`/`looping` mode), the step was skipped, or the walker was stopped.
 - `stepToToken(predicate: (token: RGXTokenOrPart<R, S>) => boolean) => this`: Steps through tokens until the predicate returns `true` for the current token or the walker is stopped. The matching token is not consumed.
 - `stepToPart(predicate?: (part: RGXPart<R, S, unknown>) => boolean) => this`: Steps through tokens until the next `RGXPart` satisfying the predicate is reached. If already at a Part, steps once first to move past it. The matching Part is not consumed.
 - `walk() => R`: Steps through all remaining tokens until the end of the token collection (or until the source is consumed in `infinite`/`looping` mode) or the walker is stopped. Returns the walker's `reduced` value after walking completes.

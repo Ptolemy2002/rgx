@@ -553,9 +553,25 @@ describe("RGXWalker", () => {
             });
         });
 
+        describe("beforeCapture calls stop()", () => {
+            it("sets stopped and returns null without advancing", () => {
+                const part = new RGXPart("t", {
+                    beforeCapture: ({ walker }) => { walker.stop(); }
+                });
+                const instance = new RGXWalker("test", [part]);
+                
+                const result = instance.step();
+                expect(result).toBe(null);
+                expect(instance.stopped).toBe(true);
+                // Neither position advances
+                expect(instance.tokenPosition).toBe(0);
+                expect(instance.sourcePosition).toBe(0);
+            });
+        });
+
         describe("beforeCapture returns 'silent'", () => {
             it("captures but does not record in captures array", () => {
-                const part = new RGXPart("t", { beforeCapture: () => "silent" });
+                const part = new RGXPart("t", { id: "first", beforeCapture: () => "silent" });
                 const instance = new RGXWalker("test", [part]);
 
                 const result = instance.step();
@@ -563,6 +579,8 @@ describe("RGXWalker", () => {
                 expect(result).toEqual({ raw: "t", value: "t", start: 0, end: 1, ownerId: part.id, branch: 0, groups: null });
                 // But NOT added to captures
                 expect(instance.captures).toEqual([]);
+                // And namedCaptures is not added to either
+                expect(instance.namedCaptures.first).toEqual(undefined);
                 // Positions advance normally
                 expect(instance.tokenPosition).toBe(1);
                 expect(instance.sourcePosition).toBe(1);
@@ -578,19 +596,119 @@ describe("RGXWalker", () => {
             });
         });
 
+        describe("beforeCapture returns 'stop-silent'", () => {
+            it("sets stopped and captures but does not record in captures array", () => {
+                const part = new RGXPart("t", { id: "first", beforeCapture: () => "stop-silent" });
+                const instance = new RGXWalker("test", [part]);
+
+                const result = instance.step();
+                // Does not return a capture result
+                expect(result).toEqual(null);
+                expect(instance.stopped).toBe(true);
+                // But NOT added to captures
+                expect(instance.captures).toEqual([]);
+                // And namedCaptures is not added to either
+                expect(instance.namedCaptures.first).toEqual(undefined);
+                // Positions do not advance
+                expect(instance.tokenPosition).toBe(0);
+                expect(instance.sourcePosition).toBe(0);
+            });
+        });
+
         describe("afterCapture calls stop()", () => {
             it("sets stopped after capturing", () => {
                 const part = new RGXPart("t", {
-                    afterCapture: (_, { walker }) => walker.stop()
+                    afterCapture: (_, { walker }) => { walker.stop(); }
                 });
                 const instance = new RGXWalker("test", [part]);
 
                 const result = instance.step();
-                expect(result).toEqual({ raw: "t", value: "t", start: 0, end: 1, ownerId: part.id, branch: 0, groups: null });
+                expect(result).toEqual(null);
                 expect(instance.stopped).toBe(true);
                 // Token was captured and position advanced
                 expect(instance.tokenPosition).toBe(1);
                 expect(instance.captures).toHaveLength(1);
+            });
+        });
+
+        describe("afterCapture returns 'stop'", () => {
+            it("sets stopped after capturing", () => {
+                const part = new RGXPart("t", {
+                    afterCapture: () => "stop"
+                });
+                const instance = new RGXWalker("test", [part]);
+
+                const result = instance.step();
+
+                // Does not return the capture result
+                expect(result).toEqual(null);
+                expect(instance.stopped).toBe(true);
+                // Token was captured and position advanced
+                expect(instance.tokenPosition).toBe(1);
+                expect(instance.captures).toHaveLength(1);
+            });
+        });
+
+        describe("afterCapture returns 'skip'", () => {
+            it("advances tokenPosition but not sourcePosition after capturing", () => {
+                const part = new RGXPart("t", {
+                    afterCapture: () => "skip"
+                });
+                const instance = new RGXWalker("test", [part, "e"]);
+
+                const result = instance.step();
+                expect(result).toEqual(null);
+                expect(instance.stopped).toBe(false);
+                // Token position advances past the captured Part
+                expect(instance.tokenPosition).toBe(1);
+                // Source position does NOT advance
+                expect(instance.sourcePosition).toBe(0);
+            });
+        });
+
+        describe("afterCapture returns 'silent'", () => {
+            it("advances positions and captures but does not record in captures array", () => {
+                const part = new RGXPart("t", {
+                    id: "first",
+                    afterCapture: () => "silent"
+                });
+                const instance = new RGXWalker("test", [part, "e"]);
+
+                const result = instance.step();
+                // Still returns the capture result
+                expect(result).toEqual({"branch": 0, "end": 1, "groups": null, "ownerId": "first", "raw": "t", "start": 0, "value": "t"});
+                expect(instance.stopped).toBe(false);
+                // Token position advances past the captured Part
+                expect(instance.tokenPosition).toBe(1);
+                // Source position advances normally
+                expect(instance.sourcePosition).toBe(1);
+                // But NOT added to captures
+                expect(instance.captures).toEqual([]);
+                // And namedCaptures is an empty array for the part ID
+                expect(instance.namedCaptures.first).toEqual([]);
+            });
+        });
+
+        describe("afterCapture returns 'stop-silent'", () => {
+            it("sets stopped and captures but does not record in captures array", () => {
+                const part = new RGXPart("t", {
+                    id: "first",
+                    afterCapture: () => "stop-silent"
+                });
+                const instance = new RGXWalker("test", [part, "e"]);
+
+                const result = instance.step();
+                // Does not return the capture result
+                expect(result).toEqual(null);
+                expect(instance.stopped).toBe(true);
+                // Token position advances past the captured Part
+                expect(instance.tokenPosition).toBe(1);
+                // Source position advances normally
+                expect(instance.sourcePosition).toBe(1);
+                // But NOT added to captures
+                expect(instance.captures).toEqual([]);
+                // And namedCaptures is an empty array for the part ID
+                expect(instance.namedCaptures.first).toEqual([]);
             });
         });
 
@@ -601,6 +719,22 @@ describe("RGXWalker", () => {
                 });
                 const instance = new RGXWalker("test", [part]);
 
+                const result = instance.step();
+                expect(result).toBe(null);
+                expect(instance.stopped).toBe(true);
+                // Neither position advances on failure
+                expect(instance.tokenPosition).toBe(0);
+                expect(instance.sourcePosition).toBe(0);
+            });
+        });
+
+        describe("afterFailure calls stop()", () => {
+            it("sets stopped after a match failure", () => {
+                const part = new RGXPart("x", {
+                    afterFailure: (_, { walker }) => { walker.stop(); }
+                });
+                const instance = new RGXWalker("test", [part]);
+                
                 const result = instance.step();
                 expect(result).toBe(null);
                 expect(instance.stopped).toBe(true);
@@ -635,6 +769,23 @@ describe("RGXWalker", () => {
                 });
                 const instance = new RGXWalker("test", [part]);
 
+                const result = instance.step();
+                expect(result).toBe(null);
+                expect(instance.stopped).toBe(true);
+                // Neither position advances on failure
+                expect(instance.tokenPosition).toBe(0);
+                expect(instance.sourcePosition).toBe(0);
+            });
+        });
+
+        describe("afterValidationFailure calls stop()", () => {
+            it("sets stopped after a validation failure", () => {
+                const part = new RGXPart("t", {
+                    validate: () => false,
+                    afterValidationFailure: (_, { walker }) => { walker.stop(); }
+                });
+                const instance = new RGXWalker("test", [part]);
+                
                 const result = instance.step();
                 expect(result).toBe(null);
                 expect(instance.stopped).toBe(true);
@@ -726,7 +877,7 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("test", [
                 "t",
                 new RGXPart("e", {
-                    afterCapture: (_, { walker }) => walker.stop()
+                    afterCapture: (_, { walker }) => { walker.stop(); }
                 }),
                 "s",
                 "t"
@@ -798,7 +949,7 @@ describe("RGXWalker", () => {
 
         it("stops if the initial Part step triggers stop via afterCapture", () => {
             const part1 = new RGXPart("e", {
-                afterCapture: (_, { walker }) => walker.stop()
+                afterCapture: (_, { walker }) => { walker.stop(); }
             });
             const part2 = new RGXPart("s");
             const instance = new RGXWalker("test", ["t", part1, part2, "t"]);
@@ -849,7 +1000,7 @@ describe("RGXWalker", () => {
 
         it("returns the reduced value", () => {
             const instance = new RGXWalker<string>("test", ["t", "e", "s", new RGXPart("t", {
-                afterCapture: (_, { walker }) => walker.reduced = "reduced"
+                afterCapture: (_, { walker }) => { walker.reduced = "reduced"; }
             })], { reduced: "not-reduced" });
             const result = instance.walk();
             expect(result).toBe("reduced");
