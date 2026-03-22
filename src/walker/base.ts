@@ -1,10 +1,10 @@
 import { CloneDepth, depthDecrement, extClone } from "@ptolemy2002/immutability-utils";
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
-import { assertInRange, RGXInvalidWalkerError, RGXPartValidationFailedError, RGXRegexNotMatchedAtPositionError } from "src/errors";
+import { assertInRange, RGXInvalidWalkerError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError, RGXRegexNotMatchedAtPositionError } from "src/errors";
 import { RGXToken } from "src/types";
 import { RGXPart, RGXCapture } from "./part";
 import { resolveRGXToken } from "src/resolve";
-import { assertRegexMatchesAtPosition, createRegex } from "src/utils";
+import { assertRegexMatchesAfterPosition, assertRegexMatchesAtPosition, createRegex } from "src/utils";
 import { isRGXArrayToken } from "src/typeGuards";
 import { RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
@@ -15,6 +15,7 @@ export type RGXWalkerOptions<R, S = unknown> = {
     share?: S;
     infinite?: boolean;
     looping?: boolean;
+    contiguous?: boolean;
 };
 
 function createBranchGroups(tokens: RGXTokenCollectionInput): RGXToken {
@@ -34,8 +35,12 @@ function createBranchGroups(tokens: RGXTokenCollectionInput): RGXToken {
     }
 }
 
-function isMatchError(e: unknown): e is RGXRegexNotMatchedAtPositionError | RGXPartValidationFailedError {
-    return e instanceof RGXRegexNotMatchedAtPositionError || e instanceof RGXPartValidationFailedError;
+function isMatchError(e: unknown): e is RGXRegexNotMatchedAtPositionError | RGXRegexNotMatchedAfterPositionError | RGXPartValidationFailedError {
+    return (
+        e instanceof RGXRegexNotMatchedAtPositionError ||
+        e instanceof RGXRegexNotMatchedAfterPositionError ||
+        e instanceof RGXPartValidationFailedError
+    );
 }
 
 export type RGXTokenOrPart<R, S = unknown, T = unknown> = RGXToken | RGXPart<R, S, T>;
@@ -56,6 +61,7 @@ export class RGXWalker<R, S = unknown> {
 
     infinite: boolean;
     looping: boolean;
+    contiguous: boolean;
 
     private _stopped: boolean = false;
 
@@ -90,7 +96,6 @@ export class RGXWalker<R, S = unknown> {
         this.source = source;
         this.sourcePosition = options.startingSourcePosition ?? 0;
         this.tokens = tokens;
-        
         this.tokenPosition = 0;
 
         this.reduced = options.reduced ?? null as unknown as R;
@@ -98,6 +103,7 @@ export class RGXWalker<R, S = unknown> {
 
         this.infinite = options.infinite ?? false;
         this.looping = options.looping ?? false;
+        this.contiguous = options.contiguous ?? true;
     }
 
     stop() {
@@ -140,8 +146,21 @@ export class RGXWalker<R, S = unknown> {
     capture(token: RGXTokenOrPart<R, S>, includeMatch?: false): string;
     capture(token: RGXTokenOrPart<R, S>, includeMatch = false): string | RegExpExecArray {
         const regex = createRegex(resolveRGXToken(RGXPart.check(token) ? token.token : token));
-        const match = assertRegexMatchesAtPosition(regex, this.source, this.sourcePosition, 10, true);
-        this.sourcePosition += match[0].length;
+        
+        const args = [regex, this.source, this.sourcePosition, 10, true] as const;
+        let match: RegExpExecArray;
+        let endPosition: number;
+
+        if (this.contiguous) {
+            match = assertRegexMatchesAtPosition(...args);
+            endPosition = this.sourcePosition + match[0].length;
+        } else {
+            const [startPosition, _match] = assertRegexMatchesAfterPosition(...args);
+            match = _match;
+            endPosition = startPosition + match[0].length;
+        }
+
+        this.sourcePosition = endPosition;
         return includeMatch ? match : match[0];
     }
 
@@ -194,7 +213,7 @@ export class RGXWalker<R, S = unknown> {
         try {
             return this.capture(branchedToken, true);
         } catch (e) {
-            if (part !== null && e instanceof RGXRegexNotMatchedAtPositionError) {
+            if (part !== null && (e instanceof RGXRegexNotMatchedAtPositionError || e instanceof RGXRegexNotMatchedAfterPositionError)) {
                 const control = part.afterFailure?.(e, { part, walker: this });
                 // If this happens, afterFailure itself stopped the walker, so we just need to respect that.
                 if (this.stopped) return "stop";
@@ -235,12 +254,13 @@ export class RGXWalker<R, S = unknown> {
         silent: boolean, start: number
     ): Exclude<RGXWalkerStepDirective, "silent"> | null {
         const control = token.afterCapture?.(captureResult, { part: token, walker: this });
-        // If this happens, afterCapture itself stopped the walker, so we just need to respect that.
-        if (this.stopped) return "stop";
 
         if (!silent && (control === "skip" || control === "silent" || control === "stop-silent")) {
             this.unregisterLastCapture(token);
         }
+
+        // If this happens, afterCapture itself stopped the walker, so we just need to respect that.
+        if (this.stopped) return "stop";
 
         if (control === "skip") {
             this.sourcePosition = start;
@@ -272,12 +292,15 @@ export class RGXWalker<R, S = unknown> {
             silent = dir === "silent";
         }
 
-        const start = this.sourcePosition;
         const branchedToken = isPart ? createBranchGroups(token.token) : createBranchGroups(token);
         const captureAttempt = this.attemptCapture(branchedToken, isPart ? token : null);
         if (captureAttempt === "stop") { this._stopped = true; return null; }
         if (captureAttempt === "skip") { this.advanceToken(); return null; }
 
+        // The reason we no longer track start as the position before attempting capture
+        // is the possibility of non-contiguous matches. In that case, there may be a gap between
+        // the previous position and the actual start of the capture.
+        const start = this.sourcePosition - captureAttempt[0].length;
         const raw = isPart ? token.rawTransform(captureAttempt[0]) : captureAttempt[0];
         const end = this.sourcePosition;
         const value = isPart ? token.transform(raw) : raw;

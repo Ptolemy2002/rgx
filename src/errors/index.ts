@@ -13,6 +13,7 @@ export * from './insertionRejected';
 export * from './constantConflict';
 export * from './invalidConstantKey';
 export * from './regexNotMatchedAtPosition';
+export * from './regexNotMatchedAfterPosition';
 export * from './partValidationFailed';
 export * from './invalidLexerMode';
 export * from './lexemeNotMatchedAtPosition';

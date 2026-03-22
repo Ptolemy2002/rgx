@@ -1,6 +1,6 @@
 import { rgxPart, RGXPart, rgxWalker, RGXWalker } from "src/walker";
 import { RGXTokenCollection } from "src/collection";
-import { RGXInvalidWalkerError, RGXOutOfBoundsError, RGXPartValidationFailedError, RGXRegexNotMatchedAtPositionError } from "src/errors";
+import { RGXInvalidWalkerError, RGXOutOfBoundsError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError, RGXRegexNotMatchedAtPositionError } from "src/errors";
 import { RGXClassToken, RGXClassUnionToken } from "src/class";
 import { rgxwa } from "src/index";
 import { expectError } from "../utils";
@@ -429,6 +429,17 @@ describe("RGXWalker", () => {
             });
         });
 
+        it("calls afterFailure after a match failure on Parts in non-contiguous mode", () => {
+            const afterFailure = jest.fn();
+            const part = new RGXPart("x", {
+                afterFailure
+            });
+            const instance = new RGXWalker("test", [part], { contiguous: false });
+
+            expectError(() => instance.step(), RGXRegexNotMatchedAfterPositionError, (e) => {
+                expect(afterFailure).toHaveBeenCalledWith(e, { part, walker: instance });
+            });
+        });
 
         it("calls afterCapture on Parts with the capture result", () => {
             const afterCapture = jest.fn();
@@ -628,6 +639,34 @@ describe("RGXWalker", () => {
                 // Token was captured and position advanced
                 expect(instance.tokenPosition).toBe(1);
                 expect(instance.captures).toHaveLength(1);
+            });
+
+            it("still respects 'silent' return", () => {
+                const part = new RGXPart("t", {
+                    afterCapture: (_, { walker }) => { walker.stop(); return 'silent'; }
+                });
+                const instance = new RGXWalker("test", [part]);
+
+                const result = instance.step();
+                expect(result).toEqual(null);
+                expect(instance.stopped).toBe(true);
+                // Position advances, but token not captured due to 'silent' behavior
+                expect(instance.tokenPosition).toBe(1);
+                expect(instance.captures).toHaveLength(0);
+            });
+
+            it("still respects 'stop-silent' return", () => {
+                const part = new RGXPart("t", {
+                    afterCapture: (_, { walker }) => { walker.stop(); return 'stop-silent'; }
+                });
+                const instance = new RGXWalker("test", [part]);
+
+                const result = instance.step();
+                expect(result).toEqual(null);
+                expect(instance.stopped).toBe(true);
+                // Position advances, but token not captured due to 'stop-silent' behavior
+                expect(instance.tokenPosition).toBe(1);
+                expect(instance.captures).toHaveLength(0);
             });
         });
 
@@ -856,6 +895,19 @@ describe("RGXWalker", () => {
                 const result = instance.step();
                 expect(result).toBe(null);
                 expect(instance.stopped).toBe(true);
+            });
+        });
+
+        describe("non-contiguous mode", () => {
+            it("does not require tokens to be contiguous in the source", () => {
+                const instance = new RGXWalker("txexsxt", ["t", "e", "s", "t"], { contiguous: false });
+                instance.walk();
+                expect(instance.captures).toEqual([
+                    { raw: "t", value: "t", start: 0, end: 1, ownerId: null, branch: 0, groups: null },
+                    { raw: "e", value: "e", start: 2, end: 3, ownerId: null, branch: 0, groups: null },
+                    { raw: "s", value: "s", start: 4, end: 5, ownerId: null, branch: 0, groups: null },
+                    { raw: "t", value: "t", start: 6, end: 7, ownerId: null, branch: 0, groups: null },
+                ]);
             });
         });
     });

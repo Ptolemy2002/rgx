@@ -119,7 +119,7 @@ type RGXPartOptions<R, S = unknown, T=string> = {
     validate: (captured: RGXCapture<T>, context: RGXPartContext<R, S, T>) => boolean | string;
     beforeCapture: ((context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
     afterCapture: ((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
-    afterFailure: ((e: RGXRegexNotMatchedAtPositionError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
+    afterFailure: ((e: RGXRegexNotMatchedAtPositionError | RGXRegexNotMatchedAfterPositionError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
     afterValidationFailure: ((e: RGXPartValidationFailedError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
 };
 
@@ -129,6 +129,7 @@ type RGXWalkerOptions<R, S = unknown> = {
     share?: S;
     infinite?: boolean;
     looping?: boolean;
+    contiguous?: boolean;
 };
 
 type RGXOptions = {
@@ -142,7 +143,7 @@ type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & RGXOptions
 type RGXPredefinedConstant = keyof typeof RGX_PREDEFINED_CONSTANTS;
 type RGXConstantName = RGXPredefinedConstant | (string & {});
 
-type LexemeNotMatchedCauseError = RGXRegexNotMatchedAtPositionError | RGXPartValidationFailedError;
+type LexemeNotMatchedCauseError = RGXRegexNotMatchedAtPositionError | RGXRegexNotMatchedAfterPositionError | RGXPartValidationFailedError;
 type LexemeNotMatchedCause = {
     id: string;
     error: LexemeNotMatchedCauseError;

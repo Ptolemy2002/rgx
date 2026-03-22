@@ -16,6 +16,7 @@ Because there is so much to document, it has been broken up into multiple files.
   - [clone](./docs/util/clone.md) - The `cloneRGXToken` function, which creates a clone of a given RGX token to a specified depth.
   - [escapeRegex](./docs/util/escapeRegex.md) - The `escapeRegex` function, which escapes special regex characters in a given string and assures you that the result is valid Regex.
   - [regexMatchAtPosition](./docs/util/regexMatchAtPosition.md) - The `regexMatchAtPosition` function and related functions, which attempt to match a given regular expression at a specific position in a string.
+  - [regexMatchAfterPosition](./docs/util/regexMatchAfterPosition.md) - The `regexMatchAfterPosition` function and related functions, which search for a regular expression match at or after a specific position in a string.
   - [regexWithFlags](./docs/util/regexWithFlags.md) - The `regexWithFlags` function, which creates a new regular expression with the same source as a given regular expression but with different flags.
   - [createRegex](./docs/util/createRegex.md) - The `createRegex` function, which safely constructs a `RegExp` or `ExtRegExp` from a pattern string, converting `SyntaxError` into `RGXInvalidRegexStringError`.
   - [createRGXClassGuardFunction](./docs/util/createRGXClassGuardFunction.md) - The `createRGXClassGuardFunction` and `createAssertRGXClassGuardFunction` utilities for creating type guard and assertion functions for class instances.

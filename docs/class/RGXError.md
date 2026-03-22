@@ -45,7 +45,7 @@ const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
 type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;
 type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;
 
-type LexemeNotMatchedCauseError = RGXRegexNotMatchedAtPositionError | RGXPartValidationFailedError;
+type LexemeNotMatchedCauseError = RGXRegexNotMatchedAtPositionError | RGXRegexNotMatchedAfterPositionError | RGXPartValidationFailedError;
 type LexemeNotMatchedCause = {
     id: string;
     error: LexemeNotMatchedCauseError;
@@ -404,6 +404,9 @@ constructor(message: string, pattern: RegExp, source: string, position: number, 
 - `hasRightContext() => boolean`: Returns `true` if the context window ends before the end of the source string (i.e., there is truncated content on the right). Returns `false` when `contextSize` is `null`.
 - `hasFullContext() => boolean`: Returns `true` when the full source is shown (neither side is truncated). This is the case when `contextSize` is `null` or when the context window covers the entire source string.
 
+## RGXRegexNotMatchedAfterPositionError
+Structurally identical to `RGXRegexNotMatchedAtPositionError`, but thrown when a regex fails to match anywhere at or after a given position (e.g., via `assertRegexMatchesAfterPosition`) rather than exactly at it. The error code is set to `REGEX_NOT_MATCHED_AFTER_POSITION` on instantiation. All constructor parameters, properties, and methods are the same as `RGXRegexNotMatchedAtPositionError`.
+
 ## RGXPartValidationFailedError
 A specific error class for RGX part validation failures. This error is thrown when a captured value fails validation in a custom part's `validate` function. The error code is set to `PART_VALIDATION_FAILED` on instantiation.
 
@@ -466,7 +469,7 @@ constructor(message: string, source: string, mode: string, position: number, cau
 ```typescript
 function isLexemeNotMatchedCauseError(error: unknown): error is LexemeNotMatchedCauseError
 ```
-Checks if the given value is one of the error types that can be recorded as a `LexemeNotMatchedCause` — namely `RGXRegexNotMatchedAtPositionError` or `RGXPartValidationFailedError`. These are the errors thrown by individual lexeme definition matching attempts that are caught and collected before a `RGXLexemeNotMatchedAtPositionError` is thrown.
+Checks if the given value is one of the error types that can be recorded as a `LexemeNotMatchedCause` — namely `RGXRegexNotMatchedAtPositionError`, `RGXRegexNotMatchedAfterPositionError`, or `RGXPartValidationFailedError`. These are the errors thrown by individual lexeme definition matching attempts that are caught and collected before a `RGXLexemeNotMatchedAtPositionError` is thrown.
 
 ## RGXInvalidLexerError
 A specific error class for values that were expected to be an `RGXLexer` instance but were not. This error is thrown by `RGXLexer.assert` when its argument is not an instance of the expected lexer constructor. The error code is set to `INVALID_RGX_LEXER` on instantiation.

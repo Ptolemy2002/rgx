@@ -135,8 +135,10 @@ describe("RGXPart", () => {
             const transform = jest.fn();
             const beforeCapture = jest.fn();
             const afterCapture = jest.fn();
+            const afterFailure = jest.fn();
+            const afterValidationFailure = jest.fn();
 
-            const instance = new RGXPart(token, { rawTransform, transform, beforeCapture, afterCapture });
+            const instance = new RGXPart(token, { rawTransform, transform, beforeCapture, afterCapture, afterFailure, afterValidationFailure });
             const clone = instance.clone();
 
             expect(clone).not.toBe(instance);
@@ -146,6 +148,8 @@ describe("RGXPart", () => {
             expect(clone.transform).toBe(instance.transform);
             expect(clone.beforeCapture).toBe(instance.beforeCapture);
             expect(clone.afterCapture).toBe(instance.afterCapture);
+            expect(clone.afterFailure).toBe(instance.afterFailure);
+            expect(clone.afterValidationFailure).toBe(instance.afterValidationFailure);
         });
     });
 

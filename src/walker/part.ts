@@ -4,7 +4,7 @@ import type { RGXWalker } from "./base";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { cloneRGXToken } from "src/clone";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
-import { RGXInvalidPartError, RGXPartValidationFailedError, RGXRegexNotMatchedAtPositionError } from "src/errors";
+import { RGXInvalidPartError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError, RGXRegexNotMatchedAtPositionError } from "src/errors";
 
 // Return values from beforeCapture to control walker behavior.
 // - void/undefined: proceed normally
@@ -36,7 +36,7 @@ export type RGXPartOptions<R, S = unknown, T=string> = {
     validate: (captured: RGXCapture<T>, context: RGXPartContext<R, S, T>) => boolean | string;
     beforeCapture: ((context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
     afterCapture: ((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
-    afterFailure: ((e: RGXRegexNotMatchedAtPositionError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
+    afterFailure: ((e: RGXRegexNotMatchedAtPositionError | RGXRegexNotMatchedAfterPositionError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
     afterValidationFailure: ((e: RGXPartValidationFailedError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
 };
 
@@ -90,6 +90,8 @@ export class RGXPart<R, S = unknown, T=string> {
             transform: this.transform,
             beforeCapture: this.beforeCapture,
             afterCapture: this.afterCapture,
+            afterFailure: this.afterFailure,
+            afterValidationFailure: this.afterValidationFailure,
         });
     }
 }

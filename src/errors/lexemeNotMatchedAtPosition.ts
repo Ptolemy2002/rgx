@@ -1,13 +1,13 @@
-import { assertInRange, RGXError, RGXPartValidationFailedError, RGXRegexNotMatchedAtPositionError } from "src/errors";
+import { assertInRange, RGXError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError, RGXRegexNotMatchedAtPositionError } from "src/errors";
 
-export type LexemeNotMatchedCauseError = RGXRegexNotMatchedAtPositionError | RGXPartValidationFailedError;
+export type LexemeNotMatchedCauseError = RGXRegexNotMatchedAtPositionError | RGXPartValidationFailedError | RGXRegexNotMatchedAfterPositionError;
 export type LexemeNotMatchedCause = {
     id: string;
     error: LexemeNotMatchedCauseError;
 };
 
 export function isLexemeNotMatchedCauseError(error: unknown): error is LexemeNotMatchedCauseError {
-    return error instanceof RGXRegexNotMatchedAtPositionError || error instanceof RGXPartValidationFailedError;
+    return error instanceof RGXRegexNotMatchedAtPositionError || error instanceof RGXPartValidationFailedError || error instanceof RGXRegexNotMatchedAfterPositionError;
 }
 
 export class RGXLexemeNotMatchedAtPositionError extends RGXError {
