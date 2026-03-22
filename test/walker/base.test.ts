@@ -910,6 +910,25 @@ describe("RGXWalker", () => {
                 ]);
             });
         });
+
+        describe("infinite and non-contiguous mode", () => {
+            it("fails if the last token is not found the first time it is attempted", () => {
+                const instance = new RGXWalker("txexsxs", ["t", "e", "s", "t"], { infinite: true, contiguous: false });
+                expect(() => instance.walk()).toThrow(RGXRegexNotMatchedAfterPositionError);
+            });
+
+            it("just stops if the last token is not found on subsequent attempts", () => {
+                const instance = new RGXWalker("txexsxtxs", ["t", "e", "s", "t"], { infinite: true, contiguous: false });
+                instance.walk();
+                expect(instance.captures).toEqual([
+                    { raw: "t", value: "t", start: 0, end: 1, ownerId: null, branch: 0, groups: null },
+                    { raw: "e", value: "e", start: 2, end: 3, ownerId: null, branch: 0, groups: null },
+                    { raw: "s", value: "s", start: 4, end: 5, ownerId: null, branch: 0, groups: null },
+                    { raw: "t", value: "t", start: 6, end: 7, ownerId: null, branch: 0, groups: null },
+                ]);
+                expect(instance.stopped).toBe(true);
+            });
+        });
     });
 
     describe("stepToToken", () => {

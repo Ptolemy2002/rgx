@@ -64,6 +64,8 @@ export class RGXWalker<R, S = unknown> {
     contiguous: boolean;
 
     private _stopped: boolean = false;
+    // Only relevant in infinite mode, tracking whether we've reached the end yet.
+    private _didReachEnd: boolean = false;
 
     static check = createRGXClassGuardFunction(RGXWalker);
     static assert = createAssertRGXClassGuardFunction(RGXWalker,
@@ -165,6 +167,8 @@ export class RGXWalker<R, S = unknown> {
     }
 
     private advanceToken() {
+        if (this.tokenPosition === this.tokens.length - 1) this._didReachEnd = true;
+        
         if (!this.infinite || this.tokenPosition < this.tokens.length - 1) {
             this.tokenPosition++;
             if (this.looping && this.atTokenEnd()) {
@@ -293,9 +297,24 @@ export class RGXWalker<R, S = unknown> {
         }
 
         const branchedToken = isPart ? createBranchGroups(token.token) : createBranchGroups(token);
-        const captureAttempt = this.attemptCapture(branchedToken, isPart ? token : null);
-        if (captureAttempt === "stop") { this._stopped = true; return null; }
-        if (captureAttempt === "skip") { this.advanceToken(); return null; }
+
+        let captureAttempt: ReturnType<typeof this.attemptCapture>;
+        try {
+            captureAttempt = this.attemptCapture(branchedToken, isPart ? token : null);
+            if (captureAttempt === "stop") { this._stopped = true; return null; }
+            if (captureAttempt === "skip") { this.advanceToken(); return null; }
+        } catch (e) {
+            if (e instanceof RGXRegexNotMatchedAfterPositionError) {
+                // If we're in infinite mode, we've reached the end before, and we're at the end now,
+                // this is recoverable. Just stop the walker instead of throwing an error.
+                if (this.infinite && this._didReachEnd && this.tokenPosition === this.tokens.length - 1) {
+                    this._stopped = true;
+                    return null;
+                }
+            }
+
+            throw e;
+        }
 
         // The reason we no longer track start as the position before attempting capture
         // is the possibility of non-contiguous matches. In that case, there may be a gap between
