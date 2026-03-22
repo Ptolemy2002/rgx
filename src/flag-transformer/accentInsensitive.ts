@@ -16,7 +16,7 @@ const nonEscapeBound = resolveRGXToken(rgxConstant("non-escape-bound"));
 const nonLocalizedFlagBound = resolveRGXToken({
     rgxGroupWrap: false,
     rgxIsRepeatable: false,
-    toRgx() { return /(?<!\(\?\-?[ims]*)/; }
+    toRgx() { return /(?<!\(\?[ms]*\-?[ms]*)/; }
 });
 
 const nonCharacterClassBound = resolveRGXToken({

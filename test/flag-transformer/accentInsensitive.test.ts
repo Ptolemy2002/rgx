@@ -45,9 +45,9 @@ describe("accentInsensitiveFlagTransformer", () => {
     });
 
     it("does not transform characters part of a localized flag pattern with a dash", () => {
-        const regex = new ExtRegExp("(?-mi:y)tst", "g"); // The i is part of a localized flag pattern, so it should not be transformed
+        const regex = new ExtRegExp("(?m-i:y)tst", "g"); // The i is part of a localized flag pattern, so it should not be transformed
         const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("(?-mi:y)tst");
+        expect(transformed[0]).toBe("(?m-i:y)tst");
     });
 
     it("does not transform characters part of a character class", () => {

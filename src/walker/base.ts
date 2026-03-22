@@ -406,7 +406,8 @@ export class RGXWalker<R, S = unknown> {
                 reduced: extClone(this.reduced, depthDecrement(1)),
                 share: extClone(this.share, depthDecrement(1)),
                 infinite: this.infinite,
-                looping: this.looping
+                looping: this.looping,
+                contiguous: this.contiguous
             }
         );
 

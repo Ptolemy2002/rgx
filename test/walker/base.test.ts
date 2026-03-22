@@ -1114,7 +1114,7 @@ describe("RGXWalker", () => {
         it("preserves properties", () => {
             const source = "test";
             const tokens = ["t", "e", "s", "t"];
-            const options = { startingSourcePosition: 2, reduced: "reduced", share: "share", infinite: true };
+            const options = { startingSourcePosition: 2, reduced: "reduced", share: "share", infinite: true, looping: true, contiguous: false };
             const instance = rgxWalker(source, tokens, options);
             const clone = instance.clone();
 
@@ -1122,6 +1122,8 @@ describe("RGXWalker", () => {
 
             expect(clone.stopped).toEqual(instance.stopped);
             expect(clone.infinite).toBe(instance.infinite);
+            expect(clone.looping).toBe(instance.looping);
+            expect(clone.contiguous).toBe(instance.contiguous);
 
             expect(clone.source).toBe(instance.source);
             expect(clone.sourcePosition).toBe(instance.sourcePosition);
