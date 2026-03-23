@@ -198,11 +198,12 @@ constructor(source: string, tokens: RGXTokenOrPart<R, S>[], options?: RGXWalkerO
 ## Methods
 - `stop() => this`: Sets `stopped` to `true`, causing any active `stepToToken`, `stepToPart`, or `walk` loop to halt after the current iteration. Typically called from an `afterCapture` callback to stop walking after the current capture.
 - `atTokenEnd() => boolean`: Returns `true` if the token position is at or past the end of the token collection.
+- `atLastToken() => boolean`: Returns `true` if the token position is at the last token in the collection (i.e., `tokenPosition === tokens.length - 1`).
 - `hasNextToken(predicate?: (token: RGXTokenOrPart<R, S, unknown>) => boolean) => boolean`: Returns `true` if there is a current token and it satisfies the optional predicate (defaults to `() => true`).
 - `atSourceEnd() => boolean`: Returns `true` if the source has been fully consumed (`sourcePosition >= source.length`).
 - `hasNextSource(predicate?: (rest: string) => boolean) => boolean`: Returns `true` if the source is not fully consumed and the remaining source satisfies the optional predicate (defaults to `() => true`).
 - `lastCapture() => RGXCapture | null`: Returns the last entry in `captures`, or `null` if empty.
-- `currentToken() => RGXTokenOrPart<R, S> | null`: Returns the token or part at the current token position, or `null` if at the end.
+- `currentToken() => RGXTokenOrPart<R, S>`: Returns the token or part at the current token position. Throws `RGXCurrentTokenNotFoundError` if called when `atTokenEnd()` is `true`.
 - `remainingSource() => string | null`: Returns the remaining source string from the current position onward, or `null` if the source is fully consumed.
 - `capture(token: RGXTokenOrPart<R, S>, includeMatch?: false) => string`: Resolves the token (or part's inner token) to a regex and attempts a match. In contiguous mode, asserts that the regex matches exactly at the current source position (throwing `RGXRegexNotMatchedAtPositionError` if not). In non-contiguous mode, searches for the next match at or after the current position (throwing `RGXRegexNotMatchedAfterPositionError` if none is found), and the source position advances to the end of that match. Returns the matched string.
 - `capture(token: RGXTokenOrPart<R, S>, includeMatch: true) => RegExpExecArray`: Same as above, but returns the full `RegExpExecArray` from the match instead of just the matched string.

@@ -7,7 +7,7 @@ import {
     RGXPartValidationFailedError, RGXInvalidLexerModeError, RGXLexemeNotMatchedAtPositionError,
     RGXInvalidLexerError, RGXInvalidWalkerError, RGXInvalidPartError, isLexemeNotMatchedCauseError,
     RGXNotDirectRegExpError,
-    RGXRegexNotMatchedAfterPositionError
+    RGXRegexNotMatchedAfterPositionError, RGXCurrentTokenNotFoundError
 } from 'src/index';
 
 class TestClassToken extends RGXClassToken {
@@ -1377,5 +1377,27 @@ describe("RGXNotDirectRegExpError", () => {
     it('formats the error message correctly', () => {
         const error = new RGXNotDirectRegExpError('Not a direct RegExp', 'gotValue');
         expect(error.toString()).toBe('RGXNotDirectRegExpError: Not a direct RegExp; Expected direct instance of RegExp; Got instance of gotValue');
+    });
+});
+
+describe("RGXCurrentTokenNotFoundError", () => {
+    it('has the correct name', () => {
+        const error = new RGXCurrentTokenNotFoundError('Current token not found');
+        expect(error.name).toBe('RGXCurrentTokenNotFoundError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXCurrentTokenNotFoundError('Current token not found');
+        expect(error.code).toBe('CURRENT_TOKEN_NOT_FOUND');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXCurrentTokenNotFoundError('Current token not found');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXCurrentTokenNotFoundError('Current token not found');
+        expect(error.toString()).toBe('RGXCurrentTokenNotFoundError: Current token not found');
     });
 });

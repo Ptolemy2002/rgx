@@ -21,3 +21,4 @@ export * from './invalidLexer';
 export * from './invalidWalker';
 export * from './invalidPart';
 export * from './notDirectRegexp';
+export * from './currentTokenNotFound';

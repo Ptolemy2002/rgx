@@ -4,6 +4,7 @@ import { RGXInvalidWalkerError, RGXOutOfBoundsError, RGXPartValidationFailedErro
 import { RGXClassToken, RGXClassUnionToken } from "src/class";
 import { rgxwa } from "src/index";
 import { expectError } from "../utils";
+import { RGXCurrentTokenNotFoundError } from "src/errors";
 
 export class TestClassToken1 extends RGXClassToken {
     toRgx() {
@@ -276,10 +277,10 @@ describe("RGXWalker", () => {
     });
 
     describe("currentToken", () => {
-        it("returns null if atTokenEnd is true", () => {
+        it("throws if atTokenEnd is true", () => {
             const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
             instance.tokenPosition = 4;
-            expect(instance.currentToken()).toBe(null);
+            expect(() => instance.currentToken()).toThrow(RGXCurrentTokenNotFoundError);
         });
 
         it("returns the token at the current position", () => {

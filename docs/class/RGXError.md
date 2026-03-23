@@ -515,3 +515,12 @@ constructor(message: string, got: unknown, constructorName?: string)
 ### Properties
 - `got` (`unknown`): The value that failed the instance check.
 - `constructorName` (`string`): The name of the expected constructor class.
+
+## RGXCurrentTokenNotFoundError
+A specific error class thrown when `RGXWalker.currentToken()` is called but the walker's token position is at or past the end of the token collection (i.e., `atTokenEnd()` is `true`). Because `RGXToken` itself may be `null` or `undefined`, returning `null` was ambiguous; this error is used instead to unambiguously signal the absence of a current token. The error code is set to `CURRENT_TOKEN_NOT_FOUND` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string)
+```
+- `message` (`string`): The error message.

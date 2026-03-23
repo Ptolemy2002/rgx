@@ -8,6 +8,7 @@ import { assertRegexMatchesAfterPosition, assertRegexMatchesAtPosition, createRe
 import { isRGXArrayToken } from "src/typeGuards";
 import { RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
+import { RGXCurrentTokenNotFoundError } from "src/errors/currentTokenNotFound";
 
 export type RGXWalkerOptions<R, S = unknown> = {
     startingSourcePosition?: number;
@@ -117,8 +118,12 @@ export class RGXWalker<R, S = unknown> {
         return this.tokenPosition >= this.tokens.length;
     }
 
-    hasNextToken(predicate: (token: RGXToken | RGXPart<R, S, unknown>) => boolean = () => true) {
-        return !this.atTokenEnd() && predicate(this.currentToken()!);
+    atLastToken() {
+        return this.tokenPosition === this.tokens.length - 1;
+    }
+
+    hasNextToken(predicate: (token: RGXTokenOrPart<R, S, unknown>) => boolean = () => true) {
+        return !this.atTokenEnd() && predicate(this.currentToken());
     }
 
     atSourceEnd() {
@@ -135,7 +140,10 @@ export class RGXWalker<R, S = unknown> {
     }
 
     currentToken() {
-        if (this.atTokenEnd()) return null;
+        // Because an RGXToken might be null or undefined, this error is used
+        // to indicate there is no current token when one is expected.
+        // Previously, we just returned null.
+        if (this.atTokenEnd()) throw new RGXCurrentTokenNotFoundError("Token position is at the end of the token collection, no current token exists");
         return this.tokens[this.tokenPosition];
     }
 
@@ -167,9 +175,9 @@ export class RGXWalker<R, S = unknown> {
     }
 
     private advanceToken() {
-        if (this.tokenPosition === this.tokens.length - 1) this._didReachEnd = true;
+        if (this.atLastToken()) this._didReachEnd = true;
         
-        if (!this.infinite || this.tokenPosition < this.tokens.length - 1) {
+        if (!this.infinite || !this.atLastToken()) {
             this.tokenPosition++;
             if (this.looping && this.atTokenEnd()) {
                 this.tokenPosition = 0;
@@ -178,7 +186,7 @@ export class RGXWalker<R, S = unknown> {
     }
 
     private determineBranch(capture: RegExpExecArray): number {
-        for (let i = 0; i < capture.length - 1; i++) {
+        for (let i = 0; i < capture.length; i++) {
             if (capture.groups?.[`rgx_branch_${i}`] !== undefined) return i;
         }
         return 0;
@@ -285,7 +293,7 @@ export class RGXWalker<R, S = unknown> {
             return null;
         }
 
-        const token = this.currentToken()!;
+        const token = this.currentToken();
         const isPart = token instanceof RGXPart;
         let silent = false;
 
@@ -307,7 +315,7 @@ export class RGXWalker<R, S = unknown> {
             if (e instanceof RGXRegexNotMatchedAfterPositionError) {
                 // If we're in infinite mode, we've reached the end before, and we're at the end now,
                 // this is recoverable. Just stop the walker instead of throwing an error.
-                if (this.infinite && this._didReachEnd && this.tokenPosition === this.tokens.length - 1) {
+                if (this.infinite && this._didReachEnd && this.atLastToken()) {
                     this._stopped = true;
                     return null;
                 }
@@ -352,7 +360,7 @@ export class RGXWalker<R, S = unknown> {
         while (this.hasNextToken()) {
             this._stopped = false;
 
-            if (predicate(this.currentToken()!)) break;
+            if (predicate(this.currentToken())) break;
             this.step();
 
             if (this._stopped) break;
@@ -363,7 +371,7 @@ export class RGXWalker<R, S = unknown> {
     stepToPart(predicate: (part: RGXPart<R, S, unknown>) => boolean = () => true) {
         // If currently at a Part, step past it first so repeated
         // calls advance to the next Part rather than getting stuck.
-        if (this.currentToken() instanceof RGXPart) {
+        if (this.hasNextToken() && this.currentToken() instanceof RGXPart) {
             this._stopped = false;
             this.step();
             if (this._stopped) return this;

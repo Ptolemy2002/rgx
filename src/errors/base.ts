@@ -21,7 +21,8 @@ export type RGXErrorCode =
     'INVALID_RGX_LEXER' |
     'INVALID_RGX_WALKER' |
     'INVALID_RGX_PART' |
-    'NOT_DIRECT_REGEXP'
+    'NOT_DIRECT_REGEXP' |
+    'CURRENT_TOKEN_NOT_FOUND'
 ;
 
 export class RGXError extends Error {
