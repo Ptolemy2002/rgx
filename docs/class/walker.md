@@ -30,6 +30,12 @@ type RGXWalkerOptions<R, S = unknown> = {
     contiguous?: boolean;
 };
 
+type RGXTryWalkOptions = {
+    revertReduced?: boolean;
+    revertShare?: boolean;
+    revertCaptures?: boolean;
+};
+
 type RGXPartControl = "skip" | "stop" | "silent" | "stop-silent" | void;
 
 type RGXCapture<T = unknown> = {
@@ -211,5 +217,8 @@ constructor(source: string, tokens: RGXTokenOrPart<R, S>[], options?: RGXWalkerO
 - `stepToToken(predicate: (token: RGXTokenOrPart<R, S>) => boolean) => this`: Steps through tokens until the predicate returns `true` for the current token or the walker is stopped. The matching token is not consumed.
 - `stepToPart(predicate?: (part: RGXPart<R, S, unknown>) => boolean) => this`: Steps through tokens until the next `RGXPart` satisfying the predicate is reached. If already at a Part, steps once first to move past it. The matching Part is not consumed.
 - `walk() => R`: Steps through all remaining tokens until the end of the token collection (or until the source is consumed in `infinite`/`looping` mode) or the walker is stopped. Returns the walker's `reduced` value after walking completes.
-- `tryWalk() => boolean`: Like `walk()`, but resets positions to their values before the walk started if the walk fails (not being stopped, but throwing an error). Returns `true` if the walk succeeded or was stopped, or `false` if it failed due to either a pattern not matching or validation failure. If an unexpected error is encountered, the error is re-thrown, but the position reset still occurs.
+- `tryWalk(options?: RGXTryWalkOptions) => boolean`: Like `walk()`, but resets positions to their values before the walk started if the walk fails (not being stopped, but throwing an error). Returns `true` if the walk succeeded or was stopped, or `false` if it failed due to either a pattern not matching or validation failure. If an unexpected error is encountered, the error is re-thrown, but the position reset still occurs. The optional `options` parameter accepts an `RGXTryWalkOptions` object with the following fields:
+  - `revertReduced` (`boolean`, optional): When `true`, the `reduced` value is deep-cloned before the walk and restored if the walk fails. Defaults to `false`.
+  - `revertShare` (`boolean`, optional): When `true`, the `share` value is deep-cloned before the walk and restored if the walk fails. Defaults to `false`.
+  - `revertCaptures` (`boolean`, optional): When `true`, both `captures` and `namedCaptures` are deep-cloned before the walk and restored if the walk fails. Defaults to `false`.
 - `clone(depth: CloneDepth = "max") => RGXWalker`: Creates a clone of the walker. When `depth` is `0`, returns `this`; otherwise, creates a new `RGXWalker` with cloned tokens, source position, reduced value, share value, captures, stopped state, and the `infinite`/`looping`/`contiguous` flags.

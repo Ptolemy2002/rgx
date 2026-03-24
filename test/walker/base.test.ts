@@ -1111,6 +1111,68 @@ describe("RGXWalker", () => {
             expect(instance.tokenPosition).toBe(0);
             expect(instance.sourcePosition).toBe(0);
         });
+
+        it("does not reset reduced by default", () => {
+            const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
+                afterCapture: (_, { walker }) => { walker.reduced = "reduced"; }
+            }), "x"], { reduced: "not-reduced" });
+            expect(instance.tryWalk()).toBe(false);
+            expect(instance.reduced).toBe("reduced");
+        });
+
+        it("resets reduced when revertReduced is true", () => {
+            const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
+                afterCapture: (_, { walker }) => { walker.reduced = "reduced"; }
+            }), "x"], { reduced: "not-reduced"});
+            expect(instance.tryWalk({ revertReduced: true })).toBe(false);
+            expect(instance.reduced).toBe("not-reduced");
+        });
+
+        it("does not reset share by default", () => {
+            const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
+                afterCapture: (_, { walker }) => { walker.share = "shared"; }
+            }), "x"], { share: "not-shared" });
+            expect(instance.tryWalk()).toBe(false);
+            expect(instance.share).toBe("shared");
+        });
+
+        it("resets share when revertShare is true", () => {
+            const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
+                afterCapture: (_, { walker }) => { walker.share = "shared"; }
+            }), "x"], { share: "not-shared" });
+            expect(instance.tryWalk({ revertShare: true })).toBe(false);
+            expect(instance.share).toBe("not-shared");
+        });
+
+        it("does not reset captures by default", () => {
+            const instance = new RGXWalker("test", ["t", "e", "s", "x"]);
+            expect(instance.tryWalk()).toBe(false);
+            // 3 successful captures, then failure on "x" which does not affect captures
+            expect(instance.captures).toHaveLength(3);
+        });
+
+        it("does not reset namedCaptures by default", () => {
+            const part = new RGXPart("t", { id: "first" });
+            const instance = new RGXWalker("test", [part, "e", "s", "x"]);
+            expect(instance.tryWalk()).toBe(false);
+            // Named capture should still be present on failure
+            expect(instance.namedCaptures.first).toHaveLength(1);
+         });
+
+        it("resets captures when revertCaptures is true", () => {
+            const instance = new RGXWalker("test", ["t", "e", "s", "x"]);
+            expect(instance.tryWalk({ revertCaptures: true })).toBe(false);
+            // All captures should be reverted on failure
+            expect(instance.captures).toHaveLength(0);
+        });
+
+         it("resets namedCaptures when revertCaptures is true", () => {
+            const part = new RGXPart("t", { id: "first" });
+            const instance = new RGXWalker("test", [part, "e", "s", "x"]);
+            expect(instance.tryWalk({ revertCaptures: true })).toBe(false);
+            // Named capture should be reverted on failure
+            expect(instance.namedCaptures.first).toEqual(undefined);
+         });
     });
 
     describe("clone", () => {

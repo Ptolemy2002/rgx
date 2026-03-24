@@ -132,6 +132,12 @@ type RGXWalkerOptions<R, S = unknown> = {
     contiguous?: boolean;
 };
 
+type RGXTryWalkOptions = {
+    revertReduced?: boolean;
+    revertShare?: boolean;
+    revertCaptures?: boolean;
+};
+
 type RGXOptions = {
     multiline?: boolean;
     verbatim?: boolean;

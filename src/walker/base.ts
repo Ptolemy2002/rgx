@@ -19,6 +19,12 @@ export type RGXWalkerOptions<R, S = unknown> = {
     contiguous?: boolean;
 };
 
+export type RGXTryWalkOptions = {
+    revertReduced?: boolean;
+    revertShare?: boolean;
+    revertCaptures?: boolean;
+};
+
 function createBranchGroups(tokens: RGXTokenCollectionInput): RGXToken {
     if (
         (tokens instanceof RGXTokenCollection && tokens.mode === "union") ||
@@ -157,7 +163,7 @@ export class RGXWalker<R, S = unknown> {
     capture(token: RGXTokenOrPart<R, S>, includeMatch = false): string | RegExpExecArray {
         const regex = createRegex(resolveRGXToken(RGXPart.check(token) ? token.token : token));
         
-        const args = [regex, this.source, this.sourcePosition, 10, true] as const;
+        const args = [regex, this.source, Math.min(this.sourcePosition, this.source.length - 1), 10, true] as const;
         let match: RegExpExecArray;
         let endPosition: number;
 
@@ -390,9 +396,17 @@ export class RGXWalker<R, S = unknown> {
         return this.reduced;
     }
 
-    tryWalk(): boolean {
+    tryWalk({
+        revertReduced = false,
+        revertShare = false,
+        revertCaptures = false
+    }: RGXTryWalkOptions = {}): boolean {
         const prevSourcePosition = this.sourcePosition;
         const prevTokenPosition = this.tokenPosition;
+        const prevReduced = revertReduced ? extClone(this.reduced, "max") : this.reduced;
+        const prevShare = revertShare ? extClone(this.share, "max") : this.share;
+        const prevCaptures = revertCaptures ? extClone(this.captures, "max") : this.captures;
+        const prevNamedCaptures = revertCaptures ? extClone(this.namedCaptures, "max") : this.namedCaptures;
 
         try {
             this.walk();
@@ -400,6 +414,11 @@ export class RGXWalker<R, S = unknown> {
         } catch (e) {
             this.sourcePosition = prevSourcePosition;
             this.tokenPosition = prevTokenPosition;
+            
+            if (revertReduced) this.reduced = prevReduced;
+            if (revertShare) this.share = prevShare;
+            if (revertCaptures) this.captures = prevCaptures;
+            if (revertCaptures) this.namedCaptures = prevNamedCaptures;
 
             if (isMatchError(e)) {
                 return false;
