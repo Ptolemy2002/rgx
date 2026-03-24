@@ -306,6 +306,10 @@ export class RGXWalker<R, S = unknown> {
 
         const branchedToken = isPart ? createBranchGroups(token.token) : createBranchGroups(token);
 
+        // Still track the previous source position,
+        // because if we have to skip, we need to reset to it.
+        const prevSourcePosition = this.sourcePosition;
+
         let captureAttempt: ReturnType<typeof this.attemptCapture>;
         try {
             captureAttempt = this.attemptCapture(branchedToken, isPart ? token : null);
@@ -339,7 +343,7 @@ export class RGXWalker<R, S = unknown> {
         };
 
         if (isPart) {
-            const dir = this.validateCapture(token, captureResult, start);
+            const dir = this.validateCapture(token, captureResult, prevSourcePosition);
             if (dir === "stop") { this._stopped = true; return null; }
             if (dir === "skip") { this.advanceToken(); return null; }
         }
@@ -347,7 +351,7 @@ export class RGXWalker<R, S = unknown> {
         if (!silent) this.registerCapture(captureResult, token);
 
         if (isPart) {
-            const dir = this.handleAfterCapture(token, captureResult, silent, start);
+            const dir = this.handleAfterCapture(token, captureResult, silent, prevSourcePosition);
             if (dir === "stop") { this.advanceToken(); this._stopped = true; return null; }
             if (dir === "skip") { this.advanceToken(); return null; }
         }

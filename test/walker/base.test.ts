@@ -910,6 +910,15 @@ describe("RGXWalker", () => {
                     { raw: "t", value: "t", start: 6, end: 7, ownerId: null, branch: 0, groups: null },
                 ]);
             });
+
+            it("reverts to the position before a capture attempt when 'skip' is returned, not the start position of the token", () => {
+                const part = new RGXPart("e", { afterCapture: () => "skip" });
+                const instance = new RGXWalker("txe", ["t", part], { contiguous: false });
+
+                instance.walk();
+                
+                expect(instance.sourcePosition).toBe(1); // Reverts to position after "t", not the start of the token "e"
+            });
         });
 
         describe("infinite and non-contiguous mode", () => {
