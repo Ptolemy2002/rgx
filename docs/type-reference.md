@@ -151,6 +151,12 @@ type RGXOptions = {
 
 type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & RGXOptions;
 
+type CreateRGXBoundsOptions = {
+    flags?: string;
+    anchorStart?: boolean;
+    anchorEnd?: boolean;
+};
+
 // See src/constants.ts for the actual mapping of predefined constant names to their token values
 type RGXPredefinedConstant = keyof typeof RGX_PREDEFINED_CONSTANTS;
 type RGXConstantName = RGXPredefinedConstant | (string & {});

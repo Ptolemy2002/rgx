@@ -5,6 +5,12 @@ import { createRegex } from "./createRegex";
 import { resolveRGXToken } from "src/resolve";
 import { ExtRegExp } from "src/ExtRegExp";
 
+export type CreateRGXBoundsOptions = {
+    flags?: string;
+    anchorStart?: boolean;
+    anchorEnd?: boolean;
+};
+
 function convertNoGroupWrap(token: RGXToken): RGXToken {
     const boundPart = { rgxGroupWrap: false };
 
@@ -26,12 +32,15 @@ function convertToBound(token: ExtRegExp): RGXConvertibleToken {
     };
 }
 
-export function createRGXBounds(positive: RGXToken, negative: RGXToken, flags: string = ""): [RGXConvertibleToken, RGXConvertibleToken] {
+export function createRGXBounds(positive: RGXToken, negative: RGXToken, _options: CreateRGXBoundsOptions | string = {}): [RGXConvertibleToken, RGXConvertibleToken] {
+    const options: CreateRGXBoundsOptions = typeof _options === "string" ? { flags: _options } : _options;
+    const { flags = "", anchorStart = true, anchorEnd = true } = options;
+
     const resolvedPositive = resolveRGXToken(convertNoGroupWrap(positive), {groupWrap: false, currentFlags: flags});
     const resolvedNegative = resolveRGXToken(convertNoGroupWrap(negative), {groupWrap: false, currentFlags: flags});
 
-    const startBound = convertToBound(createRegex(`(?<=${resolvedNegative})(?=${resolvedPositive})`, flags, true));
-    const endBound = convertToBound(createRegex(`(?<=${resolvedPositive})(?=${resolvedNegative})`, flags, true));
+    const startBound = convertToBound(createRegex(`(?<=${resolvedNegative}${anchorStart ? "|^" : ""})(?=${resolvedPositive})`, flags, true));
+    const endBound = convertToBound(createRegex(`(?<=${resolvedPositive})(?=${resolvedNegative}${anchorEnd ? "|$" : ""})`, flags, true));
 
     return [startBound, endBound];
 }
