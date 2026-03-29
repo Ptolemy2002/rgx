@@ -187,7 +187,7 @@ describe("rgxConstant", () => {
     describe("word-bound-start constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("word-bound-start"));
-            expect(result).toBe("(?<=\\W|)(?=\\w)");
+            expect(result).toBe("(?<=\\W|^)(?=\\w)");
         });
     });
 

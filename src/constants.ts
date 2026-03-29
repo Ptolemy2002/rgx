@@ -127,7 +127,6 @@ export const RGX_PREDEFINED_CONSTANTS = {
         toRgx() { return /[^\n\S]/; }
     },
     "non-newline-whitespace-block": {
-        rgxIsGroup: true,
         rgxGroupWrap: false,
         toRgx() { return /[^\n\S]+/; }
     },
