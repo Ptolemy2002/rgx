@@ -138,6 +138,12 @@ type RGXTryWalkOptions = {
     revertCaptures?: boolean;
 };
 
+type ResolveRGXTokenOptions = {
+    groupWrap?: boolean;
+    topLevel?: boolean;
+    currentFlags?: string;
+};
+
 type RGXOptions = {
     multiline?: boolean;
     verbatim?: boolean;

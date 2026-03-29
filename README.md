@@ -20,6 +20,7 @@ Because there is so much to document, it has been broken up into multiple files.
   - [regexWithFlags](./docs/util/regexWithFlags.md) - The `regexWithFlags` function, which creates a new regular expression with the same source as a given regular expression but with different flags.
   - [createRegex](./docs/util/createRegex.md) - The `createRegex` function, which safely constructs a `RegExp` or `ExtRegExp` from a pattern string, converting `SyntaxError` into `RGXInvalidRegexStringError`.
   - [createRGXClassGuardFunction](./docs/util/createRGXClassGuardFunction.md) - The `createRGXClassGuardFunction` and `createAssertRGXClassGuardFunction` utilities for creating type guard and assertion functions for class instances.
+  - [createRGXBounds](./docs/util/createRGXBounds.md) - The `createRGXBounds` function, which creates a pair of zero-width boundary tokens representing the start and end of a region delimited by two patterns.
 - `class` - A directory containing documentation for all classes in the library.
   - [collection](./docs/class/collection.md) - The `RGXTokenCollection` class, which is a collection of tokens.
   - [RGXError](./docs/class/RGXError.md) - Details on all custom error classes and the base `RGXError` class.

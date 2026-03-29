@@ -19,6 +19,12 @@ const validRegexSymbol = Symbol('rgx.ValidRegex');
 type ValidRegexBrandSymbol = typeof validRegexSymbol;
 type ValidRegexString = Branded<string, [ValidRegexBrandSymbol]>;
 
+type ResolveRGXTokenOptions = {
+    groupWrap?: boolean;
+    topLevel?: boolean;
+    currentFlags?: string;
+};
+
 const validVanillaRegexFlagsSymbol = Symbol('rgx.ValidVanillaRegexFlags');
 type ValidVanillaRegexFlagsBrandSymbol = typeof validVanillaRegexFlagsSymbol;
 type ValidVanillaRegexFlags = Branded<string, [ValidVanillaRegexFlagsBrandSymbol]>;
@@ -122,20 +128,21 @@ As an alternative to using the `rgx` template tag, you can directly call `rgxa` 
 
 # resolveRGXToken
 ```typescript
-function resolveRGXToken(token: RGXToken, groupWrap?: boolean, topLevel?: boolean, currentFlags?: string): ValidRegexString
+function resolveRGXToken(token: RGXToken, options?: ResolveRGXTokenOptions): ValidRegexString
 ```
 
 Resolves an RGX token to a string. No-op tokens resolve to an empty string, literal tokens are included as-is (wrapped in a non-capturing group when `groupWrap` is `true`), native tokens are converted to strings and escaped, convertible tokens are converted using their `toRgx` method and then resolved recursively (or, if `rgxInterpolate` is `true`, their `toRgx` result is used as-is without further resolution or escaping), and arrays of tokens are resolved as unions of their resolved elements (repeats removed, placed in a non-capturing group when `groupWrap` is `true`).
 
 For literal tokens (`RegExp` instances), if the token's flags differ from `currentFlags` in any of the localizable flags (`i`, `m`, `s`), the token is wrapped in an inline modifier group (e.g., `(?i:...)`, `(?-i:...)`, `(?ms-i:...)`) instead of a plain non-capturing group. Non-localizable flags (such as `g`, `u`, `y`, `d`, `v`) are ignored when computing the diff. When an inline modifier group is used, it always wraps the token regardless of the `groupWrap` setting, since the modifier group itself serves as a group.
 
-For convertible tokens, if the token has an `rgxGroupWrap` property, that value always takes precedence. If `rgxGroupWrap` is not present, the behavior depends on whether the call is top-level: at the top level, the `groupWrap` parameter is passed through; in recursive calls, it falls back to `true` regardless of the `groupWrap` parameter. This ensures that the caller's `groupWrap` preference only affects the outermost convertible token and does not leak into deeply nested resolution.
+For convertible tokens, if the token has an `rgxGroupWrap` property, that value always takes precedence. If `rgxGroupWrap` is not present, the behavior depends on whether the call is top-level: at the top level, the `groupWrap` option is passed through; in recursive calls, it falls back to `true` regardless of the `groupWrap` option. This ensures that the caller's `groupWrap` preference only affects the outermost convertible token and does not leak into deeply nested resolution.
 
 ## Parameters
   - `token` (`RGXToken`): The RGX token to resolve.
-  - `groupWrap` (`boolean`, optional): Whether to wrap literal tokens and array unions in non-capturing groups (`(?:...)`). Defaults to `true`. When `false`, literals use their raw source and array unions omit the wrapping group. For convertible tokens, the token's `rgxGroupWrap` property always takes precedence; otherwise, this value is only passed through at the top level (in recursive calls it falls back to `true`). Array union elements always use `groupWrap=true` internally. Note that when a literal token requires an inline modifier group due to a localizable flag diff, it is always wrapped regardless of this setting.
-  - `topLevel` (`boolean`, optional): Tracks whether the current call is the initial (top-level) invocation. Defaults to `true`. **Warning**: This parameter is intended for internal use by the resolver's own recursion. External callers should not set this parameter, as doing so may produce unexpected wrapping behavior.
-  - `currentFlags` (`string`, optional): The flags of the current regex context, used to compute inline modifier groups for literal tokens. Defaults to `''`. When a literal token's localizable flags (`i`, `m`, `s`) differ from this value, the resolver wraps the token in an inline modifier group that adds or removes the differing flags locally. If invalid regex flags are provided, an `RGXInvalidRegexFlagsError` will be thrown.
+  - `options` (`ResolveRGXTokenOptions`, optional): An object containing optional configuration for the resolver.
+    - `groupWrap` (`boolean`, optional): Whether to wrap literal tokens and array unions in non-capturing groups (`(?:...)`). Defaults to `true`. When `false`, literals use their raw source and array unions omit the wrapping group. For convertible tokens, the token's `rgxGroupWrap` property always takes precedence; otherwise, this value is only passed through at the top level (in recursive calls it falls back to `true`). Array union elements always use `groupWrap=true` internally. Note that when a literal token requires an inline modifier group due to a localizable flag diff, it is always wrapped regardless of this setting.
+    - `topLevel` (`boolean`, optional): Tracks whether the current call is the initial (top-level) invocation. Defaults to `true`. **Warning**: This field is intended for internal use by the resolver's own recursion. External callers should not set this field, as doing so may produce unexpected wrapping behavior.
+    - `currentFlags` (`string`, optional): The flags of the current regex context, used to compute inline modifier groups for literal tokens. Defaults to `''`. When a literal token's localizable flags (`i`, `m`, `s`) differ from this value, the resolver wraps the token in an inline modifier group that adds or removes the differing flags locally. If invalid regex flags are provided, an `RGXInvalidRegexFlagsError` will be thrown.
 
 ## Returns
 - `ValidRegexString`: The resolved string representation of the RGX token. The result is asserted to be a valid regex string before being returned; if it is not (e.g. due to an `rgxInterpolate` token whose `toRgx` produces invalid regex syntax), an `RGXInvalidRegexStringError` is thrown.

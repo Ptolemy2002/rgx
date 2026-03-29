@@ -56,8 +56,8 @@ Since these are defined as native tokens (strings), they are automatically wrapp
 | `"line-end"` | `$` (with `m` flag) | End of line anchor |
 | `"word-bound"` | `\b` | Word boundary |
 | `"non-word-bound"` | `\B` | Non-word boundary |
-| `"word-bound-start"` | `(?<=\W)(?=\w)` | Start of a word |
-| `"word-bound-end"` | `(?<=\w)(?=\W)` | End of a word |
+| `"word-bound-start"` | `(?<=\W\|^)(?=\w)` | Start of a word |
+| `"word-bound-end"` | `(?<=\w)(?=\W\|$)` | End of a word |
 
 ### Character Sets
 | Name | Resolves To | Description |
@@ -77,6 +77,8 @@ Since these are defined as native tokens (strings), they are automatically wrapp
 | `"whitespace"` | `\s` | Any whitespace character |
 | `"whitespace-block"` | `\s+` | One or more consecutive whitespace characters |
 | `"non-whitespace"` | `\S` | Any non-whitespace character |
+| `"non-newline-whitespace"` | `[^\n\S]` | Any whitespace character that is not a newline |
+| `"non-newline-whitespace-block"` | `[^\n\S]+` | One or more consecutive whitespace characters that are not newlines |
 | `"vertical-whitespace"` | `\v` | Vertical whitespace character |
 | `"word-char"` | `\w` | Any word character (letter, digit, or underscore) |
 | `"non-word-char"` | `\W` | Any non-word character |
@@ -117,18 +119,18 @@ Asserts that an RGX constant with the given name does not exist. If the assertio
 
 ### defineRGXConstant
 ```typescript
-function defineRGXConstant(name: RGXConstantName, value: RGXToken): RGXToken
+function defineRGXConstant(name: RGXConstantName, value: RGXToken): RGXClassToken
 ```
 
-Defines a new RGX constant with the given name and value. If the value is a native token (string, number, boolean, or no-op), it is automatically wrapped in an `RGXClassWrapperToken` before being stored. This ensures that native-valued constants are not stripped by multiline template processing in `rgx`, since only the literal string parts of the template are affected by multiline mode. Throws an `RGXConstantConflictError` if a constant with the same name already exists.
+Defines a new RGX constant with the given name and value. If the value is not already an `RGXClassToken` (checked via `RGXClassToken.check()`), it is automatically wrapped in an `RGXClassWrapperToken` before being stored. This ensures that all stored constants expose the full class token API. Throws an `RGXConstantConflictError` if a constant with the same name already exists.
 - `name` (`RGXConstantName`): The name for the constant.
-- `value` (`RGXToken`): The token value to associate with the name. Native tokens are automatically wrapped in `RGXClassWrapperToken`.
+- `value` (`RGXToken`): The token value to associate with the name. Values that are not already `RGXClassToken` instances are automatically wrapped in `RGXClassWrapperToken`.
 
-**Returns:** `RGXToken` - The stored value (after wrapping, if applicable).
+**Returns:** `RGXClassToken` - The stored value (after wrapping, if applicable).
 
 ### rgxConstant
 ```typescript
-function rgxConstant(name: RGXConstantName): RGXToken
+function rgxConstant(name: RGXConstantName): RGXClassToken
 ```
 
 Retrieves the value of an RGX constant by name. Throws an `RGXInvalidConstantKeyError` if no constant with the given name exists.

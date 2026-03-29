@@ -31,14 +31,14 @@ describe("hasRGXConstant", () => {
 describe("defineRGXConstant", () => {
     it("defines a new constant", () => {
         const name = "test-constant";
-        const value = {toRgx() { return "test"; }};
+        const value = new RGXClassWrapperToken({toRgx() { return "test"; }});
 
         expect(() => defineRGXConstant(name, value)).not.toThrow();
         expect(rgxConstant(name)).toBe(value);
         deleteRGXConstant(name);
     });
 
-    it("wraps native tokens in RGXClassWrapperToken", () => {
+    it("wraps tokens in RGXClassWrapperToken", () => {
         const name = "test-native-constant";
         const value = "native-value";
 
@@ -46,6 +46,14 @@ describe("defineRGXConstant", () => {
         expect(definedValue).not.toBe(value);
         expect(definedValue).toBeInstanceOf(RGXClassWrapperToken);
         expect((definedValue as RGXClassWrapperToken).token).toBe(value);
+    });
+
+    it("does not wrap values that are already RGXClassTokens", () => {
+        const name = "test-class-constant";
+        const value = new RGXClassWrapperToken("class-value");
+
+        const definedValue = defineRGXConstant(name, value);
+        expect(definedValue).toBe(value);
     });
 
     it("throws an error when defining a constant with an existing name", () => {
@@ -179,14 +187,14 @@ describe("rgxConstant", () => {
     describe("word-bound-start constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("word-bound-start"));
-            expect(result).toBe("(?<=\\W)(?=\\w)");
+            expect(result).toBe("(?<=\\W|)(?=\\w)");
         });
     });
 
     describe("word-bound-end constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("word-bound-end"));
-            expect(result).toBe("(?<=\\w)(?=\\W)");
+            expect(result).toBe("(?<=\\w)(?=\\W|$)");
         });
     });
 
@@ -266,6 +274,20 @@ describe("rgxConstant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("non-whitespace"));
             expect(result).toBe("\\S");
+        });
+    });
+
+    describe("non-newline-whitespace constant", () => {
+        it("resolves correctly", () => {
+            const result = resolveRGXToken(rgxConstant("non-newline-whitespace"));
+            expect(result).toBe("[^\\n\\S]");
+        });
+    });
+
+    describe("non-newline-whitespace-block constant", () => {
+        it("resolves correctly", () => {
+            const result = resolveRGXToken(rgxConstant("non-newline-whitespace-block"));
+            expect(result).toBe("[^\\n\\S]+");
         });
     });
 

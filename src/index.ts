@@ -2,25 +2,11 @@ import * as t from "./types";
 import { rgxClassInit } from "./class";
 import { registerCustomFlagTransformers } from "./flag-transformer";
 import { rgxConcat } from "./concat";
-import { assureAcceptance, rgxTaggedTemplateToArray } from "./internal";
-import { assertValidRegexFlags, ExtRegExp, extRegExp } from "./ExtRegExp";
+import { assureAcceptance } from "./internal/assureAcceptance";
+import { rgxTaggedTemplateToArray } from "./internal/taggedTemplateToArray";
+import { assertValidRegexFlags, ExtRegExp } from "./ExtRegExp";
 import { RGXPart, RGXTokenOrPart, RGXWalker } from "./walker";
-import { createRegex } from "./utils";
-
-export * from "./errors";
-export * from "./types";
-export * from "./typeGuards";
-export * from "./collection";
-export * from "./class";
-export * from "./resolve";
-export * from "./concat";
-export * from "./utils";
-export * from "./ExtRegExp";
-export * from "./flag-transformer";
-export * from "./clone";
-export * from "./constants";
-export * from "./walker";
-export * from "./lexer";
+import { createRegex } from "./utils/createRegex";
 
 // Call this for certain class methods to work correctly
 rgxClassInit();
@@ -54,3 +40,19 @@ export function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {mul
         return rgxwa<R, S, T>(source, rgxTaggedTemplateToArray(strings, tokens, multiline, verbatim), options);
     };
 }
+
+// Do all exports after to avoid circular dependencies issues.
+export * from "./errors";
+export * from "./types";
+export * from "./typeGuards";
+export * from "./collection";
+export * from "./class";
+export * from "./resolve";
+export * from "./concat";
+export * from "./utils";
+export * from "./ExtRegExp";
+export * from "./flag-transformer";
+export * from "./clone";
+export * from "./constants";
+export * from "./walker";
+export * from "./lexer";

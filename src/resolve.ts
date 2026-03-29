@@ -4,6 +4,12 @@ import { assertValidRegexFlags } from "./ExtRegExp";
 import * as tg from "./typeGuards";
 import * as t from "./types";
 
+export type ResolveRGXTokenOptions = {
+    groupWrap?: boolean;
+    topLevel?: boolean;
+    currentFlags?: string;
+};
+
 export function escapeRegex(value: string) {
     const result = value.replaceAll(/[\-\^\$.*+?^${}()|[\]\\]/g, '\\$&');
     tg.assertValidRegexString(result);
@@ -25,7 +31,7 @@ function localizableVanillaRegexFlagDiff(prev: string, next: string) {
     return `${added}-${removed}`;
 }
 
-export function resolveRGXToken(token: t.RGXToken, groupWrap=true, topLevel=true, currentFlags=''): t.ValidRegexString {
+export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel = true, currentFlags = '' }: ResolveRGXTokenOptions = {}): t.ValidRegexString {
     assertValidRegexFlags(currentFlags);
     const innerResolve = (): string => {
         if (tg.isRGXNoOpToken(token)) return '';
@@ -51,7 +57,7 @@ export function resolveRGXToken(token: t.RGXToken, groupWrap=true, topLevel=true
             
             // The top-level group-wrapping preference propogates to a direct convertible token, but after that
             // the preference falls back to true whenever a token doesn't explicitly specify a preference.
-            return resolveRGXToken(token.toRgx(), token.rgxGroupWrap ?? (topLevel ? groupWrap : true), false, currentFlags);
+            return resolveRGXToken(token.toRgx(), {groupWrap: token.rgxGroupWrap ?? (topLevel ? groupWrap : true), topLevel: false, currentFlags});
         }
 
         // Interpret arrays as unions
@@ -63,11 +69,11 @@ export function resolveRGXToken(token: t.RGXToken, groupWrap=true, topLevel=true
                 token = [...removeRgxUnionDuplicates(...token)];
 
                 // Don't preserve group wrapping preference for the recursive calls
-                if (groupWrap) return '(?:' + token.map(t => resolveRGXToken(t, true, false, currentFlags)).join('|') + ')';
-                else return token.map(t => resolveRGXToken(t, true, false, currentFlags)).join('|');
+                if (groupWrap) return '(?:' + token.map(t => resolveRGXToken(t, {groupWrap: true, topLevel: false, currentFlags})).join('|') + ')';
+                else return token.map(t => resolveRGXToken(t, {groupWrap: true, topLevel: false, currentFlags})).join('|');
             }
 
-            return resolveRGXToken(token[0], true, false, currentFlags);
+            return resolveRGXToken(token[0], {groupWrap: true, topLevel: false, currentFlags});
         }
 
         // Ignoring this line since it should be impossible to reach if the types are correct, but we need it to satisfy the return type

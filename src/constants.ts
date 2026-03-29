@@ -1,9 +1,8 @@
-import { rgxClassWrapper } from "./class";
+import { RGXClassToken, rgxClassWrapper } from "./class";
 import { RGXConstantConflictError, RGXInvalidConstantKeyError } from "./errors";
-import { isRGXNativeToken } from "./typeGuards";
 import { RGXToken } from "./types";
 
-const rgxConstants: Record<string, RGXToken> = {};
+const rgxConstants: Record<string, RGXClassToken> = {};
 
 export const RGX_PREDEFINED_CONSTANTS = {
     // Control Characters
@@ -57,7 +56,7 @@ export const RGX_PREDEFINED_CONSTANTS = {
         rgxIsRepeatable: false,
         toRgx() {
             // Make sure there is a non-word character before and a word character after
-            return /(?<=\W)(?=\w)/;
+            return /(?<=\W|^)(?=\w)/;
         }
     },
     "word-bound-end": {
@@ -65,7 +64,7 @@ export const RGX_PREDEFINED_CONSTANTS = {
         rgxIsRepeatable: false,
         toRgx() {
             // Make sure there is a word character before and a non-word character after
-            return /(?<=\w)(?=\W)/;
+            return /(?<=\w)(?=\W|$)/;
         }
     },
 
@@ -121,6 +120,16 @@ export const RGX_PREDEFINED_CONSTANTS = {
     "non-whitespace": {
         rgxGroupWrap: false,
         toRgx() { return /\S/; }
+    },
+    "non-newline-whitespace": {
+        rgxIsGroup: true,
+        rgxGroupWrap: false,
+        toRgx() { return /[^\n\S]/; }
+    },
+    "non-newline-whitespace-block": {
+        rgxIsGroup: true,
+        rgxGroupWrap: false,
+        toRgx() { return /[^\n\S]+/; }
     },
     "vertical-whitespace": {
         rgxGroupWrap: false,
@@ -186,14 +195,13 @@ export function assertNotHasRGXConstant(name: RGXConstantName) {
 
 export function defineRGXConstant(name: RGXConstantName, value: RGXToken) {
     assertNotHasRGXConstant(name);
-    // Not strings themselves so that they aren't removed in multiline mode.
-    rgxConstants[name] = isRGXNativeToken(value) ? rgxClassWrapper(value) : value;
+    rgxConstants[name] = RGXClassToken.check(value) ? value : rgxClassWrapper(value);
     return rgxConstants[name];
 }
 
-export function rgxConstant(name: RGXConstantName): RGXToken {
+export function rgxConstant(name: RGXConstantName): RGXClassToken {
     assertHasRGXConstant(name);
-    return rgxConstants[name];
+    return rgxConstants[name]!;
 }
 
 export function deleteRGXConstant(name: RGXConstantName) {

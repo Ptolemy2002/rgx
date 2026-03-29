@@ -6,7 +6,7 @@ describe('resolveRGXToken', () => {
     });
 
     it('resolves a single literal token without group wrapping', () => {
-        expect(resolveRGXToken(/abc/, false)).toBe('abc');
+        expect(resolveRGXToken(/abc/, {groupWrap: false})).toBe('abc');
     });
 
     it('resolves a single native token', () => {
@@ -39,7 +39,7 @@ describe('resolveRGXToken', () => {
         const token = {
             toRgx: () => ["abc", { toRgx: () => /def/ }]
         };
-        expect(resolveRGXToken(token, false)).toBe('abc|(?:def)');
+        expect(resolveRGXToken(token, {groupWrap: false})).toBe('abc|(?:def)');
     });
 
     it('resolves an array of tokens as a union', () => {
@@ -49,7 +49,7 @@ describe('resolveRGXToken', () => {
 
     it('resolves an array of tokens as a union without group wrapping', () => {
         const tokens = ['abc', /def/, { toRgx: () => 'ghi' }];
-        expect(resolveRGXToken(tokens, false)).toBe('abc|(?:def)|ghi');
+        expect(resolveRGXToken(tokens, {groupWrap: false})).toBe('abc|(?:def)|ghi');
     });
 
     it('resolves an array of tokens with duplicates as a union without duplicates', () => {

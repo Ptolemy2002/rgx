@@ -37,7 +37,7 @@ export class RGXTokenCollection implements Collection<RGXToken>, RGXConvertibleT
         if (this.mode === 'union') {
             // The RegExp will already be wrapped with resolveRGXToken,
             // so we don't need to wrap it again here.
-            pattern = resolveRGXToken(this.tokens, false);
+            pattern = resolveRGXToken(this.tokens, {groupWrap: false});
         } else {
             pattern = rgxConcat(this.tokens);
         }
