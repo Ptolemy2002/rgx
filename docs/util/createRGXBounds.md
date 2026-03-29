@@ -24,7 +24,7 @@ type CreateRGXBoundsOptions = {
 
 # createRGXBounds
 ```typescript
-function createRGXBounds(positive: RGXToken, negative: RGXToken, options?: CreateRGXBoundsOptions | string): [RGXConvertibleToken, RGXConvertibleToken]
+function createRGXBounds(positive: RGXToken, negative: RGXToken, options?: CreateRGXBoundsOptions | string | boolean): [RGXConvertibleToken, RGXConvertibleToken]
 ```
 Creates a pair of boundary tokens representing the start and end of a region defined by a `positive` pattern, delimited by a `negative` pattern. The returned tokens are zero-width assertions (they consume no characters) that can be inserted into an RGX pattern to match at the edges of the positive region.
 
@@ -35,7 +35,7 @@ Both `positive` and `negative` are resolved without group wrapping before being 
 ## Parameters
   - `positive` (`RGXToken`): The token representing the pattern that defines the region being bounded.
   - `negative` (`RGXToken`): The token representing the surrounding/delimiter pattern that flanks the region.
-  - `options` (`CreateRGXBoundsOptions | string`, optional): Either an options object or a flags string (for backwards compatibility).
+  - `options` (`CreateRGXBoundsOptions | string | boolean`, optional): Either an options object, a flags string (for backwards compatibility), or a boolean to set both `anchorStart` and `anchorEnd`.
     - `flags` (`string`, optional): Regex flags to use when resolving the tokens and constructing the bound expressions. Passed as `currentFlags` to `resolveRGXToken` and as the flags for the internal `ExtRegExp`. Defaults to `''`.
     - `anchorStart` (`boolean`, optional): When `true`, the start bound also matches the very beginning of the string (adds `|^` to the lookbehind). Defaults to `true`.
     - `anchorEnd` (`boolean`, optional): When `true`, the end bound also matches the very end of the string (adds `|$` to the lookahead). Defaults to `true`.

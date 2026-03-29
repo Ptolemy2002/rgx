@@ -32,8 +32,9 @@ function convertToBound(token: ExtRegExp): RGXConvertibleToken {
     };
 }
 
-export function createRGXBounds(positive: RGXToken, negative: RGXToken, _options: CreateRGXBoundsOptions | string = {}): [RGXConvertibleToken, RGXConvertibleToken] {
-    const options: CreateRGXBoundsOptions = typeof _options === "string" ? { flags: _options } : _options;
+export function createRGXBounds(positive: RGXToken, negative: RGXToken, options: CreateRGXBoundsOptions | string | boolean = {}): [RGXConvertibleToken, RGXConvertibleToken] {
+    if (typeof options === "string") options = { flags: options };
+    else if (typeof options === "boolean") options = { anchorStart: options, anchorEnd: options };
     const { flags = "", anchorStart = true, anchorEnd = true } = options;
 
     const resolvedPositive = resolveRGXToken(convertNoGroupWrap(positive), {groupWrap: false, currentFlags: flags});

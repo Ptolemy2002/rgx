@@ -98,4 +98,13 @@ describe("createRGXBounds", () => {
 
         expect(regex.test("a")).toBe(true); // The match is at the end of the string
     });
+
+    it("sets both anchorStart and anchorEnd to true when passed true as the options argument", () => {
+        const [startBound, endBound] = createRGXBounds("a", "b", true);
+        const startRegex = rgxa([startBound]);
+        const endRegex = rgxa([endBound]);
+
+        expect(startRegex.test("a")).toBe(true); // The match is at the start of the string
+        expect(endRegex.test("a")).toBe(true); // The match is at the end of the string
+    });
 });
