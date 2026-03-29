@@ -26,12 +26,12 @@ function convertToBound(token: ExtRegExp): RGXConvertibleToken {
     };
 }
 
-export function createRGXBounds(before: RGXToken, after: RGXToken, flags: string = ""): [RGXConvertibleToken, RGXConvertibleToken] {
-    const resolvedBefore = resolveRGXToken(convertNoGroupWrap(before), {groupWrap: false, currentFlags: flags});
-    const resolvedAfter = resolveRGXToken(convertNoGroupWrap(after), {groupWrap: false, currentFlags: flags});
+export function createRGXBounds(positive: RGXToken, negative: RGXToken, flags: string = ""): [RGXConvertibleToken, RGXConvertibleToken] {
+    const resolvedPositive = resolveRGXToken(convertNoGroupWrap(positive), {groupWrap: false, currentFlags: flags});
+    const resolvedNegative = resolveRGXToken(convertNoGroupWrap(negative), {groupWrap: false, currentFlags: flags});
 
-    const startBound = convertToBound(createRegex(`(?<=${resolvedBefore})(?=${resolvedAfter})`, flags, true));
-    const endBound = convertToBound(createRegex(`(?<=${resolvedAfter})(?=${resolvedBefore})`, flags, true));
+    const startBound = convertToBound(createRegex(`(?<=${resolvedNegative})(?=${resolvedPositive})`, flags, true));
+    const endBound = convertToBound(createRegex(`(?<=${resolvedPositive})(?=${resolvedNegative})`, flags, true));
 
     return [startBound, endBound];
 }

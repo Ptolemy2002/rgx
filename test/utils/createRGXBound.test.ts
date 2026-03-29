@@ -17,8 +17,8 @@ describe("createRGXBounds", () => {
     it("wraps the bounds in a lookahead/lookbehind structure", () => {
         const [startBound, endBound] = createRGXBounds("a", "b");
 
-        expect((startBound.toRgx() as ExtRegExp).source).toBe("(?<=a)(?=b)");
-        expect((endBound.toRgx() as ExtRegExp).source).toBe("(?<=b)(?=a)");
+        expect((startBound.toRgx() as ExtRegExp).source).toBe("(?<=b)(?=a)");
+        expect((endBound.toRgx() as ExtRegExp).source).toBe("(?<=a)(?=b)");
     });
 
     it("accepts flags for the regex", () => {
@@ -41,10 +41,10 @@ describe("createRGXBounds", () => {
     });
 
     it("correctly sets the convertible token options of the bounds when passed convertible tokens", () => {
-        const before = { toRgx() { return "a"; }, rgxGroupWrap: true, rgxIsGroup: true, rgxIsRepeatable: true };
-        const after = { toRgx() { return "b"; }, rgxGroupWrap: true, rgxIsGroup: true, rgxIsRepeatable: true };
+        const positive = { toRgx() { return "a"; }, rgxGroupWrap: true, rgxIsGroup: true, rgxIsRepeatable: true };
+        const negative = { toRgx() { return "b"; }, rgxGroupWrap: true, rgxIsGroup: true, rgxIsRepeatable: true };
 
-        const [startBound, endBound] = createRGXBounds(before, after, "i");
+        const [startBound, endBound] = createRGXBounds(positive, negative, "i");
         
         expect(startBound.rgxGroupWrap).toBe(false);
         expect(startBound.rgxIsGroup).toBe(false);
@@ -55,19 +55,19 @@ describe("createRGXBounds", () => {
         expect(endBound.rgxIsRepeatable).toBe(false);
     });
 
-    it("creates a startBound that only matches positions preceded by the before token and followed by the after token", () => {
+    it("creates a startBound that only matches positions preceded by the negative token and followed by the positive token", () => {
         const [startBound] = createRGXBounds("a", "b");
-        const regex = rgxa([startBound, "b"]);
+        const regex = rgxa([startBound, "a"]);
         
-        expect(doesRegexMatchAfterPosition(regex, "ab", 0)).toBe(true);
-        expect(doesRegexMatchAfterPosition(regex, "ba", 0)).toBe(false);
+        expect(doesRegexMatchAfterPosition(regex, "aab", 1)).toBe(false);
+        expect(doesRegexMatchAfterPosition(regex, "aba", 1)).toBe(true);
     });
 
-    it("creates an endBound that only matches positions preceded by the after token and followed by the before token", () => {
+    it("creates an endBound that only matches positions preceded by the positive token and followed by the negative token", () => {
         const [, endBound] = createRGXBounds("a", "b");
-        const regex = rgxa([endBound, "a"]);
+        const regex = rgxa([endBound, "b"]);
 
-        expect(doesRegexMatchAfterPosition(regex, "ab", 0)).toBe(false);
-        expect(doesRegexMatchAfterPosition(regex, "ba", 0)).toBe(true);
+        expect(doesRegexMatchAfterPosition(regex, "baa", 1)).toBe(false);
+        expect(doesRegexMatchAfterPosition(regex, "aab", 1)).toBe(true);
     });
 });
