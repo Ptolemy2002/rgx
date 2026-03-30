@@ -6,7 +6,7 @@ import { resolveRGXToken } from "src/resolve";
 import { assertValidIdentifier } from "src/typeGuards";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
-import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
+import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
 import { createConstructFunction } from "src/internal";
 
 export class RGXExclusionToken extends RGXClassToken {
@@ -54,7 +54,7 @@ export class RGXExclusionToken extends RGXClassToken {
         // Because the terminal should be consuming no actual characters, it shuld be able to be repeated without issue, but we cannot actually validate
         // that the terminal is not consuming characters, so we will just document that the user not consume characters in the terminal.
 
-        return new RegExp(source);
+        return createRegex(source);
     }
 
     clone(depth: CloneDepth = "max") {
