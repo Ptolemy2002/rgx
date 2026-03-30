@@ -1,3 +1,4 @@
+import { RGXToken } from "src/types";
 import { RGXClassToken } from "./base";
 import { expandRgxUnionTokens, RGXClassUnionToken } from "./union";
 import { RGXGroupToken, RGXGroupTokenArgs } from "./group";
@@ -7,6 +8,7 @@ import { RGXLookaroundToken } from "./lookaround";
 import { RGXNotSupportedError } from "src/errors";
 import { RGXLookaheadToken } from "./lookahead";
 import { RGXLookbehindToken } from "./lookbehind";
+import { RGXExclusionToken } from "./exclusion";
 
 export function rgxClassInit() {
     // Patch RGXClassToken here, Since classes like RGXClassUnionToken are instances of RGXClassToken
@@ -58,5 +60,14 @@ export function rgxClassInit() {
         if (RGXLookbehindToken.check(this)) return this;
         if (RGXLookaheadToken.check(this)) return this.negate();
         return new RGXLookbehindToken([this], positive);
+    }
+
+    RGXClassToken.prototype.subtract = function (
+        this: RGXClassToken,
+        exclusionId: string,
+        exclusions: RGXTokenCollectionInput[] = [],
+        terminal: RGXToken = null
+    ): RGXExclusionToken {
+        return new RGXExclusionToken(exclusionId, this, exclusions, terminal);
     }
 }

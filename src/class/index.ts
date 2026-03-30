@@ -9,3 +9,4 @@ export * from "./lookbehind";
 export * from "./wrapper";
 export * from "./subpattern";
 export * from "./toRGXClassToken";
+export * from "./exclusion";

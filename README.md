@@ -33,6 +33,7 @@ Because there is so much to document, it has been broken up into multiple files.
     - [union](./docs/class/token/union.md) - The `RGXClassUnionToken` class, which represents a union of tokens that can match any one of the tokens in the union.
     - [subpattern](./docs/class/token/subpattern.md) - The `RGXSubpatternToken` class, which re-matching the content of a previous capturing group.
     - [wrapper](./docs/class/token/wrapper.md) - The `RGXClassWrapperToken` class, which represents a class token that can wrap any arbitrary token (even non-class), giving you the benefit of the class API for any token.
+    - [exclusion](./docs/class/token/exclusion.md) - The `RGXExclusionToken` class, which matches a token while excluding specific alternatives using lookahead-based subtraction.
     - [to](./docs/class/token/to.md) - A utility for converting any token into a class token. Most tokens just get wrapped in a `RGXClassWrapperToken`, but some do not.
     - `lookaround` - A directory containing documentation for lookahead and lookbehind tokens.
       - [base](./docs/class/token/lookaround/base.md) - The `RGXLookaroundToken` class, which is the base class for lookahead and lookbehind tokens.

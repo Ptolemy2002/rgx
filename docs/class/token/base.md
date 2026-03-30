@@ -5,6 +5,12 @@ The following is a reference to types relevant to the class listed in this file.
 import { CloneDepth } from "@ptolemy2002/immutability-utils";
 // type CloneDepth = number | "max";
 
+type ResolveRGXTokenOptions = {
+    groupWrap?: boolean;
+    topLevel?: boolean;
+    currentFlags?: string;
+};
+
 type RGXNoOpToken = null | undefined;
 type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
@@ -31,6 +37,7 @@ Notably, certain methods will throw `RGXNotImplementedError` if `rgxClassInit` h
 - `optional`
 - `asLookahead`
 - `asLookbehind`
+- `subtract`
 
 ## Static Properties
 - `check(value: unknown): value is RGXClassToken`: A type guard that checks if the given value is an instance of `RGXClassToken`.
@@ -55,4 +62,5 @@ These properties only have getters.
 - `optional(lazy?: boolean) => RGXRepeatToken`: Makes this token optional (matched zero or one times). `lazy` defaults to `false`. Throws `RGXNotSupportedError` if called on a token with `rgxIsRepeatable` set to `false` (e.g., `RGXLookaroundToken`). When called on an `RGXRepeatToken`, the behavior is smart: if `min` is already `0`, the token is returned as-is; if `min` is `1`, a new `RGXRepeatToken` is returned with `min` set to `0` and the same `max`, wrapping the existing inner token; otherwise (i.e., `min > 1`), the token is wrapped in a new `RGXRepeatToken` with `min=0` and `max=1` as usual.
 - `asLookahead(positive?: boolean) => RGXLookaheadToken`: Wraps this token in an `RGXLookaheadToken`. `positive` defaults to `true`. If this token is already an `RGXLookaheadToken`, it is returned as-is without re-wrapping.
 - `asLookbehind(positive?: boolean) => RGXLookbehindToken`: Wraps this token in an `RGXLookbehindToken`. `positive` defaults to `true`. If this token is already an `RGXLookbehindToken`, it is returned as-is without re-wrapping.
-- `resolve() => ValidRegexString`: A convenience method that resolves this token by calling `resolveRGXToken(this)`, returning the resolved regex string representation. Since this method is defined on `RGXClassToken`, it is available on all subclasses including `RGXClassUnionToken`, `RGXGroupToken`, `RGXRepeatToken`, and `RGXLookaroundToken`.
+- `subtract(exclusionId: string, exclusions?: RGXTokenCollectionInput, terminal?: RGXToken) => RGXExclusionToken`: Wraps this token in an `RGXExclusionToken` that matches this token while excluding the given patterns. `exclusions` defaults to `[]` and `terminal` defaults to `null`. See [exclusion](./exclusion.md) for details on how exclusion tokens work.
+- `resolve(options?: ResolveRGXTokenOptions) => ValidRegexString`: A convenience method that resolves this token by calling `resolveRGXToken(this, options)`, returning the resolved regex string representation. `options` defaults to `{}`. Since this method is defined on `RGXClassToken`, it is available on all subclasses including `RGXClassUnionToken`, `RGXGroupToken`, `RGXRepeatToken`, and `RGXLookaroundToken`.

@@ -1,5 +1,5 @@
 import { RGXConvertibleToken, RGXToken, ValidRegexString } from "./types";
-import { resolveRGXToken } from "./resolve";
+import { resolveRGXToken, ResolveRGXTokenOptions } from "./resolve";
 import { rgxConcat } from "./concat";
 import { CloneDepth, immutableMut, extClone, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { Collection } from "@ptolemy2002/ts-utils";
@@ -28,8 +28,8 @@ export class RGXTokenCollection implements Collection<RGXToken>, RGXConvertibleT
         this.mode = mode;
     }
 
-    resolve(): ValidRegexString {
-        return resolveRGXToken(this);
+    resolve(options: ResolveRGXTokenOptions={}): ValidRegexString {
+        return resolveRGXToken(this, options);
     }
 
     toRgx(): RegExp {

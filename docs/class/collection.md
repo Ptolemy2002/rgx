@@ -18,6 +18,12 @@ type RGXConvertibleToken = {
 };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
 
+type ResolveRGXTokenOptions = {
+    groupWrap?: boolean;
+    topLevel?: boolean;
+    currentFlags?: string;
+};
+
 type RGXTokenCollectionMode = 'union' | 'concat';
 type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
 ```
@@ -41,7 +47,7 @@ constructor(tokens: RGXTokenCollectionInput = [], mode: RGXTokenCollectionMode =
 ## Properties
 - `tokens` (`RGXToken[]`): The array of RGX tokens managed by the collection. In almost all cases, use `getTokens()` instead of accessing this property directly, as it will be copied to prevent external mutation.
 - `mode` (`RGXTokenCollectionMode`): The mode of the collection, either 'union' or 'concat'. This determines how the tokens in the collection will be resolved when `toRgx()` is called.
-- `resolve() => ValidRegexString`: A convenience method that resolves this collection by calling `resolveRGXToken(this)`, returning the resolved regex string representation.
+- `resolve(options?: ResolveRGXTokenOptions) => ValidRegexString`: A convenience method that resolves this collection by calling `resolveRGXToken(this, options)`, returning the resolved regex string representation. `options` defaults to `{}`.
 - `toRgx() => RegExp`: A method that resolves the collection to a `RegExp` object based on the collection mode. In 'union' mode, the tokens are resolved as alternatives (using the `|` operator), while in 'concat' mode, the tokens are resolved as concatenated together. No flags are applied to the resulting `RegExp`. Since this method returns a `RegExp` (which is `RGXLiteralToken`), `RGXTokenCollection` instances satisfy the `RGXConvertibleToken` interface and can be used directly as tokens in `rgx`, `rgxa`, and other token-accepting functions.
 - `getTokens() => RGXToken[]`: A method that returns a copy of the array of RGX tokens managed by the collection. This is used to prevent external mutation of the internal `tokens` array.
 - `toArray() => RGXToken[]`: An alias for `getTokens()`, provided for convenience.

@@ -1,13 +1,14 @@
 import { RGXConvertibleToken, RGXToken, ValidRegexFlags, ValidRegexString } from "src/types";
 import { RGXTokenCollectionInput } from "src/collection";
 import { RGXInvalidTokenError, RGXNotImplementedError } from "src/errors";
-import { resolveRGXToken } from "src/resolve";
+import { resolveRGXToken, ResolveRGXTokenOptions } from "src/resolve";
 import { CloneDepth } from "@ptolemy2002/immutability-utils";
 import type { RGXClassUnionToken } from "./union";
 import type { RGXGroupToken, RGXGroupTokenArgs } from "./group";
 import type { RGXRepeatToken } from "./repeat";
 import type { RGXLookaheadToken } from "./lookahead";
 import type { RGXLookbehindToken } from "./lookbehind";
+import type { RGXExclusionToken } from "./exclusion";
 
 export abstract class RGXClassToken implements RGXConvertibleToken {
     abstract toRgx(): RGXToken
@@ -66,7 +67,11 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
         throw new RGXNotImplementedError('RGXClassToken.asLookbehind(positive)', 'call rgxClassInit() first.');
     }
 
-    resolve(): ValidRegexString {
-        return resolveRGXToken(this);
+    subtract(exclusionId: string, exclusions: RGXTokenCollectionInput=[], terminal: RGXToken = null): RGXExclusionToken {
+        throw new RGXNotImplementedError('RGXClassToken.subtract(exclusionId, exclusions, terminal)', 'call rgxClassInit() first.');
+    }
+
+    resolve(options: ResolveRGXTokenOptions={}): ValidRegexString {
+        return resolveRGXToken(this, options);
     }
 }

@@ -1,4 +1,4 @@
-import { rgxClassInit, RGXClassToken, RGXClassUnionToken, RGXClassWrapperToken, RGXGroupToken, RGXLookaheadToken, RGXLookbehindToken, RGXRepeatToken } from "src/class";
+import { rgxClassInit, RGXClassToken, RGXClassUnionToken, RGXClassWrapperToken, RGXExclusionToken, RGXGroupToken, RGXLookaheadToken, RGXLookbehindToken, RGXRepeatToken } from "src/class";
 import { RGXNotImplementedError, RGXInvalidTokenError, RGXNotSupportedError } from "src/errors";
 
 class TestClassToken extends RGXClassToken {
@@ -63,6 +63,11 @@ describe("rgxClassInit", () => {
         expect(testToken1.asLookbehind).toThrow(RGXNotImplementedError);
     });
 
+    it("doesn't implement the subtract method before being called", () => {
+        expect(testToken1.subtract).toThrow(RGXNotImplementedError);
+    });
+
+
     it("implements the or method after being called", () => {
         rgxClassInit();
         expect(testToken1.or).toBeDefined();
@@ -97,6 +102,12 @@ describe("rgxClassInit", () => {
         rgxClassInit();
         expect(testToken1.asLookbehind).toBeDefined();
         expect(typeof testToken1.asLookbehind).toBe("function");
+    });
+
+    it("implements the subtract method after being called", () => {
+        rgxClassInit();
+        expect(testToken1.subtract).toBeDefined();
+        expect(typeof testToken1.subtract).toBe("function");
     });
 });
 
@@ -421,6 +432,32 @@ describe("RGXClassToken", () => {
             expect(negateSpy).toHaveBeenCalledTimes(1);
 
             jest.restoreAllMocks();
+        });
+    });
+
+    describe("subtract", () => {
+        beforeAll(() => {
+            rgxClassInit();
+        });
+
+        it("wraps in an exclusion token with correct exclusionId, token, exclusions and terminal", () => {
+            const result = testToken1.subtract("exclusionId", ["excluded"], "terminal");
+            expect(result).toBeInstanceOf(RGXExclusionToken);
+
+            expect(result.token).toBe(testToken1);
+            expect(result.exclusionId).toBe("exclusionId");
+            expect(result.exclusions.resolve()).toBe("(?:excluded)");
+            expect(result.terminal).toBe("terminal");
+        });
+
+        it("handles default exclusions and terminal correctly", () => {
+            const result = testToken1.subtract("exclusionId");
+            expect(result).toBeInstanceOf(RGXExclusionToken);
+
+            expect(result.token).toBe(testToken1);
+            expect(result.exclusionId).toBe("exclusionId");
+            expect(result.exclusions.resolve()).toBe("(?:(?:))");
+            expect(result.terminal).toBeNull();
         });
     });
 });
