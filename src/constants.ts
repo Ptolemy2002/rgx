@@ -167,6 +167,15 @@ export const RGX_PREDEFINED_CONSTANTS = {
             return /(?<=(?<!\\)(?:\\\\)*)/;
         }
     },
+
+    "never": {
+        rgxGroupWrap: false,
+        rgxIsRepeatable: false,
+        toRgx() {
+            // Never succeed
+            return /(?!)/
+        }
+    }
 } as const satisfies Record<string, RGXToken>;
 
 export type RGXPredefinedConstant = keyof typeof RGX_PREDEFINED_CONSTANTS;

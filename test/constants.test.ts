@@ -332,4 +332,11 @@ describe("rgxConstant", () => {
             expect(result).toBe("(?<=(?<!\\\\)(?:\\\\\\\\)*)");
         });
     });
+
+    describe("never constant", () => {
+        it("resolves correctly", () => {
+            const result = resolveRGXToken(rgxConstant("never"));
+            expect(result).toBe("(?!)");
+        });
+    });
 });

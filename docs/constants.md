@@ -89,6 +89,7 @@ Since these are defined as native tokens (strings), they are automatically wrapp
 | --- | --- | --- |
 | `"escape-bound"` | `(?<=(?<!\\)\\(?:\\\\)*)` | Matches a position that is preceded by an odd number of backslashes, i.e., the next character is escaped. |
 | `"non-escape-bound"` | `(?<=(?<!\\)(?:\\\\)*)` | Matches a position that is not preceded by an odd number of backslashes, i.e., the next character is not escaped. |
+| `"never"` | `(?!)` | A pattern that always fails to match. Useful as a placeholder sometimes. |
 
 ## Functions
 ### listRGXConstants
