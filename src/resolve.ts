@@ -93,7 +93,13 @@ export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel 
         tg.assertValidRegexString(result);
     } catch (err: unknown) {
         if (err instanceof e.RGXInvalidRegexStringError) {
-            if (acceptUnterminatedGroup && err.cause.message.endsWith('Unterminated group')) {
+            if (
+                acceptUnterminatedGroup &&
+                (
+                    err.cause.message.endsWith('Unterminated group') ||
+                    err.cause.message.endsWith("Unmatched ')'")
+                )
+            ) {
                 return result as t.ValidRegexString;
             }
         }
