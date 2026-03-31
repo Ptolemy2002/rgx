@@ -1,3 +1,4 @@
+import { RGXInvalidRegexStringError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
 
 describe('resolveRGXToken', () => {
@@ -33,6 +34,30 @@ describe('resolveRGXToken', () => {
             rgxGroupWrap: false
         };
         expect(resolveRGXToken(token)).toBe('abc');
+    });
+
+    it('resolves a single convertible token with rgxInterpolate set to true returning a valid RegExp string', () => {
+        const token = {
+            toRgx: () => "(abc)",
+            rgxInterpolate: true
+        };
+        expect(resolveRGXToken(token)).toBe('(abc)');
+    });
+
+    it('resolves a single convertible token with rgxInterpolate set to true returning a RegExp string with an unterminated group', () => {
+        const token = {
+            toRgx: () => "(abc",
+            rgxInterpolate: true
+        };
+        expect(resolveRGXToken(token)).toBe('(abc');
+    });
+
+    it('does not resolve a single convertible token with rgxInterpolate set to true returning an invalid RegExp string', () => {
+        const token = {
+            toRgx: () => "[[abc",
+            rgxInterpolate: true
+        };
+        expect(() => resolveRGXToken(token)).toThrow(RGXInvalidRegexStringError);
     });
 
     it('does not propogate groupWrap preference to nested convertible tokens', () => {

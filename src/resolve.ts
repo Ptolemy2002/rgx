@@ -33,6 +33,8 @@ function localizableVanillaRegexFlagDiff(prev: string, next: string) {
 
 export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel = true, currentFlags = '' }: ResolveRGXTokenOptions = {}): t.ValidRegexString {
     assertValidRegexFlags(currentFlags);
+
+    let acceptUnterminatedGroup = false;
     const innerResolve = (): string => {
         if (tg.isRGXNoOpToken(token)) return '';
 
@@ -51,9 +53,14 @@ export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel 
 
         if (tg.isRGXConvertibleToken(token)) {
             // If it's an interpolation, we want to just return it as-is.
-            // This will mean the result might be an invalid regex string,
-            // but that's why we have a check.
-            if (token.rgxInterpolate) return String(token.toRgx());
+            // It might have an unterminated group, but that's okay,
+            // since a future token might terminate it, and if it doesn't, that
+            // will be caught by one of the checks that the entire resolved string
+            // is a valid regex string.
+            if (token.rgxInterpolate) {
+                acceptUnterminatedGroup = true;
+                return String(token.toRgx());
+            }
             
             // The top-level group-wrapping preference propogates to a direct convertible token, but after that
             // the preference falls back to true whenever a token doesn't explicitly specify a preference.
@@ -82,6 +89,20 @@ export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel 
     };
 
     const result = innerResolve();
-    tg.assertValidRegexString(result);
+    try {
+        tg.assertValidRegexString(result);
+    } catch (err: unknown) {
+        if (err instanceof e.RGXInvalidRegexStringError) {
+            if (acceptUnterminatedGroup && err.cause.message.endsWith('Unterminated group')) {
+                return result as t.ValidRegexString;
+            }
+        }
+
+        // This is ignored because I don't know what kind of
+        // unexpected errors might happen.
+        /* istanbul ignore next */
+        throw err;
+    }
+
     return result;
 }

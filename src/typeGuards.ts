@@ -226,7 +226,7 @@ export function assertValidRegexString(value: string): asserts value is t.ValidR
                 throw new e.RGXInvalidRegexStringError("Invalid regex string", value, err);
             }
 
-            // This is ignored because I don't know what king of
+            // This is ignored because I don't know what kind of
             // unexpected errors might happen.
             /* istanbul ignore next */
             throw err;
