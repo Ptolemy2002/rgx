@@ -52,6 +52,22 @@ describe('resolveRGXToken', () => {
         expect(resolveRGXToken(token)).toBe('(abc');
     });
 
+    it('resolves a single convertible token with rgxInterpolate set to true returning a RegExp string with an unmatched parenthesis', () => {
+        const token = {
+            toRgx: () => "abc)",
+            rgxInterpolate: true
+        };
+        expect(resolveRGXToken(token)).toBe('abc)');
+    });
+
+    it('resolves a single convertible token with rgxInterpolate set to true returning a RegExp string with parenthesis within character classes', () => {
+        const token = {
+            toRgx: () => "a[b(c)d]e",
+            rgxInterpolate: true
+        };
+        expect(resolveRGXToken(token)).toBe('a[b(c)d]e');
+    });
+
     it('does not resolve a single convertible token with rgxInterpolate set to true returning an invalid RegExp string', () => {
         const token = {
             toRgx: () => "[[abc",

@@ -31,10 +31,41 @@ function localizableVanillaRegexFlagDiff(prev: string, next: string) {
     return `${added}-${removed}`;
 }
 
+function hasParenErrors(pattern: string): boolean {
+    let depth = 0;
+    let charClassDepth = 0;
+
+    for (let i = 0; i < pattern.length; i++) {
+        const ch = pattern[i];
+
+        if (ch === '\\') {
+            i++;
+            continue;
+        }
+
+        if (charClassDepth > 0) {
+            if (ch === '[') charClassDepth++;
+            else if (ch === ']') charClassDepth--;
+            continue;
+        }
+
+        if (ch === '[') {
+            charClassDepth++;
+        } else if (ch === '(') {
+            depth++;
+        } else if (ch === ')') {
+            depth--;
+            if (depth < 0) return true;
+        }
+    }
+
+    return depth !== 0;
+}
+
 export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel = true, currentFlags = '' }: ResolveRGXTokenOptions = {}): t.ValidRegexString {
     assertValidRegexFlags(currentFlags);
 
-    let acceptUnterminatedGroup = false;
+    let acceptParenErrors = false;
     const innerResolve = (): string => {
         if (tg.isRGXNoOpToken(token)) return '';
 
@@ -58,29 +89,29 @@ export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel 
             // will be caught by one of the checks that the entire resolved string
             // is a valid regex string.
             if (token.rgxInterpolate) {
-                acceptUnterminatedGroup = true;
+                acceptParenErrors = true;
                 return String(token.toRgx());
             }
-            
+
             // The top-level group-wrapping preference propogates to a direct convertible token, but after that
             // the preference falls back to true whenever a token doesn't explicitly specify a preference.
-            return resolveRGXToken(token.toRgx(), {groupWrap: token.rgxGroupWrap ?? (topLevel ? groupWrap : true), topLevel: false, currentFlags});
+            return resolveRGXToken(token.toRgx(), { groupWrap: token.rgxGroupWrap ?? (topLevel ? groupWrap : true), topLevel: false, currentFlags });
         }
 
         // Interpret arrays as unions
         if (tg.isRGXArrayToken(token, false)) {
             if (token.length === 0) return '';
-            
+
             if (token.length > 1) {
                 // Remove duplicates
                 token = [...removeRgxUnionDuplicates(...token)];
 
                 // Don't preserve group wrapping preference for the recursive calls
-                if (groupWrap) return '(?:' + token.map(t => resolveRGXToken(t, {groupWrap: true, topLevel: false, currentFlags})).join('|') + ')';
-                else return token.map(t => resolveRGXToken(t, {groupWrap: true, topLevel: false, currentFlags})).join('|');
+                if (groupWrap) return '(?:' + token.map(t => resolveRGXToken(t, { groupWrap: true, topLevel: false, currentFlags })).join('|') + ')';
+                else return token.map(t => resolveRGXToken(t, { groupWrap: true, topLevel: false, currentFlags })).join('|');
             }
 
-            return resolveRGXToken(token[0], {groupWrap: true, topLevel: false, currentFlags});
+            return resolveRGXToken(token[0], { groupWrap: true, topLevel: false, currentFlags });
         }
 
         // Ignoring this line since it should be impossible to reach if the types are correct, but we need it to satisfy the return type
@@ -89,26 +120,7 @@ export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel 
     };
 
     const result = innerResolve();
-    try {
-        tg.assertValidRegexString(result);
-    } catch (err: unknown) {
-        if (err instanceof e.RGXInvalidRegexStringError) {
-            if (
-                acceptUnterminatedGroup &&
-                (
-                    err.cause.message.endsWith('Unterminated group') ||
-                    err.cause.message.endsWith("Unmatched ')'")
-                )
-            ) {
-                return result as t.ValidRegexString;
-            }
-        }
 
-        // This is ignored because I don't know what kind of
-        // unexpected errors might happen.
-        /* istanbul ignore next */
-        throw err;
-    }
-
-    return result;
+    if (!(acceptParenErrors && hasParenErrors(result))) tg.assertValidRegexString(result);
+    return result as t.ValidRegexString;
 }
