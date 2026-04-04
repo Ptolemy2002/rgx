@@ -18,7 +18,7 @@ type RGXConvertibleToken = {
     readonly rgxInterpolate?: boolean
 };
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
-type RGXTokenOrPart<R, S = unknown, T = unknown> = RGXToken | RGXPart<R, S, T>;
+type RGXTokenOrPart<R, S = unknown, T = any> = RGXToken | RGXPart<R, S, T>;
 
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken;

@@ -50,7 +50,7 @@ function isMatchError(e: unknown): e is RGXRegexNotMatchedAtPositionError | RGXR
     );
 }
 
-export type RGXTokenOrPart<R, S = unknown, T = unknown> = RGXToken | RGXPart<R, S, T>;
+export type RGXTokenOrPart<R, S = unknown, T = any> = RGXToken | RGXPart<R, S, T>;
 export type RGXWalkerStepDirective = "stop" | "skip" | "silent";
 
 export class RGXWalker<R, S = unknown> {
@@ -161,7 +161,7 @@ export class RGXWalker<R, S = unknown> {
     capture(token: RGXTokenOrPart<R, S>, includeMatch: true): RegExpExecArray;
     capture(token: RGXTokenOrPart<R, S>, includeMatch?: false): string;
     capture(token: RGXTokenOrPart<R, S>, includeMatch = false): string | RegExpExecArray {
-        const regex = createRegex(resolveRGXToken(RGXPart.check(token) ? token.token : token));
+        const regex = createRegex(resolveRGXToken(RGXPart.check(token) ? token.token : token as RGXToken));
         
         const args = [regex, this.source, Math.min(this.sourcePosition, this.source.length - 1), 10, true] as const;
         let match: RegExpExecArray;
