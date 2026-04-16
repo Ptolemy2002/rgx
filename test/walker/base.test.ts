@@ -1175,6 +1175,23 @@ describe("RGXWalker", () => {
          });
     });
 
+    describe("restore", () => {
+        it("does nothing if no snapshot with the given name exists", () => {
+            const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
+            instance.sourcePosition = 2;
+            instance.tokenPosition = 3;
+            instance.reduced = "reduced";
+            instance.share = "shared";
+
+            const result = instance.restore("nonexistent");
+            expect(result).toBe(instance);
+            expect(instance.sourcePosition).toBe(2);
+            expect(instance.tokenPosition).toBe(3);
+            expect(instance.reduced).toBe("reduced");
+            expect(instance.share).toBe("shared");
+        });
+    });
+
     describe("clone", () => {
         it("does nothing when depth is 0", () => {
             const source = "test";

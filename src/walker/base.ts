@@ -25,6 +25,23 @@ export type RGXTryWalkOptions = {
     revertCaptures?: boolean;
 };
 
+export type RGXWalkerSnapshotKey =
+    | "sourcePosition"
+    | "tokenPosition"
+    | "reduced"
+    | "share"
+    | "captures"
+    | "namedCaptures";
+
+type RGXWalkerSnapshot<R, S> = Partial<{
+    sourcePosition: number;
+    tokenPosition: number;
+    reduced: R;
+    share: S;
+    captures: RGXCapture[];
+    namedCaptures: Record<string, RGXCapture[]>;
+}>;
+
 function createBranchGroups(tokens: RGXTokenCollectionInput): RGXToken {
     if (
         (tokens instanceof RGXTokenCollection && tokens.mode === "union") ||
@@ -73,6 +90,7 @@ export class RGXWalker<R, S = unknown> {
     private _stopped: boolean = false;
     // Only relevant in infinite mode, tracking whether we've reached the end yet.
     private _didReachEnd: boolean = false;
+    private _snapshots: Map<string, RGXWalkerSnapshot<R, S>> = new Map();
 
     static check = createRGXClassGuardFunction(RGXWalker);
     static assert = createAssertRGXClassGuardFunction(RGXWalker,
@@ -246,14 +264,13 @@ export class RGXWalker<R, S = unknown> {
     // Returns a directive on handled validation failure, null on success. Unhandled errors are rethrown.
     private validateCapture(
         token: RGXPart<R, S, unknown>,
-        captureResult: RGXCapture<unknown>,
-        start: number
+        captureResult: RGXCapture<unknown>
     ): Exclude<RGXWalkerStepDirective, "silent"> | null {
         try {
             token.validate(captureResult, { part: token, walker: this });
             return null;
         } catch (e) {
-            this.sourcePosition = start; // Reset source position on validation failure
+            this.restore("step"); // Reset source position on validation failure
             if (e instanceof RGXPartValidationFailedError) {
                 const control = token.afterValidationFailure?.(e, { part: token, walker: this });
                 // If this happens, afterValidationFailure itself stopped the walker, so we just need to respect that.
@@ -269,7 +286,7 @@ export class RGXWalker<R, S = unknown> {
     private handleAfterCapture(
         token: RGXPart<R, S, unknown>,
         captureResult: RGXCapture<unknown>,
-        silent: boolean, start: number
+        silent: boolean
     ): Exclude<RGXWalkerStepDirective, "silent"> | null {
         const control = token.afterCapture?.(captureResult, { part: token, walker: this });
 
@@ -281,7 +298,7 @@ export class RGXWalker<R, S = unknown> {
         if (this.stopped) return "stop";
 
         if (control === "skip") {
-            this.sourcePosition = start;
+            this.restore("step");
             return "skip";
         }
         if (control === "stop" || control === "stop-silent") return "stop";
@@ -312,9 +329,9 @@ export class RGXWalker<R, S = unknown> {
 
         const branchedToken = isPart ? createBranchGroups(token.token) : createBranchGroups(token);
 
-        // Still track the previous source position,
-        // because if we have to skip, we need to reset to it.
-        const prevSourcePosition = this.sourcePosition;
+        // Snapshot the source position so validateCapture and handleAfterCapture
+        // can restore it on skip/failure.
+        this.snapshot("step", "sourcePosition");
 
         let captureAttempt: ReturnType<typeof this.attemptCapture>;
         try {
@@ -349,7 +366,7 @@ export class RGXWalker<R, S = unknown> {
         };
 
         if (isPart) {
-            const dir = this.validateCapture(token, captureResult, prevSourcePosition);
+            const dir = this.validateCapture(token, captureResult);
             if (dir === "stop") { this._stopped = true; return null; }
             if (dir === "skip") { this.advanceToken(); return null; }
         }
@@ -357,7 +374,7 @@ export class RGXWalker<R, S = unknown> {
         if (!silent) this.registerCapture(captureResult, token);
 
         if (isPart) {
-            const dir = this.handleAfterCapture(token, captureResult, silent, prevSourcePosition);
+            const dir = this.handleAfterCapture(token, captureResult, silent);
             if (dir === "stop") { this.advanceToken(); this._stopped = true; return null; }
             if (dir === "skip") { this.advanceToken(); return null; }
         }
@@ -396,34 +413,52 @@ export class RGXWalker<R, S = unknown> {
         return this.reduced;
     }
 
+    snapshot(name: string, ...keys: Array<RGXWalkerSnapshotKey | false>) {
+        const filteredKeys = keys.filter((k): k is RGXWalkerSnapshotKey => k !== false);
+        const snap: RGXWalkerSnapshot<R, S> = {};
+        for (const key of filteredKeys) {
+            if (key === "sourcePosition" || key === "tokenPosition") {
+                snap[key] = this[key];
+            } else {
+                (snap as Record<string, unknown>)[key] = extClone(this[key], "max");
+            }
+        }
+        this._snapshots.set(name, snap);
+        return this;
+    }
+
+    restore(name: string) {
+        const snap = this._snapshots.get(name);
+        if (!snap) return this;
+        if ("sourcePosition" in snap) this.sourcePosition = snap.sourcePosition!;
+        if ("tokenPosition" in snap) this.tokenPosition = snap.tokenPosition!;
+        if ("reduced" in snap) this.reduced = snap.reduced!;
+        if ("share" in snap) this.share = snap.share!;
+        if ("captures" in snap) this.captures = snap.captures!;
+        if ("namedCaptures" in snap) this.namedCaptures = snap.namedCaptures!;
+        return this;
+    }
+
     tryWalk({
         revertReduced = false,
         revertShare = false,
         revertCaptures = false
     }: RGXTryWalkOptions = {}): boolean {
-        const prevSourcePosition = this.sourcePosition;
-        const prevTokenPosition = this.tokenPosition;
-        const prevReduced = revertReduced ? extClone(this.reduced, "max") : this.reduced;
-        const prevShare = revertShare ? extClone(this.share, "max") : this.share;
-        const prevCaptures = revertCaptures ? extClone(this.captures, "max") : this.captures;
-        const prevNamedCaptures = revertCaptures ? extClone(this.namedCaptures, "max") : this.namedCaptures;
+        this.snapshot("tryWalk",
+            "sourcePosition",
+            "tokenPosition",
+            revertReduced && "reduced",
+            revertShare && "share",
+            revertCaptures && "captures",
+            revertCaptures && "namedCaptures"
+        );
 
         try {
             this.walk();
             return true;
         } catch (e) {
-            this.sourcePosition = prevSourcePosition;
-            this.tokenPosition = prevTokenPosition;
-            
-            if (revertReduced) this.reduced = prevReduced;
-            if (revertShare) this.share = prevShare;
-            if (revertCaptures) this.captures = prevCaptures;
-            if (revertCaptures) this.namedCaptures = prevNamedCaptures;
-
-            if (isMatchError(e)) {
-                return false;
-            }
-            
+            this.restore("tryWalk");
+            if (isMatchError(e)) return false;
             throw e;
         }
     }
