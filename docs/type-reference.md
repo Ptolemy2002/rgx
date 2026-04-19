@@ -43,6 +43,14 @@ const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
 type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;
 type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;
 
+const validRegexLocalizableFlagsSymbol = Symbol('rgx.ValidRegexLocalizableFlags');
+type ValidRegexLocalizableFlagsBrandSymbol = typeof validRegexLocalizableFlagsSymbol;
+type ValidRegexLocalizableFlags = Branded<string, [ValidRegexLocalizableFlagsBrandSymbol]>;
+
+const validRegexLocalizableFlagDiffSymbol = Symbol('rgx.ValidRegexLocalizableFlagDiff');
+type ValidRegexLocalizableFlagDiffBrandSymbol = typeof validRegexLocalizableFlagDiffSymbol;
+type ValidRegexLocalizableFlagDiff = Branded<string, [ValidRegexLocalizableFlagDiffBrandSymbol]>;
+
 type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
 type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
 type RGXTokenTypeGuardInput = 
@@ -92,6 +100,7 @@ type RGXUnionInsertionPosition = 'prefix' | 'suffix';
 type RGXGroupTokenArgs = {
     name?: string | null;
     capturing?: boolean;
+    flags?: string;
 };
 
 type RGXPartControl = "skip" | "stop" | "silent" | "stop-silent" | void;

@@ -259,3 +259,24 @@ export function assertValidIdentifier(value: string): asserts value is t.ValidId
         throw new e.RGXInvalidIdentifierError("Invalid identifier", value);
     }
 }
+
+export function isValidRegexLocalizableFlagDiff(value: string): value is t.ValidRegexLocalizableFlagDiff {
+    if (value === '') return true;
+    return /^[ims]+(-[ims]+)?$/.test(value);
+}
+
+export function assertValidRegexLocalizableFlagDiff(value: string): asserts value is t.ValidRegexLocalizableFlagDiff {
+    if (!isValidRegexLocalizableFlagDiff(value)) {
+        throw new e.RGXInvalidRegexLocalizableFlagDiffError("Invalid localizable flag diff", value);
+    }
+}
+
+export function isValidRegexLocalizableFlags(value: string): value is t.ValidRegexLocalizableFlags {
+    return /^[ims]*$/.test(value);
+}
+
+export function assertValidRegexLocalizableFlags(value: string): asserts value is t.ValidRegexLocalizableFlags {
+    if (!isValidRegexLocalizableFlags(value)) {
+        throw new e.RGXInvalidRegexLocalizableFlagsError("Invalid localizable flags", value);
+    }
+}

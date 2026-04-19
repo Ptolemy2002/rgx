@@ -45,6 +45,14 @@ const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
 type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;
 type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;
 
+const validRegexLocalizableFlagsSymbol = Symbol('rgx.ValidRegexLocalizableFlags');
+type ValidRegexLocalizableFlagsBrandSymbol = typeof validRegexLocalizableFlagsSymbol;
+type ValidRegexLocalizableFlags = Branded<string, [ValidRegexLocalizableFlagsBrandSymbol]>;
+
+const validRegexLocalizableFlagDiffSymbol = Symbol('rgx.ValidRegexLocalizableFlagDiff');
+type ValidRegexLocalizableFlagDiffBrandSymbol = typeof validRegexLocalizableFlagDiffSymbol;
+type ValidRegexLocalizableFlagDiff = Branded<string, [ValidRegexLocalizableFlagDiffBrandSymbol]>;
+
 type LexemeNotMatchedCauseError = RGXRegexNotMatchedAtPositionError | RGXRegexNotMatchedAfterPositionError | RGXPartValidationFailedError;
 type LexemeNotMatchedCause = {
     id: string;
@@ -524,3 +532,67 @@ A specific error class thrown when `RGXWalker.currentToken()` is called but the 
 constructor(message: string)
 ```
 - `message` (`string`): The error message.
+
+## RGXInvalidRegexLocalizableFlagsError
+A specific error class for invalid localizable regex flags. This error is thrown when a string fails validation as a valid set of localizable flags (the subset of vanilla flags that can be used in inline flag groups: `i`, `m`, `s`). The error code is set to `INVALID_REGEX_LOCALIZABLE_FLAGS` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The actual string that was received, which failed validation.
+
+### Properties
+- `got` (`string`): The actual string that was received, which failed validation.
+
+### Type Guards
+#### isValidRegexLocalizableFlags
+```typescript
+function isValidRegexLocalizableFlags(value: string): value is ValidRegexLocalizableFlags
+```
+Checks if the given string contains only the localizable regex flags `i`, `m`, and `s`. An empty string is also accepted.
+- `value` (`string`): The string to check.
+
+**Returns:** `boolean` - `true` if the string is a valid combination of localizable flags, otherwise `false`.
+
+#### assertValidRegexLocalizableFlags
+```typescript
+function assertValidRegexLocalizableFlags(value: string): asserts value is ValidRegexLocalizableFlags
+```
+Asserts that the given string contains only the localizable regex flags `i`, `m`, and `s`. An empty string is also accepted. If the assertion fails, an `RGXInvalidRegexLocalizableFlagsError` will be thrown.
+- `value` (`string`): The string to assert.
+
+**Returns:** `void` - If the string is valid, the function returns without error. Otherwise, an `RGXInvalidRegexLocalizableFlagsError` is thrown with the provided message and the invalid string.
+
+## RGXInvalidRegexLocalizableFlagDiffError
+A specific error class for invalid localizable regex flag diff strings. A flag diff describes which localizable flags to enable and disable in an inline flag group, with the format `<added>-<removed>` (e.g., `i-ms`). An empty string is also valid. This error is thrown when a string fails validation as a valid flag diff. The error code is set to `INVALID_REGEX_LOCALIZABLE_FLAG_DIFF` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The actual string that was received, which failed validation.
+
+### Properties
+- `got` (`string`): The actual string that was received, which failed validation.
+
+### Type Guards
+#### isValidRegexLocalizableFlagDiff
+```typescript
+function isValidRegexLocalizableFlagDiff(value: string): value is ValidRegexLocalizableFlagDiff
+```
+Checks if the given string is a valid localizable flag diff: either an empty string, a string of `i`/`m`/`s` characters, or two such strings separated by a single dash (e.g., `i-ms`).
+- `value` (`string`): The string to check.
+
+**Returns:** `boolean` - `true` if the string is a valid flag diff, otherwise `false`.
+
+#### assertValidRegexLocalizableFlagDiff
+```typescript
+function assertValidRegexLocalizableFlagDiff(value: string): asserts value is ValidRegexLocalizableFlagDiff
+```
+Asserts that the given string is a valid localizable flag diff. If the assertion fails, an `RGXInvalidRegexLocalizableFlagDiffError` will be thrown.
+- `value` (`string`): The string to assert.
+
+**Returns:** `void` - If the string is valid, the function returns without error. Otherwise, an `RGXInvalidRegexLocalizableFlagDiffError` is thrown with the provided message and the invalid string.

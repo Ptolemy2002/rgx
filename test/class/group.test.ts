@@ -1,6 +1,6 @@
 import { RGXClassToken, RGXGroupToken, rgxGroup } from "src/class";
 import { RGXTokenCollection } from "src/collection";
-import { RGXInvalidTokenError } from "src/errors";
+import { RGXInvalidRegexLocalizableFlagsError, RGXInvalidTokenError } from "src/errors";
 import { ConstructFunction } from "src/internal";
 
 class TestClassToken1 extends RGXClassToken {
@@ -26,36 +26,56 @@ function constructionTest(constructor: ConstructFunction<typeof RGXGroupToken>) 
         const instance = constructor();
         expect(instance.name).toBeNull();
         expect(instance.capturing).toBe(true);
+        expect(instance.flags).toBe("");
     });
 
     it("correctly initializes with only a name", () => {
         const instance = constructor({ name: "test" });
         expect(instance.name).toBe("test");
         expect(instance.capturing).toBe(true);
+        expect(instance.flags).toBe("");
     });
 
     it("correctly initializes with only capturing set to false", () => {
         const instance = constructor({ capturing: false });
         expect(instance.name).toBeNull();
         expect(instance.capturing).toBe(false);
+        expect(instance.flags).toBe("");
+    });
+
+    it("correctly initializes with only flags", () => {
+        const instance = constructor({ flags: "i" });
+        expect(instance.name).toBeNull();
+        expect(instance.capturing).toBe(true);
+        expect(instance.flags).toBe("i");
     });
 
     it("correctly initializes with only capturing set to true", () => {
         const instance = constructor({ capturing: true });
         expect(instance.name).toBeNull();
         expect(instance.capturing).toBe(true);
+        expect(instance.flags).toBe("");
     });
 
     it("correctly initializes with both name and capturing set to false", () => {
         const instance = constructor({ name: "test", capturing: false });
         expect(instance.name).toBeNull(); // Name should be null because non-capturing groups cannot have names
         expect(instance.capturing).toBe(false);
+        expect(instance.flags).toBe("");
     });
 
     it("correctly initializes with both name and capturing set to true", () => {
         const instance = constructor({ name: "test", capturing: true });
         expect(instance.name).toBe("test");
         expect(instance.capturing).toBe(true);
+        expect(instance.flags).toBe("");
+    });
+
+    it("correctly initializes with name, capturing, and flags", () => {
+        const instance = constructor({ name: "test", capturing: true, flags: "i" });
+        expect(instance.name).toBe("test");
+        expect(instance.capturing).toBe(true);
+        expect(instance.flags).toBe("i");
     });
 
     it("correctly initializes with a token array", () => {
@@ -144,6 +164,21 @@ describe("RGXGroupToken", () => {
             const instance = new RGXGroupToken({ name: "test", capturing: false }, [new TestClassToken1()]);
             expect(instance.resolve()).toEqual("(?:test)");
         });
+
+        it("resolves correctly with flags only", () => {
+            const instance = new RGXGroupToken({ flags: "i" }, [new TestClassToken1()]);
+            expect(instance.resolve()).toEqual("(?i-ms:(test))");
+        });
+
+        it("resolves correctly with a name and flags", () => {
+            const instance = new RGXGroupToken({ name: "test", flags: "i" }, [new TestClassToken1()]);
+            expect(instance.resolve()).toEqual("(?i-ms:(?<test>test))");
+        });
+
+        it("resolves correctly with capturing false and flags", () => {
+            const instance = new RGXGroupToken({ capturing: false, flags: "i" }, [new TestClassToken1()]);
+            expect(instance.resolve()).toEqual("(?i-ms:test)");
+        });
     });
 
     describe("name", () => {
@@ -182,6 +217,23 @@ describe("RGXGroupToken", () => {
             const instance = new RGXGroupToken({ name: "test" });
             instance._capturing = false; // Forcefully set internal capturing value to false
             expect(instance.capturing).toBe(true);
+        });
+    });
+
+    describe("flags", () => {
+        it("accepts valid localizable regex flags", () => {
+            const instance = new RGXGroupToken();
+            expect(() => { instance.flags = "ims"; }).not.toThrow();
+            expect(instance.flags).toBe("ims");
+        });
+
+        it("rejects invalid localizable regex flags", () => {
+            const instance = new RGXGroupToken();
+            expect(() => { instance.flags = "a"; }).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            expect(() => { instance.flags = "g"; }).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            expect(() => { instance.flags = "u"; }).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            expect(() => { instance.flags = "y"; }).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            expect(() => { instance.flags = "imsgauy"; }).toThrow(RGXInvalidRegexLocalizableFlagsError);
         });
     });
 

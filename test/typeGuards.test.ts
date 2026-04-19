@@ -8,7 +8,10 @@ import {
     isValidIdentifier, assertValidIdentifier,
     RGXInvalidIdentifierError, ExtRegExp,
     RGXTokenCollection, isRGXGroupedToken, assertRGXGroupedToken,
-    extRegExp
+    extRegExp, isValidRegexLocalizableFlagDiff, assertValidRegexLocalizableFlagDiff,
+    isValidRegexLocalizableFlags, assertValidRegexLocalizableFlags,
+    RGXInvalidRegexLocalizableFlagsError,
+    RGXInvalidRegexLocalizableFlagDiffError
 } from 'src/index';
 
 class TestClassToken1 extends RGXClassToken {
@@ -893,6 +896,98 @@ describe('Type Guards', () => {
             expect(() => assertValidIdentifier('foo-bar')).toThrow(RGXInvalidIdentifierError);
             expect(() => assertValidIdentifier('foo bar')).toThrow(RGXInvalidIdentifierError);
             expect(() => assertValidIdentifier('')).toThrow(RGXInvalidIdentifierError);
+        });
+    });
+
+    describe('isValidRegexLocalizableFlags', () => {
+        it('accepts combinations only involving "ims"', () => {
+            expect(isValidRegexLocalizableFlags('i')).toBe(true);
+            expect(isValidRegexLocalizableFlags('m')).toBe(true);
+            expect(isValidRegexLocalizableFlags('s')).toBe(true);
+            expect(isValidRegexLocalizableFlags('im')).toBe(true);
+            expect(isValidRegexLocalizableFlags('is')).toBe(true);
+            expect(isValidRegexLocalizableFlags('ms')).toBe(true);
+            expect(isValidRegexLocalizableFlags('ims')).toBe(true);
+
+            expect(() => assertValidRegexLocalizableFlags('i')).not.toThrow();
+            expect(() => assertValidRegexLocalizableFlags('m')).not.toThrow();
+            expect(() => assertValidRegexLocalizableFlags('s')).not.toThrow();
+            expect(() => assertValidRegexLocalizableFlags('im')).not.toThrow();
+            expect(() => assertValidRegexLocalizableFlags('is')).not.toThrow();
+            expect(() => assertValidRegexLocalizableFlags('ms')).not.toThrow();
+            expect(() => assertValidRegexLocalizableFlags('ims')).not.toThrow();
+        });
+
+        it('accepts an empty string', () => {
+            expect(isValidRegexLocalizableFlags('')).toBe(true);
+            expect(() => assertValidRegexLocalizableFlags('')).not.toThrow();
+        });
+
+        it('rejects combinations involving flags other than "ims"', () => {
+            expect(isValidRegexLocalizableFlags('g')).toBe(false);
+            expect(isValidRegexLocalizableFlags('u')).toBe(false);
+            expect(isValidRegexLocalizableFlags('y')).toBe(false);
+            expect(isValidRegexLocalizableFlags('ig')).toBe(false);
+            expect(isValidRegexLocalizableFlags('iu')).toBe(false);
+            expect(isValidRegexLocalizableFlags('iy')).toBe(false);
+            expect(isValidRegexLocalizableFlags('gm')).toBe(false);
+            expect(isValidRegexLocalizableFlags('gu')).toBe(false);
+            expect(isValidRegexLocalizableFlags('gy')).toBe(false);
+            expect(isValidRegexLocalizableFlags('sg')).toBe(false);
+            expect(isValidRegexLocalizableFlags('su')).toBe(false);
+            expect(isValidRegexLocalizableFlags('sy')).toBe(false);
+
+            expect(() => assertValidRegexLocalizableFlags('g')).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            expect(() => assertValidRegexLocalizableFlags('u')).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            expect(() => assertValidRegexLocalizableFlags('y')).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            expect(() => assertValidRegexLocalizableFlags('ig')).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            expect(() => assertValidRegexLocalizableFlags('iu')).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            expect(() => assertValidRegexLocalizableFlags('iy')).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            expect(() => assertValidRegexLocalizableFlags('gm')).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            expect(() => assertValidRegexLocalizableFlags('gu')).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            expect(() => assertValidRegexLocalizableFlags('gy')).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            expect(() => assertValidRegexLocalizableFlags('sg')).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            expect(() => assertValidRegexLocalizableFlags('su')).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            expect(() => assertValidRegexLocalizableFlags('sy')).toThrow(RGXInvalidRegexLocalizableFlagsError);
+        });
+    });
+
+    describe('isValidRegexLocalizableFlagDiff', () => {
+        it('accepts valid localizable flag strings', () => {
+            expect(isValidRegexLocalizableFlagDiff('i')).toBe(true);
+            expect(isValidRegexLocalizableFlagDiff('s')).toBe(true);
+            expect(isValidRegexLocalizableFlagDiff('im')).toBe(true);
+            expect(isValidRegexLocalizableFlagDiff('ims')).toBe(true);
+
+            expect(() => assertValidRegexLocalizableFlagDiff('i')).not.toThrow();
+            expect(() => assertValidRegexLocalizableFlagDiff('s')).not.toThrow();
+            expect(() => assertValidRegexLocalizableFlagDiff('im')).not.toThrow();
+            expect(() => assertValidRegexLocalizableFlagDiff('ims')).not.toThrow();
+        });
+
+        it('accepts an empty string', () => {
+            expect(isValidRegexLocalizableFlagDiff('')).toBe(true);
+            expect(() => assertValidRegexLocalizableFlagDiff('')).not.toThrow();
+        });
+
+        it('accepts two valid localizable flag strings separated by a dash', () => {
+            expect(isValidRegexLocalizableFlagDiff('i-s')).toBe(true);
+            expect(isValidRegexLocalizableFlagDiff('im-ims')).toBe(true);
+            
+            expect(() => assertValidRegexLocalizableFlagDiff('i-s')).not.toThrow();
+            expect(() => assertValidRegexLocalizableFlagDiff('im-ims')).not.toThrow();
+        });
+
+        it('rejects strings that do not match the valid formats', () => {
+            expect(isValidRegexLocalizableFlagDiff('invalid')).toBe(false);
+            expect(isValidRegexLocalizableFlagDiff('i-')).toBe(false);
+            expect(isValidRegexLocalizableFlagDiff('-s')).toBe(false);
+            expect(isValidRegexLocalizableFlagDiff('i-s-extra')).toBe(false);
+            
+            expect(() => assertValidRegexLocalizableFlagDiff('invalid')).toThrow(RGXInvalidRegexLocalizableFlagDiffError);
+            expect(() => assertValidRegexLocalizableFlagDiff('i-')).toThrow(RGXInvalidRegexLocalizableFlagDiffError);
+            expect(() => assertValidRegexLocalizableFlagDiff('-s')).toThrow(RGXInvalidRegexLocalizableFlagDiffError);
+            expect(() => assertValidRegexLocalizableFlagDiff('i-s-extra')).toThrow(RGXInvalidRegexLocalizableFlagDiffError);
         });
     });
 });

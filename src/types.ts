@@ -71,6 +71,14 @@ export const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
 export type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;
 export type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;
 
+export const validRegexLocalizableFlagsSymbol = Symbol('rgx.ValidRegexLocalizableFlags');
+export type ValidRegexLocalizableFlagsBrandSymbol = typeof validRegexLocalizableFlagsSymbol;
+export type ValidRegexLocalizableFlags = Branded<string, [ValidRegexLocalizableFlagsBrandSymbol]>;
+
+export const validRegexLocalizableFlagDiffSymbol = Symbol('rgx.ValidRegexLocalizableFlagDiff');
+export type ValidRegexLocalizableFlagDiffBrandSymbol = typeof validRegexLocalizableFlagDiffSymbol;
+export type ValidRegexLocalizableFlagDiff = Branded<string, [ValidRegexLocalizableFlagDiffBrandSymbol]>;
+
 export type RGXOptions = {
     multiline?: boolean;
     verbatim?: boolean;

@@ -7,7 +7,8 @@ import {
     RGXPartValidationFailedError, RGXInvalidLexerModeError, RGXLexemeNotMatchedAtPositionError,
     RGXInvalidLexerError, RGXInvalidWalkerError, RGXInvalidPartError, isLexemeNotMatchedCauseError,
     RGXNotDirectRegExpError,
-    RGXRegexNotMatchedAfterPositionError, RGXCurrentTokenNotFoundError
+    RGXRegexNotMatchedAfterPositionError, RGXCurrentTokenNotFoundError, RGXInvalidRegexLocalizableFlagsError,
+    RGXInvalidRegexLocalizableFlagDiffError
 } from 'src/index';
 
 class TestClassToken extends RGXClassToken {
@@ -236,6 +237,60 @@ describe('RGXInvalidRegexFlagsError', () => {
     it('formats the error message correctly', () => {
         const error = new RGXInvalidRegexFlagsError('Invalid regex flags', 'ggx');
         expect(error.toString()).toBe('RGXInvalidRegexFlagsError: Invalid regex flags; Got: "ggx"');
+    });
+});
+
+describe('RGXInvalidRegexLocalizableFlagsError', () => {
+    it('has the correct name', () => {
+        const error = new RGXInvalidRegexLocalizableFlagsError('Invalid localizable regex flags', 'ggx');
+        expect(error.name).toBe('RGXInvalidRegexLocalizableFlagsError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXInvalidRegexLocalizableFlagsError('Invalid localizable regex flags', 'ggx');
+        expect(error.code).toBe('INVALID_REGEX_LOCALIZABLE_FLAGS');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXInvalidRegexLocalizableFlagsError('Invalid localizable regex flags', 'ggx');
+        expect(error.got).toBe('ggx');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInvalidRegexLocalizableFlagsError('Invalid localizable regex flags', 'ggx');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXInvalidRegexLocalizableFlagsError('Invalid localizable regex flags', 'ggx');
+        expect(error.toString()).toBe('RGXInvalidRegexLocalizableFlagsError: Invalid localizable regex flags; Got: "ggx"');
+    });
+});
+
+describe('RGXInvalidRegexLocalizableFlagDiffError', () => {
+    it('has the correct name', () => {
+        const error = new RGXInvalidRegexLocalizableFlagDiffError('Invalid localizable regex flag diff', 'g');
+        expect(error.name).toBe('RGXInvalidRegexLocalizableFlagDiffError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXInvalidRegexLocalizableFlagDiffError('Invalid localizable regex flag diff', 'g');
+        expect(error.code).toBe('INVALID_REGEX_LOCALIZABLE_FLAG_DIFF');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXInvalidRegexLocalizableFlagDiffError('Invalid localizable regex flag diff', 'g');
+        expect(error.got).toBe('g');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInvalidRegexLocalizableFlagDiffError('Invalid localizable regex flag diff', 'g');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXInvalidRegexLocalizableFlagDiffError('Invalid localizable regex flag diff', 'g');
+        expect(error.toString()).toBe('RGXInvalidRegexLocalizableFlagDiffError: Invalid localizable regex flag diff; Got: "g"');
     });
 });
 

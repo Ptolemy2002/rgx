@@ -3,6 +3,7 @@ import * as e from "./errors";
 import { assertValidRegexFlags } from "./ExtRegExp";
 import * as tg from "./typeGuards";
 import * as t from "./types";
+import { localizableVanillaRegexFlagDiff } from "./internal";
 
 export type ResolveRGXTokenOptions = {
     groupWrap?: boolean;
@@ -14,21 +15,6 @@ export function escapeRegex(value: string) {
     const result = value.replaceAll(/[\-\^\$.*+?^${}()|[\]\\]/g, '\\$&');
     tg.assertValidRegexString(result);
     return result;
-}
-
-function localizableVanillaRegexFlagDiff(prev: string, next: string) {
-    // Remove anything other than the "ims" flags from both strings, as
-    // other flags are not localizable (including our custom flags).
-    prev = prev.replaceAll(/[^ims]/g, '');
-    next = next.replaceAll(/[^ims]/g, '');
-
-    // Format <added flags>-<removed flags>
-    const added = [...new Set(next.split(''))].filter(flag => !prev.includes(flag)).join('');
-    const removed = [...new Set(prev.split(''))].filter(flag => !next.includes(flag)).join('');
-
-    if (added === '' && removed === '') return '';
-    if (removed === '') return `${added}`;
-    return `${added}-${removed}`;
 }
 
 function hasParenErrors(pattern: string): boolean {

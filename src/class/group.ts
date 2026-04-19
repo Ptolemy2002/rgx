@@ -1,18 +1,20 @@
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 import { RGXClassToken } from "./base";
-import { createConstructFunction } from "src/internal";
+import { createConstructFunction, localizableVanillaRegexFlagDiff } from "src/internal";
 import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
-import { assertValidIdentifier } from "src/typeGuards";
+import { assertValidIdentifier, assertValidRegexLocalizableFlags } from "src/typeGuards";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 
 export type RGXGroupTokenArgs = {
     name?: string | null;
     capturing?: boolean;
+    flags?: string;
 };
 
 export class RGXGroupToken extends RGXClassToken {
     tokens: RGXTokenCollection;
     _name: string | null = null;
+    _flags: string = '';
     _capturing: boolean = true;
 
     static check = createRGXClassGuardFunction(RGXGroupToken);
@@ -37,6 +39,15 @@ export class RGXGroupToken extends RGXClassToken {
         this._capturing = value;
     }
 
+    get flags() {
+        return this._flags;
+    }
+
+    set flags(value: string) {
+        assertValidRegexLocalizableFlags(value);
+        this._flags = value;
+    }
+
     get rgxIsGroup() {
         return true as const;
     }
@@ -46,10 +57,11 @@ export class RGXGroupToken extends RGXClassToken {
         return false as const;
     }
 
-    constructor ({ name = null, capturing = true }: RGXGroupTokenArgs = {}, tokens: RGXTokenCollectionInput = []) {
+    constructor ({ name = null, capturing = true, flags = '' }: RGXGroupTokenArgs = {}, tokens: RGXTokenCollectionInput = []) {
         super();
         this.name = name;
         this.capturing = capturing;
+        this.flags = flags;
 
         if (tokens instanceof RGXTokenCollection && tokens.mode === 'union') this.tokens = new RGXTokenCollection(tokens, 'concat');
         else this.tokens = new RGXTokenCollection(tokens, 'concat');
@@ -59,16 +71,27 @@ export class RGXGroupToken extends RGXClassToken {
         // The collection token doesn't group itself, so this is safe.
         let result: string = this.tokens.toRgx().source;
 
-        if (this.name !== null) result = `(?<${this.name}>${result})`;
-        else if (!this.capturing) result = `(?:${result})`;
-        else result = `(${result})`;
+        const hasFlags = this.flags.length > 0;
+        // This will return the flags that are not present in the flags variable, preceded by a "-" if there are any.
+        const flagsNotPresent = localizableVanillaRegexFlagDiff("ims", this.flags);
+
+        if (this.name !== null) {
+            result = `(?<${this.name}>${result})`;
+        } else if (!this.capturing) {
+            if (!hasFlags) result = `(?:${result})`;
+            else result = `(?${this.flags}${flagsNotPresent}:${result})`;
+        } else {
+            result = `(${result})`;
+        }
+
+        if ((this.name !== null || this.capturing) && hasFlags) result = `(?${this.flags}${flagsNotPresent}:${result})`;
 
         return createRegex(result);
     }
 
     clone(depth: CloneDepth="max") {
         if (depth === 0) return this;
-        return new RGXGroupToken({ name: this.name, capturing: this._capturing }, this.tokens.clone(depthDecrement(depth, 1)));
+        return new RGXGroupToken({ name: this.name, capturing: this._capturing, flags: this.flags }, this.tokens.clone(depthDecrement(depth, 1)));
     }
 }
 
