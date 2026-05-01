@@ -164,6 +164,7 @@ type CreateRGXBoundsOptions = {
     flags?: string;
     anchorStart?: boolean;
     anchorEnd?: boolean;
+    inner?: boolean;
 };
 
 // See src/constants.ts for the actual mapping of predefined constant names to their token values

@@ -107,4 +107,13 @@ describe("createRGXBounds", () => {
         expect(startRegex.test("a")).toBe(true); // The match is at the start of the string
         expect(endRegex.test("a")).toBe(true); // The match is at the end of the string
     });
+
+    it("does not require the inner content to be positive when inner is set to false", () => {
+        const [startBound, endBound] = createRGXBounds("a", "b", {inner: false});
+        const startRegex = rgxa([startBound]);
+        const endRegex = rgxa([endBound]);
+
+        expect(startRegex.test("bd")).toBe(true); // The match is before 'd', even though 'd' is not 'a'
+        expect(endRegex.test("ad")).toBe(true); // The match is after 'a', even though 'd' is not 'b'
+    });
 });

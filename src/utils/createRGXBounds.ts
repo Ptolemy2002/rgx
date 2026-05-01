@@ -9,6 +9,7 @@ export type CreateRGXBoundsOptions = {
     flags?: string;
     anchorStart?: boolean;
     anchorEnd?: boolean;
+    inner?: boolean;
 };
 
 function convertNoGroupWrap(token: RGXToken): RGXToken {
@@ -32,16 +33,25 @@ function convertToBound(token: ExtRegExp): RGXConvertibleToken {
     };
 }
 
-export function createRGXBounds(positive: RGXToken, negative: RGXToken, options: CreateRGXBoundsOptions | string | boolean = {}): [RGXConvertibleToken, RGXConvertibleToken] {
+export function createRGXBounds(
+    positive: RGXToken,
+    negative: RGXToken,
+    options: CreateRGXBoundsOptions | string | boolean = {}
+): [RGXConvertibleToken, RGXConvertibleToken] {
     if (typeof options === "string") options = { flags: options };
     else if (typeof options === "boolean") options = { anchorStart: options, anchorEnd: options };
-    const { flags = "", anchorStart = true, anchorEnd = true } = options;
+    const { flags = "", anchorStart = true, anchorEnd = true, inner = true } = options;
 
-    const resolvedPositive = resolveRGXToken(convertNoGroupWrap(positive), {groupWrap: false, currentFlags: flags});
-    const resolvedNegative = resolveRGXToken(convertNoGroupWrap(negative), {groupWrap: false, currentFlags: flags});
+    const resolvedPositive = resolveRGXToken(convertNoGroupWrap(positive), { groupWrap: false, currentFlags: flags });
+    const resolvedNegative = resolveRGXToken(convertNoGroupWrap(negative), { groupWrap: false, currentFlags: flags });
 
-    const startBound = convertToBound(createRegex(`(?<=${resolvedNegative}${anchorStart ? "|^" : ""})(?=${resolvedPositive})`, flags, true));
-    const endBound = convertToBound(createRegex(`(?<=${resolvedPositive})(?=${resolvedNegative}${anchorEnd ? "|$" : ""})`, flags, true));
+    const startLookbehind = `(?<=${resolvedNegative}${anchorStart ? "|^" : ""})`;
+    const startLookahead = inner ? `(?=${resolvedPositive})` : "";
+    const startBound = convertToBound(createRegex(`${startLookbehind}${startLookahead}`, flags, true));
+
+    const endLookbehind = inner ? `(?<=${resolvedPositive})` : "";
+    const endLookahead =  `(?=${resolvedNegative}${anchorEnd ? "|$" : ""})`;
+    const endBound = convertToBound(createRegex(`${endLookbehind}${endLookahead}`, flags, true));
 
     return [startBound, endBound];
 }
