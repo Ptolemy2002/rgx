@@ -942,237 +942,466 @@ describe("RGXWalker", () => {
     });
 
     describe("stepToToken", () => {
-        it("steps through tokens until the predicate returns true", () => {
-            const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
-            const predicate = jest.fn(token => token === "s");
+        describe("core", () => {
+            it("has a default predicate that always returns true", () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
+                instance.stepToToken();
+                expect(instance.tokenPosition).toBe(0);
+            });
 
-            instance.stepToToken(predicate);
+            it("steps through tokens until the predicate returns true", () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
+                const predicate = jest.fn(token => token === "s");
 
-            expect(predicate).toHaveBeenCalledWith("t");
-            expect(predicate).toHaveBeenCalledWith("e");
-            expect(predicate).toHaveBeenCalledWith("s");
-            expect(instance.tokenPosition).toBe(2);
+                instance.stepToToken(predicate);
+
+                expect(predicate).toHaveBeenCalledWith("t");
+                expect(predicate).toHaveBeenCalledWith("e");
+                expect(predicate).toHaveBeenCalledWith("s");
+                expect(instance.tokenPosition).toBe(2);
+            });
+
+            it("stops stepping if a Part's afterCapture calls stop()", () => {
+                const instance = new RGXWalker("test", [
+                    "t",
+                    new RGXPart("e", {
+                        afterCapture: (_, { walker }) => { walker.stop(); }
+                    }),
+                    "s",
+                    "t"
+                ]);
+
+                instance.stepToToken(() => false);
+
+                expect(instance.tokenPosition).toBe(2);
+                expect(instance.captures).toHaveLength(2);
+            });
+
+            it("stops stepping if a Part's beforeCapture returns 'stop'", () => {
+                const instance = new RGXWalker("test", [
+                    "t",
+                    new RGXPart("e", { beforeCapture: () => "stop" }),
+                    "s",
+                    "t"
+                ]);
+
+                instance.stepToToken(() => false);
+
+                // "t" is captured, then Part returns "stop" — walker halts at the Part
+                expect(instance.tokenPosition).toBe(1);
+                expect(instance.captures).toHaveLength(1);
+            });
+
+            it("resets stopped flag on each iteration", () => {
+                // A Part that skips (not stops) should not interfere with subsequent tokens.
+                const instance = new RGXWalker("test", [
+                    new RGXPart("t", { beforeCapture: () => "skip" }),
+                    "t",
+                    "e",
+                    "s",
+                    "t"
+                ]);
+
+                instance.stepToToken(() => false);
+
+                // The Part was skipped, then all remaining tokens matched
+                expect(instance.tokenPosition).toBe(5);
+            });
         });
 
-        it("stops stepping if a Part's afterCapture calls stop()", () => {
-            const instance = new RGXWalker("test", [
-                "t",
-                new RGXPart("e", {
-                    afterCapture: (_, { walker }) => { walker.stop(); }
-                }),
-                "s",
-                "t"
-            ]);
+        describe("async", () => {
+            it("has a default predicate that always returns true", async () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
+                const yieldFunction = jest.fn(() => Promise.resolve());
 
-            instance.stepToToken(() => false);
+                await instance.stepToTokenAsync(undefined, yieldFunction);
 
-            expect(instance.tokenPosition).toBe(2);
-            expect(instance.captures).toHaveLength(2);
-        });
+                expect(instance.tokenPosition).toBe(0);
+                expect(yieldFunction).toHaveBeenCalledTimes(0);
+            });
 
-        it("stops stepping if a Part's beforeCapture returns 'stop'", () => {
-            const instance = new RGXWalker("test", [
-                "t",
-                new RGXPart("e", { beforeCapture: () => "stop" }),
-                "s",
-                "t"
-            ]);
+            it("has a default yield function that does nothing", async () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
+                const predicate = jest.fn(token => token === "s");
 
-            instance.stepToToken(() => false);
+                await instance.stepToTokenAsync(predicate);
 
-            // "t" is captured, then Part returns "stop" — walker halts at the Part
-            expect(instance.tokenPosition).toBe(1);
-            expect(instance.captures).toHaveLength(1);
-        });
+                expect(predicate).toHaveBeenCalledWith("t");
+                expect(predicate).toHaveBeenCalledWith("e");
+                expect(predicate).toHaveBeenCalledWith("s");
+                expect(instance.tokenPosition).toBe(2);
+            });
 
-        it("resets stopped flag on each iteration", () => {
-            // A Part that skips (not stops) should not interfere with subsequent tokens.
-            const instance = new RGXWalker("test", [
-                new RGXPart("t", { beforeCapture: () => "skip" }),
-                "t",
-                "e",
-                "s",
-                "t"
-            ]);
+            it("steps through tokens until the predicate returns true", async () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
+                const predicate = jest.fn(token => token === "s");
+                const yieldFunction = jest.fn(() => Promise.resolve());
 
-            instance.stepToToken(() => false);
+                await instance.stepToTokenAsync(predicate, yieldFunction);
 
-            // The Part was skipped, then all remaining tokens matched
-            expect(instance.tokenPosition).toBe(5);
+                expect(predicate).toHaveBeenCalledWith("t");
+                expect(predicate).toHaveBeenCalledWith("e");
+                expect(predicate).toHaveBeenCalledWith("s");
+                expect(instance.tokenPosition).toBe(2);
+                expect(yieldFunction).toHaveBeenCalledTimes(2);
+            });
+
+            it("stops stepping if a Part's afterCapture calls stop()", async () => {
+                const instance = new RGXWalker("test", [
+                    "t",
+                    new RGXPart("e", {
+                        afterCapture: (_, { walker }) => { walker.stop(); }
+                    }),
+                    "s",
+                    "t"
+                ]);
+                const yieldFunction = jest.fn(() => Promise.resolve());
+
+                await instance.stepToTokenAsync(() => false, yieldFunction);
+
+                expect(instance.tokenPosition).toBe(2);
+                expect(instance.captures).toHaveLength(2);
+                expect(yieldFunction).toHaveBeenCalledTimes(1);
+            });
+
+            it("stops stepping if a Part's beforeCapture returns 'stop'", async () => {
+                const instance = new RGXWalker("test", [
+                    "t",
+                    new RGXPart("e", { beforeCapture: () => "stop" }),
+                    "s",
+                    "t"
+                ]);
+                const yieldFunction = jest.fn(() => Promise.resolve());
+
+                await instance.stepToTokenAsync(() => false, yieldFunction);
+                
+                // "t" is captured, then Part returns "stop" — walker halts at the Part
+                expect(instance.tokenPosition).toBe(1);
+                expect(instance.captures).toHaveLength(1);
+                expect(yieldFunction).toHaveBeenCalledTimes(1);
+            });
+
+            it("resets stopped flag on each iteration", async () => {
+                // A Part that skips (not stops) should not interfere with subsequent tokens.
+                const instance = new RGXWalker("test", [
+                    new RGXPart("t", { beforeCapture: () => "skip" }),
+                    "t",
+                    "e",
+                    "s",
+                    "t"
+                ]);
+                const yieldFunction = jest.fn(() => Promise.resolve());
+                
+                await instance.stepToTokenAsync(() => false, yieldFunction);
+
+                // The Part was skipped, then all remaining tokens matched
+                expect(instance.tokenPosition).toBe(5);
+                expect(yieldFunction).toHaveBeenCalledTimes(5);
+            });
         });
     });
 
     describe("stepToPart", () => {
-        it("has a default predicate that always returns true", () => {
-            const part1 = new RGXPart("e");
-            const part2 = new RGXPart("s");
-            const instance = new RGXWalker("test", ["t", part1, part2, "t"]);
+        describe("core", () => {
+            it("has a default predicate that always returns true", () => {
+                const part1 = new RGXPart("e");
+                const part2 = new RGXPart("s");
+                const instance = new RGXWalker("test", ["t", part1, part2, "t"]);
 
-            instance.stepToPart();
-            expect(instance.tokenPosition).toBe(1);
+                instance.stepToPart();
+                expect(instance.tokenPosition).toBe(1);
 
-            instance.stepToPart();
-            expect(instance.tokenPosition).toBe(2);
-        });
-
-        it("steps through tokens until the predicate returns true for a part", () => {
-            const part1 = new RGXPart("e");
-            const part2 = new RGXPart("s");
-            const instance = new RGXWalker("test", ["t", part1, part2, "t"]);
-            const predicate = jest.fn(part => part === part2);
-
-            instance.stepToPart(predicate);
-
-            expect(predicate).toHaveBeenCalledWith(part1);
-            expect(predicate).toHaveBeenCalledWith(part2);
-            expect(instance.tokenPosition).toBe(2);
-        });
-
-        it("stops if the initial Part step triggers stop via afterCapture", () => {
-            const part1 = new RGXPart("e", {
-                afterCapture: (_, { walker }) => { walker.stop(); }
+                instance.stepToPart();
+                expect(instance.tokenPosition).toBe(2);
             });
-            const part2 = new RGXPart("s");
-            const instance = new RGXWalker("test", ["t", part1, part2, "t"]);
 
-            instance.tokenPosition = 1;
-            instance.sourcePosition = 1;
-            instance.stepToPart(() => false);
+            it("steps through tokens until the predicate returns true for a part", () => {
+                const part1 = new RGXPart("e");
+                const part2 = new RGXPart("s");
+                const instance = new RGXWalker("test", ["t", part1, part2, "t"]);
+                const predicate = jest.fn(part => part === part2);
 
-            expect(instance.tokenPosition).toBe(2);
+                instance.stepToPart(predicate);
+
+                expect(predicate).toHaveBeenCalledWith(part1);
+                expect(predicate).toHaveBeenCalledWith(part2);
+                expect(instance.tokenPosition).toBe(2);
+            });
+
+            it("stops if the initial Part step triggers stop via afterCapture", () => {
+                const part1 = new RGXPart("e", {
+                    afterCapture: (_, { walker }) => { walker.stop(); }
+                });
+                const part2 = new RGXPart("s");
+                const instance = new RGXWalker("test", ["t", part1, part2, "t"]);
+
+                instance.tokenPosition = 1;
+                instance.sourcePosition = 1;
+                instance.stepToPart(() => false);
+
+                expect(instance.tokenPosition).toBe(2);
+            });
+        });
+
+        describe("async", () => {
+            it("has a default predicate that always returns true", async () => {
+                const part1 = new RGXPart("e");
+                const part2 = new RGXPart("s");
+                const instance = new RGXWalker("test", ["t", part1, part2, "t"]);
+                const yieldFunction = jest.fn(() => Promise.resolve());
+
+                await instance.stepToPartAsync(undefined, yieldFunction);
+                expect(instance.tokenPosition).toBe(1);
+                expect(yieldFunction).toHaveBeenCalledTimes(1);
+
+                await instance.stepToPartAsync(undefined, yieldFunction);
+                expect(instance.tokenPosition).toBe(2);
+                expect(yieldFunction).toHaveBeenCalledTimes(1);
+            });
+
+            it("has a default yield function that does nothing", async () => {
+                const part1 = new RGXPart("e");
+                const part2 = new RGXPart("s");
+                const instance = new RGXWalker("test", ["t", part1, part2, "t"]);
+                const predicate = jest.fn(part => part === part2);
+
+                await instance.stepToPartAsync(predicate);
+
+                expect(predicate).toHaveBeenCalledWith(part1);
+                expect(predicate).toHaveBeenCalledWith(part2);
+                expect(instance.tokenPosition).toBe(2);
+            });
+
+            it("steps through tokens until the predicate returns true for a part", async () => {
+                const part1 = new RGXPart("e");
+                const part2 = new RGXPart("s");
+                const instance = new RGXWalker("test", ["t", part1, part2, "t"]);
+                const predicate = jest.fn(part => part === part2);
+                const yieldFunction = jest.fn(() => Promise.resolve());
+
+                await instance.stepToPartAsync(predicate, yieldFunction);
+
+                expect(predicate).toHaveBeenCalledWith(part1);
+                expect(predicate).toHaveBeenCalledWith(part2);
+                expect(instance.tokenPosition).toBe(2);
+                expect(yieldFunction).toHaveBeenCalledTimes(2);
+            });
+
+            it("stops if the initial Part step triggers stop via afterCapture", async () => {
+                const part1 = new RGXPart("e", {
+                    afterCapture: (_, { walker }) => { walker.stop(); }
+                });
+                const part2 = new RGXPart("s");
+                const instance = new RGXWalker("test", ["t", part1, part2, "t"]);
+                const yieldFunction = jest.fn(() => Promise.resolve());
+
+                instance.tokenPosition = 1;
+                instance.sourcePosition = 1;
+                await instance.stepToPartAsync(() => false, yieldFunction);
+
+                expect(instance.tokenPosition).toBe(2);
+                expect(yieldFunction).toHaveBeenCalledTimes(0);
+            });
         });
     });
 
     describe("walk", () => {
-        it("steps through all tokens until the end", () => {
-            const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
-            instance.walk();
-            expect(instance.tokenPosition).toBe(4);
+        // Since both the sync and async functions use the same internals, this is mostly sufficient.
+        // However, we need to directly call walkAsync for coverage.
+        describe("core", () => {
+            it("steps through all tokens until the end", () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
+                instance.walk();
+                expect(instance.tokenPosition).toBe(4);
+            });
+
+            it("stops without throwing if it gets to the end of the tokens without consuming all the source", () => {
+                const instance = new RGXWalker("test", ["t", "e"]);
+                expect(() => instance.walk()).not.toThrow();
+                expect(instance.tokenPosition).toBe(2);
+                expect(instance.sourcePosition).toBe(2);
+            });
+
+            it("populates captures for all tokens", () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
+                instance.walk();
+                expect(instance.captures).toEqual([
+                    { raw: "t", value: "t", start: 0, end: 1, ownerId: null, branch: 0, groups: null },
+                    { raw: "e", value: "e", start: 1, end: 2, ownerId: null, branch: 0, groups: null },
+                    { raw: "s", value: "s", start: 2, end: 3, ownerId: null, branch: 0, groups: null },
+                    { raw: "t", value: "t", start: 3, end: 4, ownerId: null, branch: 0, groups: null },
+                ]);
+            });
+
+            it("applies transforms for Parts", () => {
+                const part = new RGXPart("es", { transform: s => s.toUpperCase() });
+                const instance = new RGXWalker("test", ["t", part, "t"]);
+                instance.walk();
+                expect(instance.captures).toEqual([
+                    { raw: "t", value: "t", start: 0, end: 1, ownerId: null, branch: 0, groups: null },
+                    { raw: "es", value: "ES", start: 1, end: 3, ownerId: part.id, branch: 0, groups: null },
+                    { raw: "t", value: "t", start: 3, end: 4, ownerId: null, branch: 0, groups: null },
+                ]);
+            });
+
+            it("returns the reduced value", () => {
+                const instance = new RGXWalker<string>("test", ["t", "e", "s", new RGXPart("t", {
+                    afterCapture: (_, { walker }) => { walker.reduced = "reduced"; }
+                })], { reduced: "not-reduced" });
+                const result = instance.walk();
+                expect(result).toBe("reduced");
+            });
         });
 
-        it("stops without throwing if it gets to the end of the tokens without consuming all the source", () => {
-            const instance = new RGXWalker("test", ["t", "e"]);
-            expect(() => instance.walk()).not.toThrow();
-            expect(instance.tokenPosition).toBe(2);
-            expect(instance.sourcePosition).toBe(2);
-        });
+        describe("async", () => {
+            // This is the only test we need for the async variant, since the rest
+            // is covered by core.
+            it("steps through all tokens until the end", async () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
+                const yieldFunction = jest.fn(() => Promise.resolve());
 
-        it("populates captures for all tokens", () => {
-            const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
-            instance.walk();
-            expect(instance.captures).toEqual([
-                { raw: "t", value: "t", start: 0, end: 1, ownerId: null, branch: 0, groups: null },
-                { raw: "e", value: "e", start: 1, end: 2, ownerId: null, branch: 0, groups: null },
-                { raw: "s", value: "s", start: 2, end: 3, ownerId: null, branch: 0, groups: null },
-                { raw: "t", value: "t", start: 3, end: 4, ownerId: null, branch: 0, groups: null },
-            ]);
-        });
-
-        it("applies transforms for Parts", () => {
-            const part = new RGXPart("es", { transform: s => s.toUpperCase() });
-            const instance = new RGXWalker("test", ["t", part, "t"]);
-            instance.walk();
-            expect(instance.captures).toEqual([
-                { raw: "t", value: "t", start: 0, end: 1, ownerId: null, branch: 0, groups: null },
-                { raw: "es", value: "ES", start: 1, end: 3, ownerId: part.id, branch: 0, groups: null },
-                { raw: "t", value: "t", start: 3, end: 4, ownerId: null, branch: 0, groups: null },
-            ]);
-        });
-
-        it("returns the reduced value", () => {
-            const instance = new RGXWalker<string>("test", ["t", "e", "s", new RGXPart("t", {
-                afterCapture: (_, { walker }) => { walker.reduced = "reduced"; }
-            })], { reduced: "not-reduced" });
-            const result = instance.walk();
-            expect(result).toBe("reduced");
+                await instance.walkAsync(yieldFunction);
+                
+                expect(instance.tokenPosition).toBe(4);
+                expect(yieldFunction).toHaveBeenCalledTimes(4);
+            });
         });
     });
 
     describe("tryWalk", () => {
-        it("returns true on successful walk", () => {
-            const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
-            expect(instance.tryWalk()).toBe(true);
-            expect(instance.tokenPosition).toBe(4);
-            expect(instance.sourcePosition).toBe(4);
+        // Since both the sync and async functions use the same internals, this is mostly sufficient.
+        // However, we need to directly call tryWalkAsync for coverage.
+        describe("core", () => {
+            it("returns true on successful walk", () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
+                expect(instance.tryWalk()).toBe(true);
+                expect(instance.tokenPosition).toBe(4);
+                expect(instance.sourcePosition).toBe(4);
+            });
+
+            it("returns false and resets positions on failed walk", () => {
+                const instance = new RGXWalker("test", ["t", "e", "x", "t"]);
+                expect(instance.tryWalk()).toBe(false);
+                expect(instance.tokenPosition).toBe(0);
+                expect(instance.sourcePosition).toBe(0);
+            });
+
+            it("resets positions when an unexpected error is thrown", () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
+                    validate: () => { throw new Error("Unexpected error"); }
+                })]);
+                expect(() => instance.tryWalk()).toThrow("Unexpected error");
+                expect(instance.tokenPosition).toBe(0);
+                expect(instance.sourcePosition).toBe(0);
+            });
+
+            it("does not reset reduced by default", () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
+                    afterCapture: (_, { walker }) => { walker.reduced = "reduced"; }
+                }), "x"], { reduced: "not-reduced" });
+                expect(instance.tryWalk()).toBe(false);
+                expect(instance.reduced).toBe("reduced");
+            });
+
+            it("resets reduced when revertReduced is true", () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
+                    afterCapture: (_, { walker }) => { walker.reduced = "reduced"; }
+                }), "x"], { reduced: "not-reduced"});
+                expect(instance.tryWalk({ revertReduced: true })).toBe(false);
+                expect(instance.reduced).toBe("not-reduced");
+            });
+
+            it("does not reset share by default", () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
+                    afterCapture: (_, { walker }) => { walker.share = "shared"; }
+                }), "x"], { share: "not-shared" });
+                expect(instance.tryWalk()).toBe(false);
+                expect(instance.share).toBe("shared");
+            });
+
+            it("resets share when revertShare is true", () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
+                    afterCapture: (_, { walker }) => { walker.share = "shared"; }
+                }), "x"], { share: "not-shared" });
+                expect(instance.tryWalk({ revertShare: true })).toBe(false);
+                expect(instance.share).toBe("not-shared");
+            });
+
+            it("does not reset captures by default", () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", "x"]);
+                expect(instance.tryWalk()).toBe(false);
+                // 3 successful captures, then failure on "x" which does not affect captures
+                expect(instance.captures).toHaveLength(3);
+            });
+
+            it("does not reset namedCaptures by default", () => {
+                const part = new RGXPart("t", { id: "first" });
+                const instance = new RGXWalker("test", [part, "e", "s", "x"]);
+                expect(instance.tryWalk()).toBe(false);
+                // Named capture should still be present on failure
+                expect(instance.namedCaptures.first).toHaveLength(1);
+            });
+
+            it("resets captures when revertCaptures is true", () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", "x"]);
+                expect(instance.tryWalk({ revertCaptures: true })).toBe(false);
+                // All captures should be reverted on failure
+                expect(instance.captures).toHaveLength(0);
+            });
+
+            it("resets namedCaptures when revertCaptures is true", () => {
+                const part = new RGXPart("t", { id: "first" });
+                const instance = new RGXWalker("test", [part, "e", "s", "x"]);
+                expect(instance.tryWalk({ revertCaptures: true })).toBe(false);
+                // Named capture should be reverted on failure
+                expect(instance.namedCaptures.first).toEqual(undefined);
+            });
         });
 
-        it("returns false and resets positions on failed walk", () => {
-            const instance = new RGXWalker("test", ["t", "e", "x", "t"]);
-            expect(instance.tryWalk()).toBe(false);
-            expect(instance.tokenPosition).toBe(0);
-            expect(instance.sourcePosition).toBe(0);
+        describe("async", () => {
+            // These are the only tests we need for the async variant, since the rest is covered by core.
+            it("returns true on successful walk", async () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", "t"]);
+
+                const result = await instance.tryWalkAsync();
+                
+                expect(result).toBe(true);
+                expect(instance.tokenPosition).toBe(4);
+                expect(instance.sourcePosition).toBe(4);
+            });
+
+            it("returns false and resets positions on failed walk", async () => {
+                const instance = new RGXWalker("test", ["t", "e", "x", "t"]);
+                const yieldFunction = jest.fn(() => Promise.resolve());
+
+                const result = await instance.tryWalkAsync({}, yieldFunction);
+                
+                expect(result).toBe(false);
+                expect(instance.tokenPosition).toBe(0);
+                expect(instance.sourcePosition).toBe(0);
+                expect(yieldFunction).toHaveBeenCalledTimes(2);
+            });
+
+            it("throws an error thrown during walk", async () => {
+                const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
+                    validate: () => { throw new Error("Unexpected error"); }
+                })]);
+                const yieldFunction = jest.fn(() => Promise.resolve());
+
+                let didFail = false;
+                try {
+                    await instance.tryWalkAsync({}, yieldFunction);
+                } catch (error) {
+                    expect(error).toBeInstanceOf(Error);
+                    expect(error.message).toBe("Unexpected error");
+                    didFail = true;
+                }
+                expect(didFail).toBe(true);
+                expect(instance.tokenPosition).toBe(0);
+                expect(instance.sourcePosition).toBe(0);
+                expect(yieldFunction).toHaveBeenCalledTimes(3);
+            });
         });
-
-        it("resets positions when an unexpected error is thrown", () => {
-            const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
-                validate: () => { throw new Error("Unexpected error"); }
-            })]);
-            expect(() => instance.tryWalk()).toThrow("Unexpected error");
-            expect(instance.tokenPosition).toBe(0);
-            expect(instance.sourcePosition).toBe(0);
-        });
-
-        it("does not reset reduced by default", () => {
-            const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
-                afterCapture: (_, { walker }) => { walker.reduced = "reduced"; }
-            }), "x"], { reduced: "not-reduced" });
-            expect(instance.tryWalk()).toBe(false);
-            expect(instance.reduced).toBe("reduced");
-        });
-
-        it("resets reduced when revertReduced is true", () => {
-            const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
-                afterCapture: (_, { walker }) => { walker.reduced = "reduced"; }
-            }), "x"], { reduced: "not-reduced"});
-            expect(instance.tryWalk({ revertReduced: true })).toBe(false);
-            expect(instance.reduced).toBe("not-reduced");
-        });
-
-        it("does not reset share by default", () => {
-            const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
-                afterCapture: (_, { walker }) => { walker.share = "shared"; }
-            }), "x"], { share: "not-shared" });
-            expect(instance.tryWalk()).toBe(false);
-            expect(instance.share).toBe("shared");
-        });
-
-        it("resets share when revertShare is true", () => {
-            const instance = new RGXWalker("test", ["t", "e", "s", rgxPart("t", {
-                afterCapture: (_, { walker }) => { walker.share = "shared"; }
-            }), "x"], { share: "not-shared" });
-            expect(instance.tryWalk({ revertShare: true })).toBe(false);
-            expect(instance.share).toBe("not-shared");
-        });
-
-        it("does not reset captures by default", () => {
-            const instance = new RGXWalker("test", ["t", "e", "s", "x"]);
-            expect(instance.tryWalk()).toBe(false);
-            // 3 successful captures, then failure on "x" which does not affect captures
-            expect(instance.captures).toHaveLength(3);
-        });
-
-        it("does not reset namedCaptures by default", () => {
-            const part = new RGXPart("t", { id: "first" });
-            const instance = new RGXWalker("test", [part, "e", "s", "x"]);
-            expect(instance.tryWalk()).toBe(false);
-            // Named capture should still be present on failure
-            expect(instance.namedCaptures.first).toHaveLength(1);
-         });
-
-        it("resets captures when revertCaptures is true", () => {
-            const instance = new RGXWalker("test", ["t", "e", "s", "x"]);
-            expect(instance.tryWalk({ revertCaptures: true })).toBe(false);
-            // All captures should be reverted on failure
-            expect(instance.captures).toHaveLength(0);
-        });
-
-         it("resets namedCaptures when revertCaptures is true", () => {
-            const part = new RGXPart("t", { id: "first" });
-            const instance = new RGXWalker("test", [part, "e", "s", "x"]);
-            expect(instance.tryWalk({ revertCaptures: true })).toBe(false);
-            // Named capture should be reverted on failure
-            expect(instance.namedCaptures.first).toEqual(undefined);
-         });
     });
 
     describe("restore", () => {

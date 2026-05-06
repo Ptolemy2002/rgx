@@ -383,33 +383,67 @@ export class RGXWalker<R, S = unknown> {
         return captureResult;
     }
 
-    stepToToken(predicate: (token: RGXTokenOrPart<R>) => boolean) {
+    private *_stepToTokenIter(predicate: (token: RGXTokenOrPart<R, S, unknown>) => boolean): Generator<void> {
         while (this.hasNextToken()) {
             this._stopped = false;
-
             if (predicate(this.currentToken())) break;
             this.step();
-
             if (this._stopped) break;
+            yield;
         }
+    }
+
+    stepToToken(predicate: (token: RGXTokenOrPart<R>) => boolean = () => true) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        for (const _ of this._stepToTokenIter(predicate)) { /* sync — no yield needed */ }
         return this;
     }
 
-    stepToPart(predicate: (part: RGXPart<R, S, unknown>) => boolean = () => true) {
-        // If currently at a Part, step past it first so repeated
-        // calls advance to the next Part rather than getting stuck.
+    async stepToTokenAsync(
+        predicate: (token: RGXTokenOrPart<R, S, unknown>) => boolean = () => true,
+        yieldFn: () => Promise<void> = () => new Promise(resolve => setImmediate(resolve))
+    ): Promise<this> {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        for (const _ of this._stepToTokenIter(predicate)) await yieldFn();
+
+        return this;
+    }
+
+    // If currently at a Part, steps past it (so repeated stepToPart calls advance
+    // rather than getting stuck). Returns true when the walker stopped mid-step.
+    private _stepPastCurrentPartIfNeeded(): boolean {
         if (this.hasNextToken() && this.currentToken() instanceof RGXPart) {
             this._stopped = false;
             this.step();
-            if (this._stopped) return this;
+            if (this._stopped) return true;
         }
+        return false;
+    }
 
+    stepToPart(predicate: (part: RGXPart<R, S, unknown>) => boolean = () => true) {
+        if (this._stepPastCurrentPartIfNeeded()) return this;
         this.stepToToken(token => token instanceof RGXPart && predicate(token));
+        return this;
+    }
+
+    async stepToPartAsync(
+        predicate: (part: RGXPart<R, S, unknown>) => boolean = () => true,
+        yieldFn: () => Promise<void> = () => new Promise(resolve => setImmediate(resolve))
+    ): Promise<this> {
+        if (this._stepPastCurrentPartIfNeeded()) return this;
+        await this.stepToTokenAsync(token => token instanceof RGXPart && predicate(token), yieldFn);
         return this;
     }
 
     walk() {
         this.stepToToken(() => false);
+        return this.reduced;
+    }
+
+    async walkAsync(
+        yieldFn?: () => Promise<void>
+    ): Promise<R> {
+        await this.stepToTokenAsync(() => false, yieldFn);
         return this.reduced;
     }
 
@@ -439,12 +473,12 @@ export class RGXWalker<R, S = unknown> {
         return this;
     }
 
-    tryWalk({
-        revertReduced = false,
-        revertShare = false,
-        revertCaptures = false
-    }: RGXTryWalkOptions = {}): boolean {
-        this.snapshot("tryWalk",
+    private _walkerSnapshot(name: string, {
+        revertReduced,
+        revertShare,
+        revertCaptures
+    }: Required<RGXTryWalkOptions>): RGXWalkerSnapshot<R, S> {
+        return this.snapshot(name,
             "sourcePosition",
             "tokenPosition",
             revertReduced && "reduced",
@@ -452,9 +486,33 @@ export class RGXWalker<R, S = unknown> {
             revertCaptures && "captures",
             revertCaptures && "namedCaptures"
         );
+    }
+
+    tryWalk({
+        revertReduced = false,
+        revertShare = false,
+        revertCaptures = false
+    }: RGXTryWalkOptions = {}): boolean {
+        this._walkerSnapshot("tryWalk", { revertReduced, revertShare, revertCaptures });
 
         try {
             this.walk();
+            return true;
+        } catch (e) {
+            this.restore("tryWalk");
+            if (isMatchError(e)) return false;
+            throw e;
+        }
+    }
+
+    async tryWalkAsync(
+        { revertReduced = false, revertShare = false, revertCaptures = false }: RGXTryWalkOptions = {},
+        yieldFn?: () => Promise<void>
+    ): Promise<boolean> {
+        this._walkerSnapshot("tryWalk", { revertReduced, revertShare, revertCaptures });
+
+        try {
+            await this.walkAsync(yieldFn);
             return true;
         } catch (e) {
             this.restore("tryWalk");
