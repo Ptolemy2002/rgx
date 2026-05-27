@@ -134,6 +134,15 @@ Asserts that the given string is a valid regular expression by attempting to cre
 
 **Returns:** `void` - If the string is a valid regular expression, the function returns without error. If the string is invalid, an `RGXInvalidRegexStringError` is thrown with the provided message and the invalid string.
 
+#### castValidRegexString
+```typescript
+function castValidRegexString(value: string): ValidRegexString
+```
+Asserts that the given string is a valid regular expression (via `assertValidRegexString`) and returns it branded as a `ValidRegexString`. Throws `RGXInvalidRegexStringError` if the string is invalid.
+- `value` (`string`): The string to cast.
+
+**Returns:** `ValidRegexString` - The input string, branded as a `ValidRegexString`.
+
 ## RGXInvalidVanillaRegexFlagsError
 A specific error class for invalid vanilla regex flags. This error is thrown when a string fails validation as valid vanilla regex flags. The error code is set to `INVALID_VANILLA_REGEX_FLAGS` on instantiation.
 
@@ -165,6 +174,15 @@ Asserts that the given string is a valid combination of vanilla regex flags (g, 
 - `value` (`string`): The string to assert.
 
 **Returns:** `void` - If the string is a valid combination of vanilla regex flags, the function returns without error. If the string is invalid, an `RGXInvalidVanillaRegexFlagsError` is thrown with the provided message and the invalid string.
+
+#### castValidVanillaRegexFlags
+```typescript
+function castValidVanillaRegexFlags(value: string): ValidVanillaRegexFlags
+```
+Asserts that the given string is a valid combination of vanilla regex flags (via `assertValidVanillaRegexFlags`) and returns it branded as a `ValidVanillaRegexFlags`. Throws `RGXInvalidVanillaRegexFlagsError` if the string is invalid.
+- `value` (`string`): The string to cast.
+
+**Returns:** `ValidVanillaRegexFlags` - The input string, branded as a `ValidVanillaRegexFlags`.
 
 ## RGXInvalidRegexFlagsError
 A specific error class for invalid regex flags (including both vanilla and custom registered flags). This error is thrown when a string fails validation as valid regex flags. The error code is set to `INVALID_REGEX_FLAGS` on instantiation.
@@ -229,6 +247,15 @@ Asserts that the given string is a valid identifier, used for group names and ba
 - `value` (`string`): The string to assert.
 
 **Returns:** `void` - If the string is a valid identifier, the function returns without error. If the string is invalid, an `RGXInvalidIdentifierError` is thrown with the provided message and the invalid string.
+
+#### castValidIdentifier
+```typescript
+function castValidIdentifier(value: string): ValidIdentifier
+```
+Asserts that the given string is a valid identifier (via `assertValidIdentifier`) and returns it branded as a `ValidIdentifier`. Throws `RGXInvalidIdentifierError` if the string is invalid.
+- `value` (`string`): The string to cast.
+
+**Returns:** `ValidIdentifier` - The input string, branded as a `ValidIdentifier`.
 
 ## RGXInvalidFlagTransformerKeyError
 A specific error class for invalid flag transformer keys. This error is thrown when an invalid key is provided to `registerFlagTransformer` (e.g., a key that is not a single character). The error code is set to `INVALID_FLAG_TRANSFORMER_KEY` on instantiation.
@@ -565,6 +592,15 @@ Asserts that the given string contains only the localizable regex flags `i`, `m`
 
 **Returns:** `void` - If the string is valid, the function returns without error. Otherwise, an `RGXInvalidRegexLocalizableFlagsError` is thrown with the provided message and the invalid string.
 
+#### castValidRegexLocalizableFlags
+```typescript
+function castValidRegexLocalizableFlags(value: string): ValidRegexLocalizableFlags
+```
+Asserts that the given string contains only the localizable regex flags (via `assertValidRegexLocalizableFlags`) and returns it branded as a `ValidRegexLocalizableFlags`. Throws `RGXInvalidRegexLocalizableFlagsError` if the string is invalid.
+- `value` (`string`): The string to cast.
+
+**Returns:** `ValidRegexLocalizableFlags` - The input string, branded as a `ValidRegexLocalizableFlags`.
+
 ## RGXInvalidRegexLocalizableFlagDiffError
 A specific error class for invalid localizable regex flag diff strings. A flag diff describes which localizable flags to enable and disable in an inline flag group, with the format `<added>-<removed>` (e.g., `i-ms`). An empty string is also valid. This error is thrown when a string fails validation as a valid flag diff. The error code is set to `INVALID_REGEX_LOCALIZABLE_FLAG_DIFF` on instantiation.
 
@@ -596,3 +632,12 @@ Asserts that the given string is a valid localizable flag diff. If the assertion
 - `value` (`string`): The string to assert.
 
 **Returns:** `void` - If the string is valid, the function returns without error. Otherwise, an `RGXInvalidRegexLocalizableFlagDiffError` is thrown with the provided message and the invalid string.
+
+#### castValidRegexLocalizableFlagDiff
+```typescript
+function castValidRegexLocalizableFlagDiff(value: string): ValidRegexLocalizableFlagDiff
+```
+Asserts that the given string is a valid localizable flag diff (via `assertValidRegexLocalizableFlagDiff`) and returns it branded as a `ValidRegexLocalizableFlagDiff`. Throws `RGXInvalidRegexLocalizableFlagDiffError` if the string is invalid.
+- `value` (`string`): The string to cast.
+
+**Returns:** `ValidRegexLocalizableFlagDiff` - The input string, branded as a `ValidRegexLocalizableFlagDiff`.

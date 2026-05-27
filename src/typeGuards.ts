@@ -234,6 +234,11 @@ export function assertValidRegexString(value: string): asserts value is t.ValidR
     }
 }
 
+export function castValidRegexString(value: string): t.ValidRegexString {
+    assertValidRegexString(value);
+    return value;
+}
+
 export function isValidVanillaRegexFlags(value: string): value is t.ValidVanillaRegexFlags {
     const patternMatch = /^[gimsuydv]*$/.test(value);
     if (!patternMatch) return false;
@@ -249,6 +254,11 @@ export function assertValidVanillaRegexFlags(value: string): asserts value is t.
     }
 }
 
+export function castValidVanillaRegexFlags(value: string): t.ValidVanillaRegexFlags {
+    assertValidVanillaRegexFlags(value);
+    return value;
+}
+
 export function isValidIdentifier(value: string): value is t.ValidIdentifier {
     // This regex checks for valid JavaScript identifiers, which can be used for named capture groups.
     return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(value);
@@ -258,6 +268,11 @@ export function assertValidIdentifier(value: string): asserts value is t.ValidId
     if (!isValidIdentifier(value)) {
         throw new e.RGXInvalidIdentifierError("Invalid identifier", value);
     }
+}
+
+export function castValidIdentifier(value: string): t.ValidIdentifier {
+    assertValidIdentifier(value);
+    return value;
 }
 
 export function isValidRegexLocalizableFlagDiff(value: string): value is t.ValidRegexLocalizableFlagDiff {
@@ -271,6 +286,11 @@ export function assertValidRegexLocalizableFlagDiff(value: string): asserts valu
     }
 }
 
+export function castValidRegexLocalizableFlagDiff(value: string): t.ValidRegexLocalizableFlagDiff {
+    assertValidRegexLocalizableFlagDiff(value);
+    return value;
+}
+
 export function isValidRegexLocalizableFlags(value: string): value is t.ValidRegexLocalizableFlags {
     return /^[ims]*$/.test(value);
 }
@@ -279,4 +299,9 @@ export function assertValidRegexLocalizableFlags(value: string): asserts value i
     if (!isValidRegexLocalizableFlags(value)) {
         throw new e.RGXInvalidRegexLocalizableFlagsError("Invalid localizable flags", value);
     }
+}
+
+export function castValidRegexLocalizableFlags(value: string): t.ValidRegexLocalizableFlags {
+    assertValidRegexLocalizableFlags(value);
+    return value;
 }

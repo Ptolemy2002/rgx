@@ -11,7 +11,15 @@ import {
     extRegExp, isValidRegexLocalizableFlagDiff, assertValidRegexLocalizableFlagDiff,
     isValidRegexLocalizableFlags, assertValidRegexLocalizableFlags,
     RGXInvalidRegexLocalizableFlagsError,
-    RGXInvalidRegexLocalizableFlagDiffError
+    RGXInvalidRegexLocalizableFlagDiffError,
+    castValidRegexString, castValidVanillaRegexFlags, castValidIdentifier, castValidRegexLocalizableFlagDiff, castValidRegexLocalizableFlags,
+    assertValidRegexString,
+    escapeRegex,
+    isValidRegexString,
+    RGXInvalidRegexStringError,
+    assertValidVanillaRegexFlags,
+    isValidVanillaRegexFlags,
+    RGXInvalidVanillaRegexFlagsError
 } from 'src/index';
 
 class TestClassToken1 extends RGXClassToken {
@@ -65,6 +73,38 @@ function rgxConvertibleTokenMethodTest(returnValueDesc: string, returnValue: unk
         expect(isRGXConvertibleToken(token, false)).toBe(true);
         expect(() => assertRGXConvertibleToken(token, false)).not.toThrow();
     });
+}
+
+function guardTests<T>(
+    values: T[],
+    expected: boolean,
+    expectedThrow: new (...args: unknown[]) => Error,
+    isFunc: (value: T) => boolean,
+    assertFunc: (value: T) => void,
+    castFunc: (value: T) => T
+) {
+    for (const value of values) {
+        expect(isFunc(value)).toBe(expected);
+    }
+
+    for (const value of values) {
+        if (expected) {
+            expect(() => assertFunc(value)).not.toThrow();
+        } else {
+            expect(() => assertFunc(value)).toThrow(expectedThrow);
+        }
+    }
+
+    for (const value of values) {
+        let castResult: T = value;
+
+        if (expected) {
+            expect(() => castResult = castFunc(value)).not.toThrow();
+            expect(castResult).toBe(value);
+        } else {
+            expect(() => castFunc(value)).toThrow(expectedThrow);
+        }
+    }
 }
 
 describe('Type Guards', () => {
@@ -867,127 +907,288 @@ describe('Type Guards', () => {
 
     describe('isValidIdentifier', () => {
         it('accepts valid identifiers', () => {
-            expect(isValidIdentifier('foo')).toBe(true);
-            expect(isValidIdentifier('fooBar')).toBe(true);
-            expect(isValidIdentifier('_foo')).toBe(true);
-            expect(isValidIdentifier('$foo')).toBe(true);
-            expect(isValidIdentifier('foo123')).toBe(true);
-            expect(isValidIdentifier('_foo123')).toBe(true);
-            expect(isValidIdentifier('$foo123')).toBe(true);
-
-            expect(() => assertValidIdentifier('foo')).not.toThrow();
-            expect(() => assertValidIdentifier('fooBar')).not.toThrow();
-            expect(() => assertValidIdentifier('_foo')).not.toThrow();
-            expect(() => assertValidIdentifier('$foo')).not.toThrow();
-            expect(() => assertValidIdentifier('foo123')).not.toThrow();
-            expect(() => assertValidIdentifier('_foo123')).not.toThrow();
-            expect(() => assertValidIdentifier('$foo123')).not.toThrow();
+            guardTests(
+                ["foo", "fooBar", "_foo", "$foo", "foo123", "_foo123", "$foo123"],
+                true,
+                RGXInvalidIdentifierError,
+                isValidIdentifier,
+                assertValidIdentifier,
+                castValidIdentifier
+            );
         });
 
         it('rejects invalid identifiers', () => {
-            expect(isValidIdentifier('123foo')).toBe(false);
-            expect(isValidIdentifier('-foo')).toBe(false);
-            expect(isValidIdentifier('foo-bar')).toBe(false);
-            expect(isValidIdentifier('foo bar')).toBe(false);
-            expect(isValidIdentifier('')).toBe(false);
-
-            expect(() => assertValidIdentifier('123foo')).toThrow(RGXInvalidIdentifierError);
-            expect(() => assertValidIdentifier('-foo')).toThrow(RGXInvalidIdentifierError);
-            expect(() => assertValidIdentifier('foo-bar')).toThrow(RGXInvalidIdentifierError);
-            expect(() => assertValidIdentifier('foo bar')).toThrow(RGXInvalidIdentifierError);
-            expect(() => assertValidIdentifier('')).toThrow(RGXInvalidIdentifierError);
+            guardTests(
+                ['123foo', '-foo', 'foo-bar', 'foo bar', ''],
+                false,
+                RGXInvalidIdentifierError,
+                isValidIdentifier,
+                assertValidIdentifier,
+                castValidIdentifier
+            );
         });
     });
 
     describe('isValidRegexLocalizableFlags', () => {
         it('accepts combinations only involving "ims"', () => {
-            expect(isValidRegexLocalizableFlags('i')).toBe(true);
-            expect(isValidRegexLocalizableFlags('m')).toBe(true);
-            expect(isValidRegexLocalizableFlags('s')).toBe(true);
-            expect(isValidRegexLocalizableFlags('im')).toBe(true);
-            expect(isValidRegexLocalizableFlags('is')).toBe(true);
-            expect(isValidRegexLocalizableFlags('ms')).toBe(true);
-            expect(isValidRegexLocalizableFlags('ims')).toBe(true);
-
-            expect(() => assertValidRegexLocalizableFlags('i')).not.toThrow();
-            expect(() => assertValidRegexLocalizableFlags('m')).not.toThrow();
-            expect(() => assertValidRegexLocalizableFlags('s')).not.toThrow();
-            expect(() => assertValidRegexLocalizableFlags('im')).not.toThrow();
-            expect(() => assertValidRegexLocalizableFlags('is')).not.toThrow();
-            expect(() => assertValidRegexLocalizableFlags('ms')).not.toThrow();
-            expect(() => assertValidRegexLocalizableFlags('ims')).not.toThrow();
+            guardTests(
+                ['i', 'm', 's', 'im', 'is', 'ms', 'ims'],
+                true,
+                RGXInvalidRegexLocalizableFlagsError,
+                isValidRegexLocalizableFlags,
+                assertValidRegexLocalizableFlags,
+                castValidRegexLocalizableFlags
+            );
         });
 
         it('accepts an empty string', () => {
-            expect(isValidRegexLocalizableFlags('')).toBe(true);
-            expect(() => assertValidRegexLocalizableFlags('')).not.toThrow();
+            guardTests(
+                [''],
+                true,
+                RGXInvalidRegexLocalizableFlagsError,
+                isValidRegexLocalizableFlags,
+                assertValidRegexLocalizableFlags,
+                castValidRegexLocalizableFlags
+            );
         });
 
         it('rejects combinations involving flags other than "ims"', () => {
-            expect(isValidRegexLocalizableFlags('g')).toBe(false);
-            expect(isValidRegexLocalizableFlags('u')).toBe(false);
-            expect(isValidRegexLocalizableFlags('y')).toBe(false);
-            expect(isValidRegexLocalizableFlags('ig')).toBe(false);
-            expect(isValidRegexLocalizableFlags('iu')).toBe(false);
-            expect(isValidRegexLocalizableFlags('iy')).toBe(false);
-            expect(isValidRegexLocalizableFlags('gm')).toBe(false);
-            expect(isValidRegexLocalizableFlags('gu')).toBe(false);
-            expect(isValidRegexLocalizableFlags('gy')).toBe(false);
-            expect(isValidRegexLocalizableFlags('sg')).toBe(false);
-            expect(isValidRegexLocalizableFlags('su')).toBe(false);
-            expect(isValidRegexLocalizableFlags('sy')).toBe(false);
-
-            expect(() => assertValidRegexLocalizableFlags('g')).toThrow(RGXInvalidRegexLocalizableFlagsError);
-            expect(() => assertValidRegexLocalizableFlags('u')).toThrow(RGXInvalidRegexLocalizableFlagsError);
-            expect(() => assertValidRegexLocalizableFlags('y')).toThrow(RGXInvalidRegexLocalizableFlagsError);
-            expect(() => assertValidRegexLocalizableFlags('ig')).toThrow(RGXInvalidRegexLocalizableFlagsError);
-            expect(() => assertValidRegexLocalizableFlags('iu')).toThrow(RGXInvalidRegexLocalizableFlagsError);
-            expect(() => assertValidRegexLocalizableFlags('iy')).toThrow(RGXInvalidRegexLocalizableFlagsError);
-            expect(() => assertValidRegexLocalizableFlags('gm')).toThrow(RGXInvalidRegexLocalizableFlagsError);
-            expect(() => assertValidRegexLocalizableFlags('gu')).toThrow(RGXInvalidRegexLocalizableFlagsError);
-            expect(() => assertValidRegexLocalizableFlags('gy')).toThrow(RGXInvalidRegexLocalizableFlagsError);
-            expect(() => assertValidRegexLocalizableFlags('sg')).toThrow(RGXInvalidRegexLocalizableFlagsError);
-            expect(() => assertValidRegexLocalizableFlags('su')).toThrow(RGXInvalidRegexLocalizableFlagsError);
-            expect(() => assertValidRegexLocalizableFlags('sy')).toThrow(RGXInvalidRegexLocalizableFlagsError);
+            guardTests(
+                ['g', 'u', 'y', 'ig', 'iu', 'iy', 'gm', 'gu', 'gy', 'sg', 'su', 'sy'],
+                false,
+                RGXInvalidRegexLocalizableFlagsError,
+                isValidRegexLocalizableFlags,
+                assertValidRegexLocalizableFlags,
+                castValidRegexLocalizableFlags
+            );
         });
     });
 
     describe('isValidRegexLocalizableFlagDiff', () => {
         it('accepts valid localizable flag strings', () => {
-            expect(isValidRegexLocalizableFlagDiff('i')).toBe(true);
-            expect(isValidRegexLocalizableFlagDiff('s')).toBe(true);
-            expect(isValidRegexLocalizableFlagDiff('im')).toBe(true);
-            expect(isValidRegexLocalizableFlagDiff('ims')).toBe(true);
-
-            expect(() => assertValidRegexLocalizableFlagDiff('i')).not.toThrow();
-            expect(() => assertValidRegexLocalizableFlagDiff('s')).not.toThrow();
-            expect(() => assertValidRegexLocalizableFlagDiff('im')).not.toThrow();
-            expect(() => assertValidRegexLocalizableFlagDiff('ims')).not.toThrow();
+            guardTests(
+                ['i', 's', 'im', 'ims'],
+                true,
+                RGXInvalidRegexLocalizableFlagDiffError,
+                isValidRegexLocalizableFlagDiff,
+                assertValidRegexLocalizableFlagDiff,
+                castValidRegexLocalizableFlagDiff
+            );
         });
 
         it('accepts an empty string', () => {
-            expect(isValidRegexLocalizableFlagDiff('')).toBe(true);
-            expect(() => assertValidRegexLocalizableFlagDiff('')).not.toThrow();
+            guardTests(
+                [''],
+                true,
+                RGXInvalidRegexLocalizableFlagDiffError,
+                isValidRegexLocalizableFlagDiff,
+                assertValidRegexLocalizableFlagDiff,
+                castValidRegexLocalizableFlagDiff
+            );
         });
 
         it('accepts two valid localizable flag strings separated by a dash', () => {
-            expect(isValidRegexLocalizableFlagDiff('i-s')).toBe(true);
-            expect(isValidRegexLocalizableFlagDiff('im-ims')).toBe(true);
-            
-            expect(() => assertValidRegexLocalizableFlagDiff('i-s')).not.toThrow();
-            expect(() => assertValidRegexLocalizableFlagDiff('im-ims')).not.toThrow();
+            guardTests(
+                ['i-s', 'im-ims'],
+                true,
+                RGXInvalidRegexLocalizableFlagDiffError,
+                isValidRegexLocalizableFlagDiff,
+                assertValidRegexLocalizableFlagDiff,
+                castValidRegexLocalizableFlagDiff
+            );
         });
 
         it('rejects strings that do not match the valid formats', () => {
-            expect(isValidRegexLocalizableFlagDiff('invalid')).toBe(false);
-            expect(isValidRegexLocalizableFlagDiff('i-')).toBe(false);
-            expect(isValidRegexLocalizableFlagDiff('-s')).toBe(false);
-            expect(isValidRegexLocalizableFlagDiff('i-s-extra')).toBe(false);
-            
-            expect(() => assertValidRegexLocalizableFlagDiff('invalid')).toThrow(RGXInvalidRegexLocalizableFlagDiffError);
-            expect(() => assertValidRegexLocalizableFlagDiff('i-')).toThrow(RGXInvalidRegexLocalizableFlagDiffError);
-            expect(() => assertValidRegexLocalizableFlagDiff('-s')).toThrow(RGXInvalidRegexLocalizableFlagDiffError);
-            expect(() => assertValidRegexLocalizableFlagDiff('i-s-extra')).toThrow(RGXInvalidRegexLocalizableFlagDiffError);
+            guardTests(
+                ['invalid', 'i-', '-s', 'i-s-extra'],
+                false,
+                RGXInvalidRegexLocalizableFlagDiffError,
+                isValidRegexLocalizableFlagDiff,
+                assertValidRegexLocalizableFlagDiff,
+                castValidRegexLocalizableFlagDiff
+            );
+        });
+    });
+
+    describe('isValidRegexString', () => {
+        it('accepts strings with no special characters', () => {
+            guardTests(
+                ['foobar'],
+                true,
+                RGXInvalidRegexStringError,
+                isValidRegexString,
+                assertValidRegexString,
+                castValidRegexString
+            );
+        });
+
+        it('accepts strings with escaped special characters', () => {
+            guardTests(
+                ['foo\\*bar'],
+                true,
+                RGXInvalidRegexStringError,
+                isValidRegexString,
+                assertValidRegexString,
+                castValidRegexString
+            );
+        });
+
+        it('accepts strings with unescaped special characters compatible with regex syntax', () => {
+            guardTests(
+                ['foo[bar]'],
+                true,
+                RGXInvalidRegexStringError,
+                isValidRegexString,
+                assertValidRegexString,
+                castValidRegexString
+            );
+        });
+
+        it('accepts empty string', () => {
+            guardTests(
+                [''],
+                true,
+                RGXInvalidRegexStringError,
+                isValidRegexString,
+                assertValidRegexString,
+                castValidRegexString
+            );
+        });
+
+        it('accepts complex valid regex patterns', () => {
+            guardTests(
+                ['^(foo|bar)*\\d{3,5}$'],
+                true,
+                RGXInvalidRegexStringError,
+                isValidRegexString,
+                assertValidRegexString,
+                castValidRegexString
+            );
+        });
+
+        it('accepts string with invalid regex syntax after passing through escapeRegex', () => {
+            const specialString = 'foo.*+?^${}()|[]\\bar';
+            const escapedString = escapeRegex(specialString);
+            guardTests(
+                [escapedString],
+                true,
+                RGXInvalidRegexStringError,
+                isValidRegexString,
+                assertValidRegexString,
+                castValidRegexString
+            );
+        });
+
+        it('rejects strings with unescaped unclosed parenthesis', () => {
+            guardTests(
+                ['foo(bar'],
+                false,
+                RGXInvalidRegexStringError,
+                isValidRegexString,
+                assertValidRegexString,
+                castValidRegexString
+            );
+        });
+
+        it('rejects strings with unescaped unclosed brackets', () => {
+            guardTests(
+                ['foo[bar'],
+                false,
+                RGXInvalidRegexStringError,
+                isValidRegexString,
+                assertValidRegexString,
+                castValidRegexString
+            );
+        });
+
+        it('rejects strings with invalid quantifier usage', () => {
+            guardTests(
+                ['foo{3,2}bar'],
+                false,
+                RGXInvalidRegexStringError,
+                isValidRegexString,
+                assertValidRegexString,
+                castValidRegexString
+            );
+        });
+    });
+
+    describe('isValidVanillaRegexFlags', () => {
+        it('accepts an empty string', () => {
+            guardTests(
+                [''],
+                true,
+                RGXInvalidVanillaRegexFlagsError,
+                isValidVanillaRegexFlags,
+                assertValidVanillaRegexFlags,
+                castValidVanillaRegexFlags
+            );
+        });
+
+        it('accepts singular valid regex flags', () => {
+            guardTests(
+                ['g', 'i', 'm', 's', 'u', 'y', 'd', 'v'],
+                true,
+                RGXInvalidVanillaRegexFlagsError,
+                isValidVanillaRegexFlags,
+                assertValidVanillaRegexFlags,
+                castValidVanillaRegexFlags
+            );
+        });
+
+        it('accepts combinations of valid regex flags', () => {
+            guardTests(
+                ['gi', 'gimsuydv', 'yms'],
+                true,
+                RGXInvalidVanillaRegexFlagsError,
+                isValidVanillaRegexFlags,
+                assertValidVanillaRegexFlags,
+                castValidVanillaRegexFlags
+            );
+        });
+
+        it('rejects singular invalid regex flags', () => {
+            guardTests(
+                ['x', 'z', 'a'],
+                false,
+                RGXInvalidVanillaRegexFlagsError,
+                isValidVanillaRegexFlags,
+                assertValidVanillaRegexFlags,
+                castValidVanillaRegexFlags
+            );
+        });
+
+        it('rejects combinations of valid and invalid regex flags', () => {
+            guardTests(
+                ['gix', 'gimsuydvz', 'ymas'],
+                false,
+                RGXInvalidVanillaRegexFlagsError,
+                isValidVanillaRegexFlags,
+                assertValidVanillaRegexFlags,
+                castValidVanillaRegexFlags
+            );
+        });
+
+        it('rejects strings with non-flag characters', () => {
+            guardTests(
+                ['gi ', 'gim-suydv', 'yms!'],
+                false,
+                RGXInvalidVanillaRegexFlagsError,
+                isValidVanillaRegexFlags,
+                assertValidVanillaRegexFlags,
+                castValidVanillaRegexFlags
+            );
+        });
+
+        it('rejects strings with repeated flags', () => {
+            guardTests(
+                ['gg', 'gii', 'mm', 'ss', 'uu', 'yy', 'dd', 'vv'],
+                false,
+                RGXInvalidVanillaRegexFlagsError,
+                isValidVanillaRegexFlags,
+                assertValidVanillaRegexFlags,
+                castValidVanillaRegexFlags
+            );
         });
     });
 });
