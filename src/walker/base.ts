@@ -33,7 +33,7 @@ export type RGXWalkerSnapshotKey =
     | "captures"
     | "namedCaptures";
 
-type RGXWalkerSnapshot<R, S> = Partial<{
+export type RGXWalkerSnapshot<R, S> = Partial<{
     sourcePosition: number;
     tokenPosition: number;
     reduced: R;

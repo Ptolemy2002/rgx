@@ -12,6 +12,7 @@ Because there is so much to document, it has been broken up into multiple files.
 - [type-guards](./docs/type-guards.md) - Type guards for validating various types of tokens and string values.
 - [ExtRegExp](./docs/ExtRegExp.md) - The `ExtRegExp` class, which extends the built-in `RegExp` class with the ability to create custom flags that transform the source string of the regular expression before it is compiled.
 - [constants](./docs/constants.md) - Constants provided by the library, such as predefined character classes and tokens.
+- [json](./docs/json.md) - JSON tokens, a JSON-serializable form of any token, along with the functions that convert tokens to and from that form and the registry of class names that JSON class tokens can target.
 - `util` - A directory containing documentation for various utility functions provided by the library.
   - [clone](./docs/util/clone.md) - The `cloneRGXToken` function, which creates a clone of a given RGX token to a specified depth.
   - [escapeRegex](./docs/util/escapeRegex.md) - The `escapeRegex` function, which escapes special regex characters in a given string and assures you that the result is valid Regex.

@@ -9,8 +9,32 @@ import { RGXNotSupportedError } from "src/errors";
 import { RGXLookaheadToken } from "./lookahead";
 import { RGXLookbehindToken } from "./lookbehind";
 import { RGXExclusionToken } from "./exclusion";
+import { RGXClassWrapperToken } from "./wrapper";
+import { RGXSubpatternToken } from "./subpattern";
+import { hasRGXJSONClass, registerRGXJSONClassToken, RGXJSONBuiltinClassName, RGXJSONClassTokenConstructor } from "src/json";
+
+export const RGX_BUILTIN_JSON_CLASSES: Record<RGXJSONBuiltinClassName, RGXJSONClassTokenConstructor> = {
+    RGXClassWrapperToken,
+    RGXClassUnionToken,
+    RGXGroupToken,
+    RGXRepeatToken,
+    RGXLookaheadToken,
+    RGXLookbehindToken,
+    RGXExclusionToken,
+    RGXSubpatternToken
+};
+
+export function registerBuiltinRGXJSONClasses() {
+    for (const [name, constructor] of Object.entries(RGX_BUILTIN_JSON_CLASSES)) {
+        // Skip classes that are already registered so this function is safe to call more than once.
+        if (!hasRGXJSONClass(name)) registerRGXJSONClassToken(name, constructor);
+    }
+}
 
 export function rgxClassInit() {
+    // Make the built-in class tokens available to rgxTokenFromJSON.
+    registerBuiltinRGXJSONClasses();
+
     // Patch RGXClassToken here, Since classes like RGXClassUnionToken are instances of RGXClassToken
     // themselves. If we tried to import RGXClassUnionToken in base.ts, it would cause a circular dependency.
     

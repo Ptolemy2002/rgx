@@ -4,11 +4,11 @@ import { resolveRGXToken } from "src/resolve";
 import { createRegex } from "src/utils";
 
 const accentPatterns: string[] = [
-    "(a|á|à|ä|â|ã)", "(A|Á|À|Ä|Â|Ã)",
-    "(e|é|è|ë|ê)"  , "(E|É|È|Ë|Ê)"  ,
-    "(i|í|ì|ï|î)"  , "(I|Í|Ì|Ï|Î)"  ,
-    "(o|ó|ò|ö|ô|õ)", "(O|Ó|Ò|Ö|Ô|Õ)",
-    "(u|ú|ù|ü|û)"  , "(U|Ú|Ù|Ü|Û)"
+    "(?:a|á|à|ä|â|ã)", "(?:A|Á|À|Ä|Â|Ã)",
+    "(?:e|é|è|ë|ê)"  , "(?:E|É|È|Ë|Ê)"  ,
+    "(?:i|í|ì|ï|î)"  , "(?:I|Í|Ì|Ï|Î)"  ,
+    "(?:o|ó|ò|ö|ô|õ)", "(?:O|Ó|Ò|Ö|Ô|Õ)",
+    "(?:u|ú|ù|ü|û)"  , "(?:U|Ú|Ù|Ü|Û)"
 ];
 
 const nonEscapeBound = resolveRGXToken(rgxConstant("non-escape-bound"));

@@ -1,4 +1,6 @@
-import { RGXToken } from "src/types";
+import { RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken } from "src/types";
+import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
+import { validateLookaroundJSONArgs } from "./lookaround";
 import { createConstructFunction } from "src/internal";
 import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
 import { RGXLookaroundToken } from "./lookaround";
@@ -27,6 +29,19 @@ export class RGXLookaheadToken extends RGXLookaroundToken {
     clone(depth: CloneDepth="max") {
         if (depth === 0) return this;
         return new RGXLookaheadToken(this.tokens.clone(depthDecrement(depth, 1)), this.positive);
+    }
+
+    static validateJSONArgs(args: RGXJSONValue[]): boolean | string {
+        return validateLookaroundJSONArgs(args);
+    }
+
+    static fromJSON(json: RGXJSONClassToken): RGXLookaheadToken {
+        const [tokens, positive] = rgxJSONClassArgs(json, "RGXLookaheadToken", RGXLookaheadToken.validateJSONArgs) as [RGXJSONToken?, boolean?];
+        return new RGXLookaheadToken(tokens === undefined ? [] : rgxTokenFromJSON(tokens), positive ?? true);
+    }
+
+    toJSON(): RGXJSONClassToken {
+        return createRGXJSONClassToken("RGXLookaheadToken", [rgxTokenToJSON(this.tokens.tokens), this.positive]);
     }
 }
 

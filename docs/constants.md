@@ -13,7 +13,15 @@ type RGXConvertibleToken = {
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
-type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
+type RGXJSONPrimitive = string | number | boolean | null;
+type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
+type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
+type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
+type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string };
+type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
+type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken;
+type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
+type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSONObjectToken | RGXToken[];
 
 // See src/constants.ts for the actual mapping of predefined constant names to their token values
 type RGXPredefinedConstant = keyof typeof RGX_PREDEFINED_CONSTANTS;

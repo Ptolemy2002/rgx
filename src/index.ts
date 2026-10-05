@@ -48,6 +48,7 @@ export * from "./typeGuards";
 export * from "./collection";
 export * from "./class";
 export * from "./resolve";
+export * from "./json";
 export * from "./concat";
 export * from "./utils";
 export * from "./ExtRegExp";

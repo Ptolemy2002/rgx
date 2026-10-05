@@ -16,7 +16,15 @@ type RGXConvertibleToken = {
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
-type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
+type RGXJSONPrimitive = string | number | boolean | null;
+type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
+type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
+type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
+type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string };
+type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
+type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken;
+type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
+type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSONObjectToken | RGXToken[];
 
 type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
 ```
@@ -49,3 +57,15 @@ These properties only have getters.
 - `negate() => RGXLookaroundToken`: Returns a new lookaround token of the same type with the opposite positivity, preserving the original tokens.
 - `reverse() => RGXLookaroundToken`: Returns a new lookaround token of the opposite direction (lookahead becomes lookbehind and vice versa), preserving the original tokens and positivity.
 - `clone(depth?: CloneDepth) => RGXLookaroundToken`: Creates a clone of this instance to a specified depth: `0` for no clone, `1` for a shallow clone of the top-level token, any other number for that many levels down, and `"max"` (the default) for a full deep clone.
+
+# validateLookaroundJSONArgs
+```typescript
+function validateLookaroundJSONArgs(args: RGXJSONValue[]): boolean | string
+```
+The shared JSON argument validator used by `RGXLookaheadToken.validateJSONArgs` and `RGXLookbehindToken.validateJSONArgs`. Validates the arguments `[tokens?, positive?]`: at most two arguments, where `tokens`, if present, must be a JSON token and `positive`, if present, must be a boolean.
+
+## Parameters
+  - `args` (`RGXJSONValue[]`): The `args` of a JSON class token.
+
+## Returns
+- `boolean | string`: `true` when the arguments are valid, otherwise a string describing the problem.

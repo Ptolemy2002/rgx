@@ -13,7 +13,15 @@ type RGXConvertibleToken = {
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
-type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
+type RGXJSONPrimitive = string | number | boolean | null;
+type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
+type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
+type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
+type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string };
+type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
+type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken;
+type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
+type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSONObjectToken | RGXToken[];
 
 const validRegexSymbol = Symbol('rgx.ValidRegex');
 type ValidRegexBrandSymbol = typeof validRegexSymbol;
@@ -132,6 +140,8 @@ function resolveRGXToken(token: RGXToken, options?: ResolveRGXTokenOptions): Val
 ```
 
 Resolves an RGX token to a string. No-op tokens resolve to an empty string, literal tokens are included as-is (wrapped in a non-capturing group when `groupWrap` is `true`), native tokens are converted to strings and escaped, convertible tokens are converted using their `toRgx` method and then resolved recursively (or, if `rgxInterpolate` is `true`, their `toRgx` result is used as-is without further resolution or escaping), and arrays of tokens are resolved as unions of their resolved elements (repeats removed, placed in a non-capturing group when `groupWrap` is `true`).
+
+JSON object tokens (see [json.md](./json.md)) are converted with `rgxTokenFromJSON` before resolving, so a JSON literal token resolves exactly like the `ExtRegExp` it describes and a JSON class token resolves exactly like the class token it describes. No conversion is needed beforehand; this applies to JSON tokens nested at any depth, since nested tokens are resolved recursively. Invalid JSON object tokens throw the error `rgxTokenFromJSON` would throw (e.g. `RGXInvalidJSONClassKeyError` for an unregistered class).
 
 For literal tokens (`RegExp` instances), if the token's flags differ from `currentFlags` in any of the localizable flags (`i`, `m`, `s`), the token is wrapped in an inline modifier group (e.g., `(?i:...)`, `(?-i:...)`, `(?ms-i:...)`) instead of a plain non-capturing group. Non-localizable flags (such as `g`, `u`, `y`, `d`, `v`) are ignored when computing the diff. When an inline modifier group is used, it always wraps the token regardless of the `groupWrap` setting, since the modifier group itself serves as a group.
 

@@ -9,7 +9,8 @@ const tokenExpectationMap: Record<RGXTokenTypeFlat, string[]> = {
     'native': ['string', 'number', 'boolean', 'null', 'undefined'],
     'convertible': ['object with a toRgx method that returns a valid native/literal token or an array of valid native/literal tokens'],
     'array': ['array of native/literal/convertible tokens'],
-    'class': ['instance of RGXClassToken']
+    'class': ['instance of RGXClassToken'],
+    'json': ['JSON-serializable native token', 'object with $rgx set to true and either a regex source (with optional flags) or a registered class name (with optional args)', 'array of JSON tokens']
 } as const;
 
 export type ExpectedTokenType = {
@@ -59,7 +60,17 @@ export class RGXInvalidTokenError extends RGXError {
     }
 
     calcMessage(message: string) {
-        const gotString = RGXClassToken.check(this.got) ? `instance of ${this.got.constructor.name}` : JSON.stringify(this.got);
+        let gotString: string;
+        if (RGXClassToken.check(this.got)) {
+            gotString = `instance of ${this.got.constructor.name}`;
+        } else {
+            try {
+                gotString = JSON.stringify(this.got) ?? String(this.got);
+            } catch {
+                // Values like BigInts and circular structures cannot be stringified as JSON.
+                gotString = String(this.got);
+            }
+        }
         return `${message}; Expected: ${this.expected}; Got: [${gotString}]`;
     }
 }

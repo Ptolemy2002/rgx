@@ -4,6 +4,7 @@ import { assertValidRegexFlags } from "./ExtRegExp";
 import * as tg from "./typeGuards";
 import * as t from "./types";
 import { localizableVanillaRegexFlagDiff } from "./internal";
+import { rgxTokenFromJSON } from "./json";
 
 export type ResolveRGXTokenOptions = {
     groupWrap?: boolean;
@@ -50,6 +51,9 @@ function hasParenErrors(pattern: string): boolean {
 
 export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel = true, currentFlags = '' }: ResolveRGXTokenOptions = {}): t.ValidRegexString {
     assertValidRegexFlags(currentFlags);
+
+    // JSON tokens are converted to their runtime equivalents (literal or class tokens) before resolving.
+    if (tg.isRGXJSONObjectToken(token, false)) token = rgxTokenFromJSON(token);
 
     let acceptParenErrors = false;
     const innerResolve = (): string => {

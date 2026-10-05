@@ -16,7 +16,15 @@ type RGXConvertibleToken = {
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
-type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
+type RGXJSONPrimitive = string | number | boolean | null;
+type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
+type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
+type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
+type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string };
+type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
+type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken;
+type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
+type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSONObjectToken | RGXToken[];
 ```
 
 # RGXLookbehindToken
@@ -36,6 +44,8 @@ constructor(tokens?: RGXTokenCollectionInput, positive?: boolean)
 ## Static Properties
 - `check(value: unknown): value is RGXLookbehindToken`: A type guard that checks if the given value is an instance of `RGXLookbehindToken`.
 - `assert(value: unknown): asserts value is RGXLookbehindToken`: An assertion that checks if the given value is an instance of `RGXLookbehindToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+- `validateJSONArgs(args: RGXJSONValue[]): boolean | string`: Validates the JSON arguments `[tokens?, positive?]` using `validateLookaroundJSONArgs` (see [base.md](./base.md)), where `tokens`, if present, must be a JSON token (typically an array of JSON tokens) and `positive`, if present, must be a boolean. Returns `true` when the arguments are valid, or `false`/a reason string when they are not.
+- `fromJSON(json: RGXJSONClassToken): RGXLookbehindToken`: Constructs an `RGXLookbehindToken` from a JSON class token, passing `rgxTokenFromJSON(tokens)` (or `[]` when omitted) and `positive` (or `true` when omitted) to the constructor. Throws `RGXInvalidJSONTokenError` if `json` is not a JSON class token for `"RGXLookbehindToken"`, and `RGXJSONClassArgsValidationFailedError` if the arguments fail `validateJSONArgs`.
 
 ## Properties
 Inherited from `RGXLookaroundToken`.
@@ -54,3 +64,4 @@ These properties only have getters.
 - `reverse() => RGXLookaheadToken`: Returns a new `RGXLookaheadToken` with the same tokens and positivity.
 - `toRgx() => RegExp`: Resolves the lookbehind to a `RegExp`. Positive lookbehinds produce `(?<=...)` and negative lookbehinds produce `(?<!...)`.
 - `clone(depth?: CloneDepth) => RGXLookbehindToken`: Creates a clone of this instance to a specified depth: `0` for no clone, `1` for a shallow clone of the top-level token, any other number for that many levels down, and `"max"` (the default) for a full deep clone.
+- `toJSON() => RGXJSONClassToken`: Returns a JSON class token with `class` set to `"RGXLookbehindToken"` and `args` set to `[tokens, positive]`, where `tokens` is the array of this token's tokens converted with `rgxTokenToJSON`. The result is accepted by `fromJSON` and by `rgxTokenFromJSON` (see [../../../json.md](../../../json.md)). Nested tokens are converted with `rgxTokenToJSON`, so plain convertible tokens inside this token are resolved into JSON literal tokens.

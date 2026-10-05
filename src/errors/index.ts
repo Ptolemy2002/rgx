@@ -24,3 +24,8 @@ export * from './notDirectRegexp';
 export * from './currentTokenNotFound';
 export * from './invalidRegexLocalizableFlagDiff';
 export * from './invalidRegexLocalizableFlags';
+export * from './invalidJSONToken';
+export * from './jsonClassConflict';
+export * from './invalidJSONClassKey';
+export * from './jsonClassArgsValidationFailed';
+export * from './notJSONSerializable';

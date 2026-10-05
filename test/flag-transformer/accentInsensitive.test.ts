@@ -17,19 +17,19 @@ describe("accentInsensitiveFlagTransformer", () => {
     it("transforms patterns with one accentable character correctly", () => {
         const regex = new ExtRegExp("tést", "g");
         const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("t(e|é|è|ë|ê)st");
+        expect(transformed[0]).toBe("t(?:e|é|è|ë|ê)st");
     });
 
     it("transforms patterns with multiple accentable characters correctly", () => {
         const regex = new ExtRegExp("tésting", "g");
         const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("t(e|é|è|ë|ê)st(i|í|ì|ï|î)ng");
+        expect(transformed[0]).toBe("t(?:e|é|è|ë|ê)st(?:i|í|ì|ï|î)ng");
     });
 
     it("works with uppercase characters", () => {
         const regex = new ExtRegExp("TÉST", "g");
         const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("T(E|É|È|Ë|Ê)ST");
+        expect(transformed[0]).toBe("T(?:E|É|È|Ë|Ê)ST");
     });
 
     it("does not transform escaped characters", () => {
@@ -59,13 +59,13 @@ describe("accentInsensitiveFlagTransformer", () => {
     it("does transform characters following a character class", () => {
         const regex = new ExtRegExp("[0-9a-z]tést", "g"); // Characters after a character class should be transformed
         const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("[0-9a-z]t(e|é|è|ë|ê)st");
+        expect(transformed[0]).toBe("[0-9a-z]t(?:e|é|è|ë|ê)st");
     });
 
     it("works when applied as a flag", () => {
         registerCustomFlagTransformers(); // Ensure the "a" flag is registered
         const regex = new ExtRegExp("tést", "ga");
-        expect(regex.source).toBe("t(e|é|è|ë|ê)st");
+        expect(regex.source).toBe("t(?:e|é|è|ë|ê)st");
         unregisterCustomFlagTransformers(); // Clean up after the test
     });
 });

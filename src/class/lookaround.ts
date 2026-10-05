@@ -1,6 +1,8 @@
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 import { RGXClassToken } from "./base";
 import { RGXInvalidTokenError } from "src/errors";
+import { RGXJSONValue } from "src/types";
+import { isRGXJSONToken } from "src/typeGuards";
 
 export abstract class RGXLookaroundToken extends RGXClassToken {
     tokens: RGXTokenCollection;
@@ -53,4 +55,14 @@ export abstract class RGXLookaroundToken extends RGXClassToken {
 
     abstract negate(): RGXLookaroundToken;
     abstract reverse(): RGXLookaroundToken;
+}
+
+// Shared argument validation for the lookahead and lookbehind JSON forms.
+export function validateLookaroundJSONArgs(args: RGXJSONValue[]): boolean | string {
+    if (args.length > 2) return "Expected at most 2 arguments (tokens, positive).";
+
+    const [tokens, positive] = args;
+    if (tokens !== undefined && !isRGXJSONToken(tokens)) return "Argument 0 (tokens) must be a JSON token.";
+    if (positive !== undefined && typeof positive !== "boolean") return "Argument 1 (positive) must be a boolean, if present.";
+    return true;
 }

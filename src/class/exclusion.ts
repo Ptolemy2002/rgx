@@ -1,9 +1,10 @@
-import { RGXToken } from "src/types";
+import { RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken } from "src/types";
+import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
 import { RGXClassToken } from "./base";
 import { RGXClassUnionToken } from "./union";
 import { RGXTokenCollectionInput } from "src/collection";
 import { resolveRGXToken } from "src/resolve";
-import { assertValidIdentifier } from "src/typeGuards";
+import { assertValidIdentifier, isRGXJSONToken } from "src/typeGuards";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
 import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
@@ -65,6 +66,36 @@ export class RGXExclusionToken extends RGXClassToken {
             this.exclusions.clone(depthDecrement(depth, 1)),
             cloneRGXToken(this.terminal, depthDecrement(depth, 1))
         );
+    }
+
+    static validateJSONArgs(args: RGXJSONValue[]): boolean | string {
+        if (args.length < 2 || args.length > 4) return "Expected between 2 and 4 arguments (exclusionId, token, exclusions, terminal).";
+
+        const [exclusionId, token, exclusions, terminal] = args;
+        if (typeof exclusionId !== "string") return "Argument 0 (exclusionId) must be a string.";
+        if (!isRGXJSONToken(token)) return "Argument 1 (token) must be a JSON token.";
+        if (exclusions !== undefined && !isRGXJSONToken(exclusions)) return "Argument 2 (exclusions) must be a JSON token, if present.";
+        if (terminal !== undefined && !isRGXJSONToken(terminal)) return "Argument 3 (terminal) must be a JSON token, if present.";
+        return true;
+    }
+
+    static fromJSON(json: RGXJSONClassToken): RGXExclusionToken {
+        const [exclusionId, token, exclusions, terminal] = rgxJSONClassArgs(json, "RGXExclusionToken", RGXExclusionToken.validateJSONArgs) as [string, RGXJSONToken, RGXJSONToken?, RGXJSONToken?];
+        return new RGXExclusionToken(
+            exclusionId,
+            rgxTokenFromJSON(token),
+            exclusions === undefined ? [] : rgxTokenFromJSON(exclusions),
+            terminal === undefined ? null : rgxTokenFromJSON(terminal)
+        );
+    }
+
+    toJSON(): RGXJSONClassToken {
+        return createRGXJSONClassToken("RGXExclusionToken", [
+            this.exclusionId,
+            rgxTokenToJSON(this.token),
+            rgxTokenToJSON(this.exclusions.tokens.tokens),
+            rgxTokenToJSON(this.terminal)
+        ]);
     }
 }
 

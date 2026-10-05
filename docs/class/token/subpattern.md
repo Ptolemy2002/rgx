@@ -16,7 +16,15 @@ type RGXConvertibleToken = {
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
-type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
+type RGXJSONPrimitive = string | number | boolean | null;
+type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
+type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
+type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
+type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string };
+type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
+type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken;
+type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
+type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSONObjectToken | RGXToken[];
 
 const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
 type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;
@@ -31,6 +39,8 @@ A function `rgxSubpattern` is provided with the same parameters as this class' c
 ## Static Properties
 - `check(value: unknown): value is RGXSubpatternToken`: A type guard that checks if the given value is an instance of `RGXSubpatternToken`.
 - `assert(value: unknown): asserts value is RGXSubpatternToken`: An assertion that checks if the given value is an instance of `RGXSubpatternToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+- `validateJSONArgs(args: RGXJSONValue[]): boolean | string`: Validates the JSON arguments `[pattern]`, where `pattern` must be a string or number. Returns `true` when the arguments are valid, or `false`/a reason string when they are not.
+- `fromJSON(json: RGXJSONClassToken): RGXSubpatternToken`: Constructs an `RGXSubpatternToken` from a JSON class token, passing `pattern` to the constructor. Throws `RGXInvalidJSONTokenError` if `json` is not a JSON class token for `"RGXSubpatternToken"`, and `RGXJSONClassArgsValidationFailedError` if the arguments fail `validateJSONArgs`.
 
 ## Constructor
 ```typescript
@@ -44,3 +54,4 @@ constructor(pattern: string | number)
 ## Methods
 - `toRgx() => RegExp`: Resolves the backreference to a `RegExp`. Named patterns produce `/\k<name>/` and numbered patterns produce `/\N/`.
 - `clone(depth: CloneDepth = "max") => RGXSubpatternToken`: Creates a clone of this token. When `depth` is `0`, returns `this`; otherwise, returns a new `RGXSubpatternToken` with the same pattern.
+- `toJSON() => RGXJSONClassToken`: Returns a JSON class token with `class` set to `"RGXSubpatternToken"` and `args` set to `[pattern]`. The result is accepted by `fromJSON` and by `rgxTokenFromJSON` (see [../../json.md](../../json.md)). Nested tokens are converted with `rgxTokenToJSON`, so plain convertible tokens inside this token are resolved into JSON literal tokens.

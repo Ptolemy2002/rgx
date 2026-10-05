@@ -2,7 +2,7 @@
 The following is a reference to types relevant to the classes listed in this file. The full type reference for the library can be found in [type-reference.md](../type-reference.md).
 
 ```typescript
-type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
+type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | 'json' | RGXTokenType[];
 type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
 
 type RGXErrorCode =
@@ -321,6 +321,74 @@ constructor(message: string, got: string)
 
 ### Properties
 - `got` (`string`): The conflicting constant name.
+
+## RGXInvalidJSONTokenError
+A subclass of `RGXInvalidTokenError` for values that fail validation as a JSON token (see [json.md](../json.md)) or as one of its subtypes, including JSON class tokens that target the wrong class and strings that are not valid JSON. The error code is set to `INVALID_RGX_JSON_TOKEN` on instantiation. Since it extends `RGXInvalidTokenError`, it shares its `expected` and `got` properties and message format.
+
+### Constructor
+```typescript
+constructor(message: string, expected?: ExpectedTokenType | null, got?: unknown)
+```
+- `message` (`string`): The error message.
+- `expected` (`ExpectedTokenType | null`, optional): The expected token type(s). Defaults to `{ type: "tokenType", values: ["json"] }`.
+- `got` (`unknown`, optional): The actual value that was received. Defaults to `undefined`.
+
+## RGXInvalidJSONClassKeyError
+A specific error class for unregistered JSON class names. This error is thrown when a JSON class token names a class that is not in the JSON class registry, or when registry functions are called with such a name. The error code is set to `INVALID_JSON_CLASS_KEY` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The class name that was not found.
+
+### Properties
+- `got` (`string`): The class name that was not found.
+
+## RGXJSONClassConflictError
+A specific error class for JSON class name conflicts. This error is thrown when attempting to register a JSON class with a name that is already registered. The error code is set to `JSON_CLASS_CONFLICT` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The conflicting class name.
+
+### Properties
+- `got` (`string`): The conflicting class name.
+
+## RGXJSONClassArgsValidationFailedError
+A specific error class for JSON class tokens whose `args` are rejected by the class' argument validator. The error code is set to `JSON_CLASS_ARGS_VALIDATION_FAILED` on instantiation. The message includes the class name, the arguments, and the reason if one was given.
+
+### Constructor
+```typescript
+constructor(className: string, args: unknown[], reason?: string | null)
+```
+- `className` (`string`): The name of the class whose validator rejected the arguments.
+- `args` (`unknown[]`): The rejected arguments.
+- `reason` (`string | null`, optional): The reason string returned by the validator, if any. Defaults to `null`.
+
+### Properties
+- `className` (`string`): The name of the class whose validator rejected the arguments.
+- `args` (`unknown[]`): The rejected arguments.
+- `reason` (`string | null`): The reason string returned by the validator, or `null`.
+
+## RGXNotJSONSerializableError
+A specific error class thrown by `rgxTokenToJSON` when a token cannot be converted to a JSON token, such as a non-finite number or a plain convertible token when `resolveConvertible` is `false`. The error code is set to `NOT_JSON_SERIALIZABLE` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: unknown, reason?: string | null)
+```
+- `message` (`string`): The error message.
+- `got` (`unknown`): The token that could not be converted.
+- `reason` (`string | null`, optional): An explanation of why the conversion failed. Defaults to `null`.
+
+### Properties
+- `got` (`unknown`): The token that could not be converted.
+- `reason` (`string | null`): An explanation of why the conversion failed, or `null`.
 
 ## RGXNotImplementedError
 A specific error class for unimplemented functionality. This error is thrown when a feature or method has not been implemented yet. The error code is set to `NOT_IMPLEMENTED` on instantiation.

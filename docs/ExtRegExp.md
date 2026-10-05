@@ -148,7 +148,7 @@ Normalizes a string of regex flags (including both vanilla and custom registered
 Flag transformers predefined in this library.
 
 ## accentInsensitiveFlagTransformer
-A pre-built `RegExpFlagTransformer` that makes a regex pattern accent-insensitive. It replaces any accentable characters (a, e, i, o, u and their uppercase equivalents) in the regex source with alternation groups that match both the base character and its accented variants. For example, `é` becomes `(e|é|è|ë|ê)`. The following accent mappings are supported:
+A pre-built `RegExpFlagTransformer` that makes a regex pattern accent-insensitive. It replaces any accentable characters (a, e, i, o, u and their uppercase equivalents) in the regex source with alternation groups that match both the base character and its accented variants. For example, `é` becomes `(?:e|é|è|ë|ê)`. The following accent mappings are supported:
 - `a` / `A`: á, à, ä, â, ã / Á, À, Ä, Â, Ã
 - `e` / `E`: é, è, ë, ê / É, È, Ë, Ê
 - `i` / `I`: í, ì, ï, î / Í, Ì, Ï, Î

@@ -16,7 +16,15 @@ type RGXConvertibleToken = {
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
-type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
+type RGXJSONPrimitive = string | number | boolean | null;
+type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
+type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
+type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
+type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string };
+type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
+type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken;
+type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
+type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSONObjectToken | RGXToken[];
 type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
 ```
 
@@ -32,6 +40,8 @@ A function `rgxExclusion` is provided with the same parameters as this class' co
 ## Static Properties
 - `check(value: unknown): value is RGXExclusionToken`: A type guard that checks if the given value is an instance of `RGXExclusionToken`.
 - `assert(value: unknown): asserts value is RGXExclusionToken`: An assertion that checks if the given value is an instance of `RGXExclusionToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+- `validateJSONArgs(args: RGXJSONValue[]): boolean | string`: Validates the JSON arguments `[exclusionId, token, exclusions?, terminal?]`, where `exclusionId` must be a string and `token`, `exclusions`, and `terminal` must be JSON tokens (the latter two optional). Returns `true` when the arguments are valid, or `false`/a reason string when they are not.
+- `fromJSON(json: RGXJSONClassToken): RGXExclusionToken`: Constructs an `RGXExclusionToken` from a JSON class token, converting `token`, `exclusions` (or `[]` when omitted), and `terminal` (or `null` when omitted) with `rgxTokenFromJSON`. Throws `RGXInvalidJSONTokenError` if `json` is not a JSON class token for `"RGXExclusionToken"`, and `RGXJSONClassArgsValidationFailedError` if the arguments fail `validateJSONArgs`.
 
 ## Constructor
 ```typescript
@@ -51,3 +61,4 @@ constructor(exclusionId: string, token: RGXToken, exclusions: RGXTokenCollection
 ## Methods
 - `toRgx() => RegExp`: Builds the exclusion pattern as a `RegExp`. The resulting source has the form `(?=(?<exclusionId>token terminal))(?!exclusions terminal)\k<exclusionId>`, where `terminal` resolves to an empty string when `null`.
 - `clone(depth: CloneDepth = "max") => ThisType<this>`: Creates a clone of this instance to a specified depth: `0` for no clone (returns `this`), `1` for a shallow clone of the top-level token, any other number for that many levels down, and `"max"` (the default) for a full deep clone.
+- `toJSON() => RGXJSONClassToken`: Returns a JSON class token with `class` set to `"RGXExclusionToken"` and `args` set to `[exclusionId, rgxTokenToJSON(token), exclusions, rgxTokenToJSON(terminal)]`, where `exclusions` is the array of the exclusion union's tokens converted with `rgxTokenToJSON`. The result is accepted by `fromJSON` and by `rgxTokenFromJSON` (see [../../json.md](../../json.md)). Nested tokens are converted with `rgxTokenToJSON`, so plain convertible tokens inside this token are resolved into JSON literal tokens.

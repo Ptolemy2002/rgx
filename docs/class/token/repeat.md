@@ -16,10 +16,18 @@ type RGXConvertibleToken = {
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
-type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
+type RGXJSONPrimitive = string | number | boolean | null;
+type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
+type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
+type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
+type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string };
+type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
+type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken;
+type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
+type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSONObjectToken | RGXToken[];
 
 type RGXGroupedConvertibleToken = (RGXConvertibleToken & { readonly rgxIsGroup: true }) | (Omit<RGXConvertibleToken, "toRgx"> & { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true  });
-type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken;
+type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken | RGXJSONObjectToken;
 ```
 
 # RGXRepeatToken
@@ -30,6 +38,8 @@ A function `rgxRepeat` is provided with the same parameters as this class' const
 ## Static Properties
 - `check(value: unknown): value is RGXRepeatToken`: A type guard that checks if the given value is an instance of `RGXRepeatToken`.
 - `assert(value: unknown): asserts value is RGXRepeatToken`: An assertion that checks if the given value is an instance of `RGXRepeatToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+- `validateJSONArgs(args: RGXJSONValue[]): boolean | string`: Validates the JSON arguments `[token, min?, max?, lazy?]`, where `token` must be a JSON token, `min` a number, `max` a number or `null`, and `lazy` a boolean. Returns `true` when the arguments are valid, or `false`/a reason string when they are not.
+- `fromJSON(json: RGXJSONClassToken): RGXRepeatToken`: Constructs an `RGXRepeatToken` from a JSON class token, passing `rgxTokenFromJSON(token)` and the remaining arguments to the constructor with the same defaults as the constructor (`min` defaults to `1`, `max` defaults to `min`, `lazy` defaults to `false`). Throws `RGXInvalidJSONTokenError` if `json` is not a JSON class token for `"RGXRepeatToken"`, and `RGXJSONClassArgsValidationFailedError` if the arguments fail `validateJSONArgs`.
 
 ## Constructor
 ```typescript
@@ -51,3 +61,4 @@ constructor(token: RGXToken, min?: number, max?: number | null, lazy?: boolean)
 ## Methods
 - `toRgx() => RGXToken`: Resolves the repeat token to a `RegExp` by resolving the inner token and appending the `repeaterSuffix`. Returns `null` (a no-op) when both `min` and `max` are `0`.
 - `clone(depth: CloneDepth = "max") => ThisType<this>`: Creates a clone of this instance to a specified depth: `0` for no clone, `1` for a shallow clone of the top-level token, any other number for that many levels down, and `"max"` (the default) for a full deep clone.
+- `toJSON() => RGXJSONClassToken`: Returns a JSON class token with `class` set to `"RGXRepeatToken"` and `args` set to `[rgxTokenToJSON(token), min, max, lazy]`. Note that `token` is the grouped token stored by this instance, so a non-grouped token given to the constructor appears as a non-capturing `RGXGroupToken` here. The result is accepted by `fromJSON` and by `rgxTokenFromJSON` (see [../../json.md](../../json.md)). Nested tokens are converted with `rgxTokenToJSON`, so plain convertible tokens inside this token are resolved into JSON literal tokens.

@@ -1,11 +1,14 @@
 import { RGXClassToken } from "src/class";
 import { RGXInsertionRejectedError } from "src/errors";
-import { isRGXConvertibleToken } from "src/typeGuards";
+import { isRGXConvertibleToken, isRGXJSONClassToken } from "src/typeGuards";
+import { rgxTokenFromJSON } from "src/json";
 import { RGXToken, ValidRegexFlags } from "src/types";
 
 export function assureAcceptance(tokens: RGXToken[], flags: ValidRegexFlags) {
     for (let i = 0; i < tokens.length; i++) {
-        const token = tokens[i];
+        // JSON class tokens become class tokens, which may have insertion preferences.
+        const rawToken = tokens[i];
+        const token = isRGXJSONClassToken(rawToken, false) ? rgxTokenFromJSON(rawToken) : rawToken;
 
         if (isRGXConvertibleToken(token) && token.rgxAcceptInsertion) {
             const messageOrAccepted = token.rgxAcceptInsertion(tokens, flags);

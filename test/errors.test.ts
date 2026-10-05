@@ -8,7 +8,8 @@ import {
     RGXInvalidLexerError, RGXInvalidWalkerError, RGXInvalidPartError, isLexemeNotMatchedCauseError,
     RGXNotDirectRegExpError,
     RGXRegexNotMatchedAfterPositionError, RGXCurrentTokenNotFoundError, RGXInvalidRegexLocalizableFlagsError,
-    RGXInvalidRegexLocalizableFlagDiffError
+    RGXInvalidRegexLocalizableFlagDiffError,
+    RGXInvalidJSONTokenError, RGXJSONClassConflictError, RGXInvalidJSONClassKeyError, RGXJSONClassArgsValidationFailedError, RGXNotJSONSerializableError,
 } from 'src/index';
 
 class TestClassToken extends RGXClassToken {
@@ -127,7 +128,10 @@ describe('RGXInvalidTokenError', () => {
             + '[null, undefined, RegExp, ExtRegExp, string, number, boolean,'
             + ' object with a toRgx method that returns a valid native/literal token or an array of valid native/literal tokens,'
             + ' array of native/literal/convertible tokens,'
-            + ' or instance of RGXClassToken]; Got: [123]'
+            + ' instance of RGXClassToken,'
+            + ' JSON-serializable native token,'
+            + ' object with $rgx set to true and either a regex source (with optional flags) or a registered class name (with optional args),'
+            + ' or array of JSON tokens]; Got: [123]'
         );
     });
 });
@@ -1454,5 +1458,92 @@ describe("RGXCurrentTokenNotFoundError", () => {
     it('formats the error message correctly', () => {
         const error = new RGXCurrentTokenNotFoundError('Current token not found');
         expect(error.toString()).toBe('RGXCurrentTokenNotFoundError: Current token not found');
+    });
+});
+
+describe("RGXInvalidJSONTokenError", () => {
+    it("is an RGXInvalidTokenError with its own code and name", () => {
+        const error = new RGXInvalidJSONTokenError("Invalid JSON token", { type: "custom", values: ["a JSON token"] }, { foo: 1 });
+        expect(error).toBeInstanceOf(RGXInvalidTokenError);
+        expect(error.code).toBe("INVALID_RGX_JSON_TOKEN");
+        expect(error.name).toBe("RGXInvalidJSONTokenError");
+        expect(error.got).toEqual({ foo: 1 });
+        expect(error.toString()).toBe('RGXInvalidJSONTokenError: Invalid JSON token; Expected: [a JSON token]; Got: [{"foo":1}]');
+    });
+
+    it("falls back to String() for values that cannot be stringified", () => {
+        const circular: Record<string, unknown> = {};
+        circular.self = circular;
+        expect(new RGXInvalidJSONTokenError("Invalid", null, 1n).message).toContain("Got: [1]");
+        expect(new RGXInvalidJSONTokenError("Invalid", null, circular).message).toContain("Got: [[object Object]]");
+        expect(new RGXInvalidJSONTokenError("Invalid", null, undefined).message).toContain("Got: [undefined]");
+    });
+
+    it("defaults to expecting a json token", () => {
+        const error = new RGXInvalidJSONTokenError("Invalid JSON token");
+        expect(error.expected).toContain("JSON-serializable native token");
+        expect(error.got).toBe(undefined);
+    });
+});
+
+describe("RGXJSONClassConflictError", () => {
+    it("formats the error message correctly", () => {
+        const error = new RGXJSONClassConflictError("Conflict", "Foo");
+        expect(error.code).toBe("JSON_CLASS_CONFLICT");
+        expect(error.name).toBe("RGXJSONClassConflictError");
+        expect(error.got).toBe("Foo");
+        expect(error.toString()).toBe('RGXJSONClassConflictError: Conflict; Got: "Foo"');
+    });
+});
+
+describe("RGXInvalidJSONClassKeyError", () => {
+    it("formats the error message correctly", () => {
+        const error = new RGXInvalidJSONClassKeyError("Missing", "Foo");
+        expect(error.code).toBe("INVALID_JSON_CLASS_KEY");
+        expect(error.name).toBe("RGXInvalidJSONClassKeyError");
+        expect(error.got).toBe("Foo");
+        expect(error.toString()).toBe('RGXInvalidJSONClassKeyError: Missing; Got: "Foo"');
+    });
+});
+
+describe("RGXJSONClassArgsValidationFailedError", () => {
+    it("formats the error message correctly with a reason", () => {
+        const error = new RGXJSONClassArgsValidationFailedError("Foo", [1, "a"], "bad args");
+        expect(error.code).toBe("JSON_CLASS_ARGS_VALIDATION_FAILED");
+        expect(error.name).toBe("RGXJSONClassArgsValidationFailedError");
+        expect(error.className).toBe("Foo");
+        expect(error.args).toEqual([1, "a"]);
+        expect(error.reason).toBe("bad args");
+        expect(error.toString()).toBe('RGXJSONClassArgsValidationFailedError: JSON class argument validation failed; Class: "Foo"; Args: [1,"a"]; Reason: bad args');
+    });
+
+    it("formats the error message correctly without a reason", () => {
+        const error = new RGXJSONClassArgsValidationFailedError("Foo", []);
+        expect(error.reason).toBe(null);
+        expect(error.toString()).toBe('RGXJSONClassArgsValidationFailedError: JSON class argument validation failed; Class: "Foo"; Args: []');
+    });
+});
+
+describe("RGXNotJSONSerializableError", () => {
+    it("formats the error message correctly with a reason", () => {
+        const error = new RGXNotJSONSerializableError("Cannot serialize", { a: 1 }, "because");
+        expect(error.code).toBe("NOT_JSON_SERIALIZABLE");
+        expect(error.name).toBe("RGXNotJSONSerializableError");
+        expect(error.got).toEqual({ a: 1 });
+        expect(error.reason).toBe("because");
+        expect(error.toString()).toBe('RGXNotJSONSerializableError: Cannot serialize; Got: {"a":1}; Reason: because');
+    });
+
+    it("formats the error message correctly without a reason", () => {
+        const error = new RGXNotJSONSerializableError("Cannot serialize", 5);
+        expect(error.toString()).toBe('RGXNotJSONSerializableError: Cannot serialize; Got: 5');
+    });
+
+    it("falls back to String() for values that cannot be stringified", () => {
+        const circular: Record<string, unknown> = {};
+        circular.self = circular;
+        expect(new RGXNotJSONSerializableError("Cannot serialize", circular).toString()).toBe('RGXNotJSONSerializableError: Cannot serialize; Got: [object Object]');
+        expect(new RGXNotJSONSerializableError("Cannot serialize", undefined).toString()).toBe('RGXNotJSONSerializableError: Cannot serialize; Got: undefined');
+        expect(new RGXNotJSONSerializableError("Cannot serialize", () => {}).toString()).toContain('Got: () => { }');
     });
 });

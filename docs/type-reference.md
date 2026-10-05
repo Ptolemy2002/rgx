@@ -17,11 +17,22 @@ type RGXConvertibleToken = {
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
-type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXToken[];
+type RGXJSONPrimitive = string | number | boolean | null;
+type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
+type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
+type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
+type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string };
+type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
+type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken;
+type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
+type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSONObjectToken | RGXToken[];
+type RGXNonJSONToken = Exclude<RGXToken, RGXJSONObjectToken>;
+const RGX_JSON_FLAG = "$rgx";
+type RGXJSONFlag = typeof RGX_JSON_FLAG;
 type RGXTokenOrPart<R, S = unknown, T = any> = RGXToken | RGXPart<R, S, T>;
 
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
-type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken;
+type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken | RGXJSONObjectToken;
 type RGXGroupedConvertibleToken = (RGXConvertibleToken & { readonly rgxIsGroup: true }) | (Omit<RGXConvertibleToken, "toRgx"> & { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true  });
 type RGXRepeatableConvertibleToken = RGXConvertibleToken & { readonly rgxIsRepeatable: true | undefined };
 
@@ -51,7 +62,7 @@ const validRegexLocalizableFlagDiffSymbol = Symbol('rgx.ValidRegexLocalizableFla
 type ValidRegexLocalizableFlagDiffBrandSymbol = typeof validRegexLocalizableFlagDiffSymbol;
 type ValidRegexLocalizableFlagDiff = Branded<string, [ValidRegexLocalizableFlagDiffBrandSymbol]>;
 
-type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | RGXTokenType[];
+type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | 'json' | RGXTokenType[];
 type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
 type RGXTokenTypeGuardInput = 
     // A union of all possible inputs that can be used to specify token types in type guards, including:
@@ -61,14 +72,18 @@ type RGXTokenTypeGuardInput =
     // - The RegExp and ExtRegExp constructors, which can be used to indicate literal tokens
     // - RGXTokenCollection, which can be used to indicate arrays of tokens
     // - "repeatable", which can be used to indicate any token that is repeatable (i.e. has rgxIsRepeatable true or does not specify rgxIsRepeatable)
+    // - "json", which can be used to indicate any JSON token (native, JSON object token, or array of JSON tokens)
     // - Arrays of any of the above, allowing for nested token type specifications
 ;
 
-type RGXTokenFromType<T extends RGXTokenTypeGuardInput> =
+type RGXTokenFromType<T extends RGXTokenTypeGuardInput, J extends boolean = true> =
     // Maps token type strings to their corresponding types, e.g.:
-    // 'no-op' -> RGXNoOpToken, 'literal' -> RGXLiteralToken, etc.
+    // 'no-op' -> RGXNoOpToken, 'literal' -> RGXLiteralToken, 'json' -> RGXJSONToken, etc.
     // Also maps any constructor to InstanceType<T>,
     // and preserves tuple types for constant arrays.
+    // When J (whether JSON tokens are accepted) is true, the JSON counterpart is included
+    // where one exists, e.g. 'literal' -> RGXLiteralToken | RGXJSONLiteralToken,
+    // 'class' -> RGXClassToken | RGXJSONClassToken, and constructors -> InstanceType<T> | RGXJSONClassToken.
     // ... see source for full definition
 ;
 
@@ -145,6 +160,24 @@ type RGXTryWalkOptions = {
     revertReduced?: boolean;
     revertShare?: boolean;
     revertCaptures?: boolean;
+};
+
+type RGXJSONClassArgsValidator = (args: RGXJSONValue[]) => boolean | string;
+type RGXJSONClassConstructor = (args: RGXJSONValue[]) => RGXClassToken;
+type RGXJSONClassRegistryEntry = {
+    validateArgs: RGXJSONClassArgsValidator;
+    construct: RGXJSONClassConstructor;
+};
+type RGXJSONClassTokenConstructor = {
+    validateJSONArgs: RGXJSONClassArgsValidator;
+    fromJSON: (json: RGXJSONClassToken) => RGXClassToken;
+};
+type RGXJSONBuiltinClassName =
+    "RGXClassWrapperToken" | "RGXClassUnionToken" | "RGXGroupToken" | "RGXRepeatToken" |
+    "RGXLookaheadToken" | "RGXLookbehindToken" | "RGXExclusionToken" | "RGXSubpatternToken";
+type RGXJSONClassName = RGXJSONBuiltinClassName | (string & {});
+type RGXTokenToJSONOptions = {
+    resolveConvertible?: boolean;
 };
 
 type ResolveRGXTokenOptions = {
