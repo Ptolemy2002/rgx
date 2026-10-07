@@ -110,6 +110,7 @@ describe("JSON class registry", () => {
         });
 
         expect(getRGXJSONClass("Custom")).toBe(entry);
+        expect(Object.isFrozen(entry)).toBe(true);
         expect(() => registerRGXJSONClass("Custom", entry)).toThrow(RGXJSONClassConflictError);
 
         const token = rgxTokenFromJSON({ $rgx: true, class: "Custom", args: ["abc"] });
@@ -118,6 +119,80 @@ describe("JSON class registry", () => {
 
         unregisterRGXJSONClass("Custom");
         expect(hasRGXJSONClass("Custom")).toBe(false);
+    });
+
+    it("only exposes construct functions that validate their args", () => {
+        const construct = jest.fn((args: RGXJSONValue[]) => new TestClassToken(args[0] as string));
+        const given = { validateArgs: (args: RGXJSONValue[]) => args.length === 1 && typeof args[0] === "string", construct };
+        const entry = registerRGXJSONClass("Custom", given);
+
+        try {
+            expect(entry).not.toBe(given);
+            expect(entry.validateArgs).toBe(given.validateArgs);
+
+            expect(() => entry.construct([1])).toThrow(RGXJSONClassArgsValidationFailedError);
+            expect(() => getRGXJSONClass("Custom").construct([])).toThrow(RGXJSONClassArgsValidationFailedError);
+            expect(construct).not.toHaveBeenCalled();
+
+            expect((entry.construct(["abc"]) as TestClassToken).value).toBe("abc");
+            expect(construct).toHaveBeenCalledTimes(1);
+
+            // Changing the given entry after registration does not affect the registry.
+            given.validateArgs = () => true;
+            expect(() => entry.construct([1])).toThrow(RGXJSONClassArgsValidationFailedError);
+        } finally {
+            unregisterRGXJSONClass("Custom");
+        }
+    });
+
+    it("validates args only once when constructing through the registry", () => {
+        const validate = jest.spyOn(TestClassToken, "validateJSONArgs");
+        registerRGXJSONClassToken("TestClassToken", TestClassToken);
+
+        try {
+            rgxTokenFromJSON({ $rgx: true, class: "TestClassToken", args: ["a"] });
+            expect(validate).toHaveBeenCalledTimes(1);
+
+            validate.mockClear();
+            getRGXJSONClass("TestClassToken").construct(["a"]);
+            expect(validate).toHaveBeenCalledTimes(1);
+
+            // Calling fromJSON directly still validates.
+            validate.mockClear();
+            TestClassToken.fromJSON(createRGXJSONClassToken("TestClassToken", ["a"]));
+            expect(validate).toHaveBeenCalledTimes(1);
+            expect(() => TestClassToken.fromJSON(createRGXJSONClassToken("TestClassToken", [1]))).toThrow(RGXJSONClassArgsValidationFailedError);
+        } finally {
+            unregisterRGXJSONClass("TestClassToken");
+            validate.mockRestore();
+        }
+    });
+
+    it("validates built-in class args only once when converting from JSON", () => {
+        const validate = jest.spyOn(RGXSubpatternToken, "validateJSONArgs");
+
+        try {
+            rgxTokenFromJSON({ $rgx: true, class: "RGXSubpatternToken", args: [1] });
+            expect(validate).toHaveBeenCalledTimes(1);
+        } finally {
+            validate.mockRestore();
+        }
+    });
+
+    it("still validates args after a failed construction", () => {
+        const args: RGXJSONValue[] = ["a"];
+        registerRGXJSONClass("Throwing", {
+            validateArgs: () => true,
+            construct: () => { throw new Error("boom"); }
+        });
+
+        try {
+            expect(() => getRGXJSONClass("Throwing").construct(args)).toThrow("boom");
+            // The args are no longer treated as validated once construction ends.
+            expect(() => rgxJSONClassArgs(createRGXJSONClassToken("Throwing", args), "Throwing", () => false)).toThrow(RGXJSONClassArgsValidationFailedError);
+        } finally {
+            unregisterRGXJSONClass("Throwing");
+        }
     });
 
     it("registers class token constructors directly", () => {

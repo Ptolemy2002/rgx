@@ -15,3 +15,5 @@ The `test` directory contains tests for all public and internal components, aimi
 You can run `npm run test` to run all tests, and `npm run test:coverage` to run tests with a coverage report. In most cases, the printed coverage report in the terminal is sufficient, but if you want to see the detailed report, you can see `./coverage/index.html`.
 
 When writing tests, aim for 100% coverage generally, but I am intentionally not covering the full depth parameter for any overrides of `RGXClassToken.clone()`, only when depth is `"max"` and when it is `0`, because testing it fully is extremely complicated to set up. A note about this is in the README.
+
+`./PENDING_BREAKING_CHANGES.md` is a running list of breaking changes that are being deferred until a major release, along with the non-breaking workarounds currently in place for them. If you implement such a workaround, add an entry there. If you are making a major release, implement the pending changes and revert their workarounds as described there.

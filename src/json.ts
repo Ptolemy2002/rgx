@@ -28,7 +28,33 @@ export type RGXTokenToJSONOptions = {
     resolveConvertible?: boolean;
 };
 
-const rgxJSONClasses: Record<string, RGXJSONClassRegistryEntry> = {};
+// Each class stores the entry it was registered with alongside a guarded copy whose construct validates
+// its args first. Only the guarded copy is ever handed out, so callers outside this module cannot reach a
+// construct function that trusts its args. See PENDING_BREAKING_CHANGES.md for why this is a workaround.
+type RGXJSONClassRegistryRecord = {
+    raw: RGXJSONClassRegistryEntry;
+    guarded: RGXJSONClassRegistryEntry;
+};
+
+const rgxJSONClasses: Record<string, RGXJSONClassRegistryRecord> = {};
+
+// Maps args arrays that have already passed the validator of the class they are mapped to and are currently
+// being constructed. rgxJSONClassArgs uses this to skip validating them a second time.
+const validatedRGXJSONClassArgs = new WeakMap<t.RGXJSONValue[], string>();
+
+function constructValidatedRGXJSONClass(name: RGXJSONClassName, raw: RGXJSONClassRegistryEntry, args: t.RGXJSONValue[]): RGXClassToken {
+    validatedRGXJSONClassArgs.set(args, name);
+    try {
+        return raw.construct(args);
+    } finally {
+        validatedRGXJSONClassArgs.delete(args);
+    }
+}
+
+function getRGXJSONClassRecord(name: RGXJSONClassName): RGXJSONClassRegistryRecord {
+    assertHasRGXJSONClass(name);
+    return rgxJSONClasses[name]!;
+}
 
 // ------------------ Registry ------------------
 export function listRGXJSONClasses(): string[] {
@@ -53,8 +79,19 @@ export function assertNotHasRGXJSONClass(name: RGXJSONClassName) {
 
 export function registerRGXJSONClass(name: RGXJSONClassName, entry: RGXJSONClassRegistryEntry): RGXJSONClassRegistryEntry {
     assertNotHasRGXJSONClass(name);
-    rgxJSONClasses[name] = entry;
-    return entry;
+
+    // Copied so that later changes to the given entry cannot bypass the guard.
+    const raw: RGXJSONClassRegistryEntry = { validateArgs: entry.validateArgs, construct: entry.construct };
+    const guarded: RGXJSONClassRegistryEntry = Object.freeze({
+        validateArgs: raw.validateArgs,
+        construct: (args: t.RGXJSONValue[]) => {
+            assertValidRGXJSONClassArgs(name, args);
+            return constructValidatedRGXJSONClass(name, raw, args);
+        }
+    });
+
+    rgxJSONClasses[name] = { raw, guarded };
+    return guarded;
 }
 
 export function registerRGXJSONClassToken(name: RGXJSONClassName, constructor: RGXJSONClassTokenConstructor): RGXJSONClassRegistryEntry {
@@ -65,8 +102,7 @@ export function registerRGXJSONClassToken(name: RGXJSONClassName, constructor: R
 }
 
 export function getRGXJSONClass(name: RGXJSONClassName): RGXJSONClassRegistryEntry {
-    assertHasRGXJSONClass(name);
-    return rgxJSONClasses[name]!;
+    return getRGXJSONClassRecord(name).guarded;
 }
 
 export function unregisterRGXJSONClass(name: RGXJSONClassName) {
@@ -75,7 +111,7 @@ export function unregisterRGXJSONClass(name: RGXJSONClassName) {
 }
 
 export function validateRGXJSONClassArgs(name: RGXJSONClassName, args: t.RGXJSONValue[]): true | string {
-    const result = getRGXJSONClass(name).validateArgs(args);
+    const result = getRGXJSONClassRecord(name).raw.validateArgs(args);
     if (result === true) return true;
     if (result === false) return "Argument validation failed.";
     return result;
@@ -109,6 +145,9 @@ export function assertRGXJSONClassTokenOf(json: unknown, name: RGXJSONClassName)
 export function rgxJSONClassArgs(json: unknown, name: RGXJSONClassName, validate: RGXJSONClassArgsValidator): t.RGXJSONValue[] {
     assertRGXJSONClassTokenOf(json, name);
     const args = json.args ?? [];
+
+    // The registry already validated these args against this class before constructing.
+    if (validatedRGXJSONClassArgs.get(args) === name) return args;
 
     const result = validate(args);
     if (result === true) return args;
@@ -167,9 +206,8 @@ export function rgxTokenFromJSON(json: t.RGXJSONToken): t.RGXNonJSONToken {
     }
 
     if (tg.isRGXJSONClassToken(json, false)) {
-        const args = json.args ?? [];
-        assertValidRGXJSONClassArgs(json.class, args);
-        return getRGXJSONClass(json.class).construct(args);
+        // The guarded construct validates the args before constructing.
+        return getRGXJSONClass(json.class).construct(json.args ?? []);
     }
 
     if (Array.isArray(json)) return json.map(item => rgxTokenFromJSON(item));
