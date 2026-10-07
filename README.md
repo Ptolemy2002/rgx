@@ -41,6 +41,9 @@ Because there is so much to document, it has been broken up into multiple files.
       - [lookahead](./docs/class/token/lookaround/lookahead.md) - The `RGXLookaheadToken` class, which represents a lookahead assertion in a regular expression.
       - [lookbehind](./docs/class/token/lookaround/lookbehind.md) - The `RGXLookbehindToken` class, which represents a lookbehind assertion in a regular expression.
 
+## Pending Breaking Changes
+Breaking changes that would improve the library, but are not worth a major release by themselves, are tracked in [PENDING_BREAKING_CHANGES.md](./PENDING_BREAKING_CHANGES.md) along with the non-breaking workarounds currently in place for them. They will be made in the next major release.
+
 ## Peer Dependencies
 N/A
 
