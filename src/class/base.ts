@@ -1,4 +1,4 @@
-import { RGXConvertibleToken, RGXJSONClassToken, RGXJSONValue, RGXToken, ValidRegexFlags, ValidRegexString } from "src/types";
+import { RGX_JSON_FLAG, RGXConvertibleToken, RGXJSONClassToken, RGXJSONObjectToken, RGXJSONValue, RGXToken, ValidRegexFlags, ValidRegexString } from "src/types";
 import { RGXTokenCollectionInput } from "src/collection";
 import { RGXInvalidTokenError, RGXNotImplementedError } from "src/errors";
 import { resolveRGXToken, ResolveRGXTokenOptions } from "src/resolve";
@@ -14,20 +14,22 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
     abstract toRgx(): RGXToken
     abstract clone(depth?: CloneDepth): ThisType<this>;
 
-    // Subclasses are expected to override toJSON and both static methods below. They are not marked abstract
-    // (so existing subclasses keep compiling), so they throw RGXNotImplementedError by default.
-    // toJSON must return a JSON class token whose args, when given to the registered constructor for the
-    // class, reconstruct an equivalent token.
-    toJSON(): RGXJSONClassToken {
-        throw new RGXNotImplementedError(`${this.constructor.name}.toJSON()`, 'subclasses must override this method.');
+    // Subclasses that want lossless JSON serialization (i.e. to be part of the JSON class registry) should override
+    // toJSON and both static methods below. They are not marked abstract, since subclasses that are not registered
+    // remain serializable through the toJSON fallback. The static methods throw RGXNotImplementedError by default.
+    // When overridden, toJSON must return a JSON class token whose args, when given to the registered constructor for the
+    // class, reconstruct an equivalent token. By default, it falls back to resolving the token into a
+    // JSON literal token, the same way plain convertible tokens are handled by rgxTokenToJSON. This is lossy.
+    toJSON(): RGXJSONObjectToken {
+        return { [RGX_JSON_FLAG]: true, source: resolveRGXToken(this, { groupWrap: false }) };
     }
 
     static validateJSONArgs(args: RGXJSONValue[]): boolean | string {
-        throw new RGXNotImplementedError('RGXClassToken.validateJSONArgs(args)', 'subclasses must override this static method.');
+        throw new RGXNotImplementedError('RGXClassToken.validateJSONArgs(args)', 'subclasses must override this static method in order to be registered in the JSON class registry.');
     }
 
     static fromJSON(json: RGXJSONClassToken): RGXClassToken {
-        throw new RGXNotImplementedError('RGXClassToken.fromJSON(json)', 'subclasses must override this static method.');
+        throw new RGXNotImplementedError('RGXClassToken.fromJSON(json)', 'subclasses must override this static method in order to be registered in the JSON class registry.');
     }
 
     rgxAcceptInsertion(tokens: RGXToken[], flags: ValidRegexFlags): string | boolean {

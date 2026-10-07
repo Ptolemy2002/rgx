@@ -56,7 +56,7 @@ A JSON token is a token that is guaranteed to survive `JSON.stringify` and `JSON
 
 When a JSON object token is encountered by the resolver, by `toRGXClassToken`, by `RGXClassWrapperToken`, or by the type guards, it is converted with `rgxTokenFromJSON` on the fly. Invalid JSON object tokens (a `source` that does not compile, an unregistered `class`, or `args` rejected by the class' validator) throw the corresponding error at that point.
 
-Every built-in `RGXClassToken` subclass implements `toJSON()`, which returns its JSON class token form, and the static methods `validateJSONArgs(args)` and `fromJSON(json)`, which validate and consume that form. Custom subclasses should do the same; the base implementations throw `RGXNotImplementedError`. Because the method is named `toJSON`, calling `JSON.stringify` on a class token produces its JSON form automatically. See [base.md](./class/token/base.md) for the contract and the individual token class docs for each class' argument layout.
+Every built-in `RGXClassToken` subclass implements `toJSON()`, which returns its JSON class token form, and the static methods `validateJSONArgs(args)` and `fromJSON(json)`, which validate and consume that form. Custom subclasses only need to do the same if they want lossless serialization through the JSON class registry. Otherwise, the base `toJSON()` falls back to resolving the token into a JSON literal token, just like a plain convertible token (see `rgxTokenToJSON` below), so they are still serializable. The base static methods throw `RGXNotImplementedError`, since they are only needed for registration. Because the method is named `toJSON`, calling `JSON.stringify` on a class token produces its JSON form automatically. See [base.md](./class/token/base.md) for the contract and the individual token class docs for each class' argument layout.
 
 ```typescript
 const token = rgxConstant("digit").repeat(1, 3).group({ name: "num" });
@@ -88,15 +88,15 @@ Converts any `RGXToken` into a JSON token. The conversion is by token type:
 - Native tokens are returned as-is. Non-finite numbers (`NaN`, `Infinity`) throw `RGXNotJSONSerializableError`, since `JSON.stringify` would turn them into `null`.
 - Literal tokens become JSON literal tokens with the regex's `source` and its vanilla flags (`flags` is omitted when empty). Custom `ExtRegExp` flags are dropped because the `source` of an `ExtRegExp` already has their transformations applied, so keeping them would apply the transformations twice when converting back. The converted token behaves identically.
 - JSON object tokens are validated (`assertRGXJSONObjectToken`) and returned as-is.
-- Class tokens are converted with their `toJSON()` method.
+- Class tokens that override `toJSON()` are converted with it. Class tokens that do not are treated like any other convertible token (see below).
 - `RGXTokenCollection` instances are converted via `toRGXClassToken` (an `RGXClassUnionToken` for union mode, a non-capturing `RGXGroupToken` for concat mode) and then with `toJSON()`.
-- Any other convertible token cannot be reconstructed from JSON, so when `resolveConvertible` is `true` (the default) it is resolved with `resolveRGXToken(token, { groupWrap: false })` into a JSON literal token. This is lossy: `rgxGroupWrap`, `rgxIsRepeatable`, `rgxIsGroup`, `rgxInterpolate`, and `rgxAcceptInsertion` preferences are not preserved, and the resolved string may be wrapped in an extra non-capturing group once used, though the matching behavior is the same. When `resolveConvertible` is `false`, an `RGXNotJSONSerializableError` is thrown instead.
+- Any other convertible token (including a class token that does not override `toJSON()`) cannot be reconstructed from JSON, so when `resolveConvertible` is `true` (the default) it is resolved with `resolveRGXToken(token, { groupWrap: false })` into a JSON literal token. This is lossy: `rgxGroupWrap`, `rgxIsRepeatable`, `rgxIsGroup`, `rgxInterpolate`, and `rgxAcceptInsertion` preferences are not preserved, and the resolved string may be wrapped in an extra non-capturing group once used, though the matching behavior is the same. When `resolveConvertible` is `false`, an `RGXNotJSONSerializableError` is thrown instead.
 - Arrays are converted element-wise (with the same options).
 
 ## Parameters
   - `token` (`RGXToken`): The token to convert.
   - `options` (`RGXTokenToJSONOptions`, optional): An object containing optional configuration.
-    - `resolveConvertible` (`boolean`, optional): Whether plain convertible tokens (ones that are neither class tokens nor collections) are resolved into JSON literal tokens. Defaults to `true`. When `false`, encountering one throws `RGXNotJSONSerializableError`.
+    - `resolveConvertible` (`boolean`, optional): Whether plain convertible tokens (ones that are neither class tokens with a custom `toJSON()` nor collections) are resolved into JSON literal tokens. Defaults to `true`. When `false`, encountering one throws `RGXNotJSONSerializableError`.
 
 ## Returns
 - `RGXJSONToken`: The JSON token. Passing it through `JSON.stringify` and `JSON.parse` yields an equal value.
@@ -142,7 +142,7 @@ A convenience wrapper that parses `json` with `JSON.parse`, asserts that the res
 - `RGXNonJSONToken`: The converted token.
 
 # JSON Class Registry
-JSON class tokens name their target class with a string, so a registry maps those names to an argument validator and a constructor. The built-in token classes are registered under their class names (listed in `RGXJSONBuiltinClassName`) by `rgxClassInit`, which runs when the main entry point is imported. Custom `RGXClassToken` subclasses can be registered by callers so that their JSON forms can be converted too.
+JSON class tokens name their target class with a string, so a registry maps those names to an argument validator and a constructor. The built-in token classes are registered under their class names (listed in `RGXJSONBuiltinClassName`) by `rgxClassInit`, which runs when the main entry point is imported. Custom `RGXClassToken` subclasses can be registered by callers so that their JSON forms can be converted too. Registration is optional: unregistered subclasses that do not override `toJSON()` are still serialized, just lossily, as JSON literal tokens.
 
 ```typescript
 class MyToken extends RGXClassToken {

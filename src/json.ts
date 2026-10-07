@@ -137,12 +137,13 @@ export function rgxTokenToJSON(token: t.RGXToken, { resolveConvertible = true }:
         return token;
     }
 
-    if (RGXClassToken.check(token)) return token.toJSON();
+    if (RGXClassToken.check(token) && token.toJSON !== RGXClassToken.prototype.toJSON) return token.toJSON();
     if (RGXTokenCollection.check(token)) return toRGXClassToken(token).toJSON();
 
+    // Class tokens without a custom toJSON fall through to here, since they are also convertible tokens.
     if (tg.isRGXConvertibleToken(token, false)) {
         if (!resolveConvertible) {
-            throw new e.RGXNotJSONSerializableError("Cannot convert token to JSON", token, "Convertible tokens that are not class tokens can only be converted by resolving them, but resolveConvertible is false.");
+            throw new e.RGXNotJSONSerializableError("Cannot convert token to JSON", token, "Convertible tokens that are not class tokens with a custom toJSON method can only be converted by resolving them, but resolveConvertible is false.");
         }
 
         return createRGXJSONLiteralToken(resolveRGXToken(token, { groupWrap: false }));

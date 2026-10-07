@@ -148,9 +148,19 @@ describe("JSON class registry", () => {
 });
 
 describe("RGXClassToken JSON defaults", () => {
-    it("throws RGXNotImplementedError for the default toJSON method", () => {
-        expect(() => new UnimplementedClassToken().toJSON()).toThrow(RGXNotImplementedError);
-        expect(() => rgxTokenToJSON(new UnimplementedClassToken())).toThrow(RGXNotImplementedError);
+    it("falls back to resolving the token into a JSON literal token for the default toJSON method", () => {
+        expect(new UnimplementedClassToken().toJSON()).toEqual({ $rgx: true, source: "x" });
+        expect(rgxTokenToJSON(new UnimplementedClassToken())).toEqual({ $rgx: true, source: "x" });
+        expect(JSON.parse(JSON.stringify(new UnimplementedClassToken()))).toEqual({ $rgx: true, source: "x" });
+        // Nested within built-in class tokens
+        expect(rgxTokenToJSON(new RGXGroupToken({}, [new UnimplementedClassToken()]))).toEqual(
+            rgxTokenToJSON(new RGXGroupToken({}, [{ $rgx: true, source: "x" }]))
+        );
+    });
+
+    it("rejects class tokens without a custom toJSON method when resolveConvertible is false", () => {
+        expect(() => rgxTokenToJSON(new UnimplementedClassToken(), { resolveConvertible: false })).toThrow(RGXNotJSONSerializableError);
+        expect(rgxTokenToJSON(new TestClassToken("a"), { resolveConvertible: false })).toEqual({ $rgx: true, class: "TestClassToken", args: ["a"] });
     });
 
     it("throws RGXNotImplementedError for the default static methods", () => {
