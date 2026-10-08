@@ -1,0 +1,6 @@
+allowBuilds:
+  '@ptolemy2002/immutability-utils': set this to true or false
+  '@ptolemy2002/js-utils': set this to true or false
+  '@ptolemy2002/ts-brand-utils': set this to true or false
+  '@ptolemy2002/ts-utils': set this to true or false
+  '@ptolemy2002/zod-utils': set this to true or false
