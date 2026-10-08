@@ -20,14 +20,13 @@
         "url": "https://github.com/Ptolemy2002/rgx"
     },
     "scripts": {
-        "prepare": "npx ts-patch install -s",
+        "prepare": "npx ts-patch install -s && npx typesync",
         "build": "bash ./scripts/build.sh",
         "_build": "tsc --project ./tsconfig.build.json",
         "typecheck": "tsc --noEmit",
         "test": "jest",
         "test:watch": "jest --watch",
         "test:coverage": "jest --coverage",
-        "postinstall": "npx typesync",
         "uninstall": "bash ./scripts/uninstall.sh",
         "reinstall": "bash ./scripts/reinstall.sh",
         "release": "bash ./scripts/release.sh",
