@@ -49,7 +49,7 @@ export abstract class RGXLookaroundToken extends RGXClassToken {
         super();
         this.positive = positive;
 
-        if (tokens instanceof RGXTokenCollection && tokens.mode === 'union') this.tokens = new RGXTokenCollection(tokens, 'concat');
+        if (tokens instanceof RGXTokenCollection && tokens.mode === 'union') this.tokens = new RGXTokenCollection([tokens], 'concat');
         else this.tokens = new RGXTokenCollection(tokens, 'concat');
     }
 

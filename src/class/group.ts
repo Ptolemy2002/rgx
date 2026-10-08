@@ -66,7 +66,7 @@ export class RGXGroupToken extends RGXClassToken {
         this.capturing = capturing;
         this.flags = flags;
 
-        if (tokens instanceof RGXTokenCollection && tokens.mode === 'union') this.tokens = new RGXTokenCollection(tokens, 'concat');
+        if (tokens instanceof RGXTokenCollection && tokens.mode === 'union') this.tokens = new RGXTokenCollection([tokens], 'concat');
         else this.tokens = new RGXTokenCollection(tokens, 'concat');
     }
 

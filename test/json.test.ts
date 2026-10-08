@@ -486,6 +486,21 @@ describe("built-in class token round trips", () => {
         expect(RGXGroupToken.validateJSONArgs([{ name: null }, "a"])).toBe(true);
     });
 
+    it("keeps a union-mode collection inside a concat-mode token as a union", () => {
+        const union = () => new RGXTokenCollection(["a", "b"], 'union');
+        const tokens = [
+            new RGXGroupToken({}, union()),
+            new RGXLookaheadToken(union()),
+            new RGXLookbehindToken(union())
+        ];
+
+        for (const token of tokens) {
+            const result = roundTrip(token) as RGXClassToken;
+            expect(result.resolve()).toBe(token.resolve());
+            expect(result.resolve()).toContain("(?:a|b)");
+        }
+    });
+
     it("RGXRepeatToken", () => {
         const token = new RGXRepeatToken("a", 2, null, true);
         expect(token.toJSON()).toEqual({

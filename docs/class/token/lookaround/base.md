@@ -40,7 +40,7 @@ An abstract base class for lookaround assertion tokens (lookahead and lookbehind
 ```typescript
 constructor(tokens?: RGXTokenCollectionInput, positive?: boolean)
 ```
-- `tokens` (`RGXTokenCollectionInput`, optional): The tokens to include in the lookaround. Internally stored as an `RGXTokenCollection` in 'concat' mode. Defaults to an empty array.
+- `tokens` (`RGXTokenCollectionInput`, optional): The tokens to include in the lookaround. Internally stored as an `RGXTokenCollection` in 'concat' mode. Defaults to an empty array. If `tokens` is an `RGXTokenCollection` in 'union' mode, it is kept as a single element of the concat collection, so the alternation is preserved rather than its tokens being concatenated.
 - `positive` (`boolean`, optional): Whether the lookaround is positive (matches if the pattern is present) or negative (matches if the pattern is absent). Defaults to `true`.
 
 ## Properties

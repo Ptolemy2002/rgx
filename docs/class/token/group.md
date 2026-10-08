@@ -54,7 +54,7 @@ constructor(args?: RGXGroupTokenArgs, tokens?: RGXTokenCollectionInput)
   - `name` (`string | null`, optional): The name of the group for named capture groups. Must be a valid identifier (validated via `assertValidIdentifier`). Defaults to `null`.
   - `capturing` (`boolean`, optional): Whether the group is capturing. Defaults to `true`. Setting this to `false` also clears any `name`.
   - `flags` (`string`, optional): A string of localizable regex flags (`i`, `m`, `s`) to apply to the group. Validated via `assertValidRegexLocalizableFlags`. Defaults to `''`.
-- `tokens` (`RGXTokenCollectionInput`, optional): The tokens to be wrapped by the group. Internally stored as an `RGXTokenCollection` in 'concat' mode. Defaults to an empty array.
+- `tokens` (`RGXTokenCollectionInput`, optional): The tokens to be wrapped by the group. Internally stored as an `RGXTokenCollection` in 'concat' mode. Defaults to an empty array. If `tokens` is an `RGXTokenCollection` in 'union' mode, it is kept as a single element of the concat collection, so the alternation is preserved rather than its tokens being concatenated.
 
 ## Properties
 - `tokens` (`RGXTokenCollection`): The internal collection of tokens managed in 'concat' mode.

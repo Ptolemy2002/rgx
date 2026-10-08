@@ -94,11 +94,13 @@ function constructionTest(constructor: ConstructFunction<typeof RGXGroupToken>) 
     });
 
     it("correctly initializes with a token collection in union mode", () => {
-        const token = new TestClassToken1();
-        const collection = new RGXTokenCollection([token], 'union');
+        const collection = new RGXTokenCollection(["a", "b"], 'union');
         const instance = constructor({}, collection);
 
-        expect(instance.tokens.toArray()).toEqual([token]);
+        // The union is kept as a single element rather than being flattened into the concat.
+        expect(instance.tokens.mode).toBe('concat');
+        expect(instance.tokens.toArray()).toEqual([collection]);
+        expect(instance.toRgx().source).toBe("((?:a|b))");
     });
 }
 

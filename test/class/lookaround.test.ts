@@ -70,11 +70,13 @@ function constructionTest<T extends typeof RGXLookaroundToken>(constructor: Cons
     });
 
     it("correctly initializes with a token collection in union mode", () => {
-        const token = new TestClassToken();
-        const tokenCollection = new RGXTokenCollection([token], 'union');
+        const tokenCollection = new RGXTokenCollection(["a", "b"], 'union');
         const instance = constructor(tokenCollection) as RGXLookaroundToken;
 
-        expect(instance.tokens.toArray()).toEqual([token]);
+        // The union is kept as a single element rather than being flattened into the concat.
+        expect(instance.tokens.mode).toBe('concat');
+        expect(instance.tokens.toArray()).toEqual([tokenCollection]);
+        expect(instance.tokens.toRgx().source).toBe("(?:a|b)");
     });
 }
 
