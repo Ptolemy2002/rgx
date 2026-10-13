@@ -3,7 +3,7 @@ import * as e from "./errors";
 import { assertValidRegexFlags } from "./ExtRegExp";
 import * as tg from "./typeGuards";
 import * as t from "./types";
-import { hasRegexParenErrors, localizableVanillaRegexFlagDiff } from "./internal";
+import { hasRegexParenErrors, localizableVanillaRegexFlagDiff, removeRedundantRegexGroups, scanOptionsFromFlags } from "./internal";
 import { rgxTokenFromJSON } from "./json";
 
 export type ResolveRGXTokenOptions = {
@@ -24,6 +24,8 @@ export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel 
     // JSON tokens are converted to their runtime equivalents (literal or class tokens) before resolving.
     if (tg.isRGXJSONObjectToken(token, false)) token = rgxTokenFromJSON(token);
 
+    // Read before resolving, since resolving a literal token replaces currentFlags with the literal's own flags.
+    const scanOptions = scanOptionsFromFlags(currentFlags);
     let acceptParenErrors = false;
     const innerResolve = (): string => {
         if (tg.isRGXNoOpToken(token)) return '';
@@ -78,8 +80,11 @@ export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel 
         throw new e.RGXInvalidTokenError(`Invalid RGX token: ${token}`, null, token);
     };
 
-    const result = innerResolve();
+    let result = innerResolve();
 
-    if (!(acceptParenErrors && hasRegexParenErrors(result, { unicode: currentFlags.includes('u'), unicodeSets: currentFlags.includes('v') }))) tg.assertValidRegexString(result);
+    if (!(acceptParenErrors && hasRegexParenErrors(result, scanOptions))) tg.assertValidRegexString(result);
+
+    // Nested resolutions are part of this one, so only remove redundant groups once, at the top level.
+    if (topLevel) result = removeRedundantRegexGroups(result, scanOptions);
     return result as t.ValidRegexString;
 }

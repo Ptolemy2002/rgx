@@ -28,7 +28,7 @@ function constructionTest(constructor: ConstructFunction<typeof RGXExclusionToke
         expect(instance.exclusionId).toBe("exclusionId");
         expect(instance.token).toBe(token);
         expect(instance.exclusions).toBeInstanceOf(RGXClassUnionToken);
-        expect(instance.exclusions.resolve()).toBe("(?:(?:))");
+        expect(instance.exclusions.resolve()).toBe("(?:)");
         expect(instance.terminal).toBeNull();
     });
 
@@ -104,12 +104,12 @@ describe("RGXExclusionToken", () => {
 
     it("resolves correctly with terminal", () => {
         const result = new RGXExclusionToken("exclusionId", /\b\w+/, [new TestClassToken()], /\b/).resolve();
-        expect(result).toBe("(?:(?=(?<exclusionId>(?:\\b\\w+)(?:\\b)))(?!(?:test)(?:\\b))\\k<exclusionId>)");
+        expect(result).toBe("(?:(?=(?<exclusionId>\\b\\w+\\b))(?!test\\b)\\k<exclusionId>)");
     });
 
     it("resolves correctly without terminal", () => {
         const result = new RGXExclusionToken("exclusionId", /\b\w+/, [new TestClassToken()]).resolve();
-        expect(result).toBe("(?:(?=(?<exclusionId>(?:\\b\\w+)))(?!(?:test))\\k<exclusionId>)");
+        expect(result).toBe("(?:(?=(?<exclusionId>\\b\\w+))(?!test)\\k<exclusionId>)");
     });
 
     describe("clone", () => {

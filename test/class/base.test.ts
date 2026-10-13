@@ -456,7 +456,7 @@ describe("RGXClassToken", () => {
 
             expect(result.token).toBe(testToken1);
             expect(result.exclusionId).toBe("exclusionId");
-            expect(result.exclusions.resolve()).toBe("(?:(?:))");
+            expect(result.exclusions.resolve()).toBe("(?:)");
             expect(result.terminal).toBeNull();
         });
     });

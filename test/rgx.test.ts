@@ -1,4 +1,4 @@
-import rgx, { rgxa, rgxw, RGXClassToken, RGXClassWrapperToken, rgxConcat, rgxConstant, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXToken, RGXTokenCollection, ValidRegexFlags, RGXPart } from 'src/index';
+import rgx, { rgxa, rgxw, RGXClassToken, RGXClassWrapperToken, rgxConcat, rgxConstant, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXToken, RGXTokenCollection, ValidRegexFlags, RGXPart, RGXSubpatternToken } from 'src/index';
 import { RGXWalker } from 'src/walker';
 import { expectError } from './utils';
 
@@ -70,8 +70,8 @@ describe('rgx', () => {
         const regex1 = rgx()`foo${null}${token1}quux${undefined}${token2}${/\d/}corge`;
         const regex2 = rgxa(['foo', null, token1, 'quux', undefined, token2, /\d/, 'corge']);
 
-        expectRegexpEqual(regex1, 'foobarquux(?:\\d)corge');
-        expectRegexpEqual(regex2, 'foobarquux(?:\\d)corge');
+        expectRegexpEqual(regex1, 'foobarquux\\dcorge');
+        expectRegexpEqual(regex2, 'foobarquux\\dcorge');
     });
 
     it('constructs a RegExp from input with array tokens interpreted as unions', () => {
@@ -86,8 +86,8 @@ describe('rgx', () => {
         const regex1 = rgx()`foo${[['bar', 'baz'], 'qux']}corge`;
         const regex2 = rgxa(['foo', [['bar', 'baz'], 'qux'], 'corge']);
 
-        expectRegexpEqual(regex1, 'foo(?:(?:bar|baz)|qux)corge');
-        expectRegexpEqual(regex2, 'foo(?:(?:bar|baz)|qux)corge');
+        expectRegexpEqual(regex1, 'foo(?:bar|baz|qux)corge');
+        expectRegexpEqual(regex2, 'foo(?:bar|baz|qux)corge');
     });
 
     it('constructs a RegExp from input with no tokens', () => {
@@ -170,8 +170,8 @@ describe('rgx', () => {
         const regex1 = rgx()`foo${/\d/}baz`;
         const regex2 = rgxa(['foo', /\d/, 'baz']);
 
-        expectRegexpEqual(regex1, 'foo(?:\\d)baz');
-        expectRegexpEqual(regex2, 'foo(?:\\d)baz');
+        expectRegexpEqual(regex1, 'foo\\dbaz');
+        expectRegexpEqual(regex2, 'foo\\dbaz');
     });
 
     it('handles arrays wrapped with rgxConcat and unwrapped arrays differently', () => {
@@ -206,8 +206,8 @@ describe('rgx', () => {
         const regex1 = rgx('i')`foo${/bar/i}baz`;
         const regex2 = rgxa(['foo', /bar/i, 'baz'], 'i');
 
-        expectRegexpEqual(regex1, 'foo(?:bar)baz');
-        expectRegexpEqual(regex2, 'foo(?:bar)baz');
+        expectRegexpEqual(regex1, 'foobarbaz');
+        expectRegexpEqual(regex2, 'foobarbaz');
     });
 
     it('creates inline modifier groups with both added and removed flags', () => {
@@ -223,8 +223,8 @@ describe('rgx', () => {
         const regex2 = rgxa(['foo', /bar/gi, 'baz'], 'gi');
 
         // g is non-localizable and i matches on both sides, so no modifier needed
-        expectRegexpEqual(regex1, 'foo(?:bar)baz');
-        expectRegexpEqual(regex2, 'foo(?:bar)baz');
+        expectRegexpEqual(regex1, 'foobarbaz');
+        expectRegexpEqual(regex2, 'foobarbaz');
     });
 
     it('creates separate inline modifier groups for multiple RegExp literals', () => {
@@ -278,8 +278,8 @@ describe('rgx', () => {
         const regex1 = rgx()`qux${collection}quux`;
         const regex2 = rgxa(['qux', collection, 'quux']);
 
-        expectRegexpEqual(regex1, 'qux(?:foobarbaz)quux');
-        expectRegexpEqual(regex2, 'qux(?:foobarbaz)quux');
+        expectRegexpEqual(regex1, 'quxfoobarbazquux');
+        expectRegexpEqual(regex2, 'quxfoobarbazquux');
     });
 
     it('Removes duplicates from unions', () => {
@@ -294,8 +294,8 @@ describe('rgx', () => {
         const regex1 = rgx()`foo${[['bar', 'baz'], ['bar', 'qux'], 'baz']}quux`;
         const regex2 = rgxa(['foo', [['bar', 'baz'], ['bar', 'qux'], 'baz'], 'quux']);
 
-        expectRegexpEqual(regex1, 'foo(?:(?:bar|baz)|(?:bar|qux)|baz)quux');
-        expectRegexpEqual(regex2, 'foo(?:(?:bar|baz)|(?:bar|qux)|baz)quux');
+        expectRegexpEqual(regex1, 'foo(?:bar|baz|bar|qux|baz)quux');
+        expectRegexpEqual(regex2, 'foo(?:bar|baz|bar|qux|baz)quux');
     });
 
     it('converts numbers correctly', () => {
@@ -312,8 +312,8 @@ describe('rgx', () => {
         const regex1 = rgx()`foo${token}baz`;
         const regex2 = rgxa(['foo', token, 'baz']);
 
-        expectRegexpEqual(regex1, 'foo(?:\\w+)baz');
-        expectRegexpEqual(regex2, 'foo(?:\\w+)baz');
+        expectRegexpEqual(regex1, 'foo\\w+baz');
+        expectRegexpEqual(regex2, 'foo\\w+baz');
     });
 
     it('constructs a RegExp from input with a convertible token returning an array', () => {
@@ -439,7 +439,7 @@ describe('rgx', () => {
 describe('rgxConcat', () => {
     it('concatenates an array of tokens into a single regex string', () => {
         const result = rgxConcat([/\d+/, 'abc', /\w/]);
-        expect(result).toBe('(?:\\d+)abc(?:\\w)');
+        expect(result).toBe('\\d+abc(?:\\w)');
     });
 
     it('passes groupWrap=false through to resolveRGXToken', () => {
@@ -637,5 +637,21 @@ describe('rgxw', () => {
         const walker = rgxw('foo', {multiline: false, verbatim: false})`\w+`;
         walker.walk();
         expect(walker.captures.map(c => c.value)).toEqual(['foo']);
+    });
+});
+describe('redundant group removal', () => {
+    it('removes redundant groups at the edges of the final pattern', () => {
+        expectRegexpEqual(rgxa([/a/, /b/]), 'ab');
+        expectRegexpEqual(rgx()`${/a|b/}`, 'a|b');
+    });
+
+    it('keeps capturing, named, and inline modifier groups', () => {
+        expectRegexpEqual(rgx('', {verbatim: false})`(?<n>${/a/})(${/b/})${/c/i}`, '(?<n>a)(b)(?i:c)');
+    });
+
+    it('keeps groups that separate a backreference from a following digit', () => {
+        const regex = rgx('', {verbatim: false})`(a)${new RGXSubpatternToken(1)}${/0/}`;
+        expectRegexpEqual(regex, '(a)\\1(?:0)');
+        expect(regex.test('aa0')).toBe(true);
     });
 });

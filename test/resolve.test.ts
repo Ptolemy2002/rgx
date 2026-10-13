@@ -103,17 +103,17 @@ describe('resolveRGXToken', () => {
 
     it('resolves an array of tokens as a union', () => {
         const tokens = ['abc', /def/, { toRgx: () => 'ghi' }];
-        expect(resolveRGXToken(tokens)).toBe('(?:abc|(?:def)|ghi)');
+        expect(resolveRGXToken(tokens)).toBe('(?:abc|def|ghi)');
     });
 
     it('resolves an array of tokens as a union without group wrapping', () => {
         const tokens = ['abc', /def/, { toRgx: () => 'ghi' }];
-        expect(resolveRGXToken(tokens, {groupWrap: false})).toBe('abc|(?:def)|ghi');
+        expect(resolveRGXToken(tokens, {groupWrap: false})).toBe('abc|def|ghi');
     });
 
     it('resolves an array of tokens with duplicates as a union without duplicates', () => {
         const tokens = ['abc', /def/, { toRgx: () => 'ghi' }, 'abc', /def/];
-        expect(resolveRGXToken(tokens)).toBe('(?:abc|(?:def)|ghi)');
+        expect(resolveRGXToken(tokens)).toBe('(?:abc|def|ghi)');
     });
 
     it('resolves null as an empty string', () => {
@@ -139,7 +139,7 @@ describe('resolveRGXToken', () => {
 
     it('resolves a convertible token that returns an array of tokens', () => {
         const token = { toRgx: () => ['abc', /def/] };
-        expect(resolveRGXToken(token)).toBe('(?:abc|(?:def))');
+        expect(resolveRGXToken(token)).toBe('(?:abc|def)');
     });
 
     it('resolves an empty array as an empty string', () => {

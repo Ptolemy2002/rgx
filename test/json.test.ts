@@ -497,7 +497,7 @@ describe("built-in class token round trips", () => {
         for (const token of tokens) {
             const result = roundTrip(token) as RGXClassToken;
             expect(result.resolve()).toBe(token.resolve());
-            expect(result.resolve()).toContain("(?:a|b)");
+            expect(result.resolve()).toContain("a|b");
         }
     });
 
@@ -623,7 +623,7 @@ describe("JSON tokens in the rest of the library", () => {
 
     it("works in rgxa", () => {
         const regex = rgxa(["a", { $rgx: true, source: "b" }, { $rgx: true, class: "RGXRepeatToken", args: ["c", 0, null] }]);
-        expect(regex.source).toBe("a(?:b)c*");
+        expect(regex.source).toBe("abc*");
     });
 
     it("checks insertion acceptance of JSON class tokens", () => {
@@ -638,7 +638,7 @@ describe("JSON tokens in the rest of the library", () => {
     it("removes duplicate JSON tokens in unions", () => {
         const union = new RGXClassUnionToken([{ $rgx: true, source: "a" }, { $rgx: true, source: "a" }, { $rgx: true, source: "b" }]);
         expect(union.tokens.length).toBe(2);
-        expect(union.resolve()).toBe("(?:(?:a)|(?:b))");
+        expect(union.resolve()).toBe("(?:a|b)");
     });
 
     it("wraps JSON tokens correctly in RGXClassWrapperToken", () => {

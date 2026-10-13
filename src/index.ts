@@ -3,6 +3,7 @@ import { rgxClassInit } from "./class";
 import { registerCustomFlagTransformers } from "./flag-transformer";
 import { rgxConcat } from "./concat";
 import { assureAcceptance } from "./internal/assureAcceptance";
+import { removeRedundantRegexGroups, scanOptionsFromFlags } from "./internal/scanRegexSource";
 import { rgxTaggedTemplateToArray } from "./internal/taggedTemplateToArray";
 import { assertValidRegexFlags, ExtRegExp } from "./ExtRegExp";
 import { RGXPart, RGXTokenOrPart, RGXWalker } from "./walker";
@@ -16,7 +17,8 @@ registerCustomFlagTransformers();
 export function rgxa(tokens: t.RGXToken[], flags: string = ''): ExtRegExp {
     assertValidRegexFlags(flags);
     assureAcceptance(tokens, flags);
-    const pattern = rgxConcat(tokens, true, flags);
+    // Nothing else is added to the final pattern, so groups at its edges can be removed too.
+    const pattern = removeRedundantRegexGroups(rgxConcat(tokens, true, flags), { ...scanOptionsFromFlags(flags), isolated: true });
     return createRegex(pattern, flags, true);
 }
 
