@@ -308,11 +308,21 @@ describe("RGXRepeatToken", () => {
             expect((rgx as RegExp).source).toBe("(?:abc){2,4}");
         });
 
-        it("group wraps non-group tokens", () => {
+        it("does not group wrap tokens that resolve to a singleton", () => {
             const instance = new RGXRepeatToken("a", 2, 4);
             const rgx = instance.toRgx();
             expect(rgx).toBeInstanceOf(RegExp);
-            expect((rgx as RegExp).source).toBe("(?:a){2,4}");
+            expect((rgx as RegExp).source).toBe("a{2,4}");
+        });
+
+        it("does not group wrap convertible tokens that resolve to a singleton without rgxIsGroup", () => {
+            const instance = new RGXRepeatToken({ toRgx: () => /[abc]/, rgxGroupWrap: false }, 2, 4);
+            expect((instance.toRgx() as RegExp).source).toBe("[abc]{2,4}");
+        });
+
+        it("group wraps convertible tokens with rgxIsGroup that do not resolve to a singleton", () => {
+            const instance = new RGXRepeatToken({ toRgx: () => /abc/, rgxGroupWrap: false, rgxIsGroup: true }, 2, 4);
+            expect((instance.toRgx() as RegExp).source).toBe("(?:abc){2,4}");
         });
     });
 

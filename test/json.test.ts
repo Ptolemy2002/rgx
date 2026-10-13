@@ -623,7 +623,7 @@ describe("JSON tokens in the rest of the library", () => {
 
     it("works in rgxa", () => {
         const regex = rgxa(["a", { $rgx: true, source: "b" }, { $rgx: true, class: "RGXRepeatToken", args: ["c", 0, null] }]);
-        expect(regex.source).toBe("a(?:b)(?:c)*");
+        expect(regex.source).toBe("a(?:b)c*");
     });
 
     it("checks insertion acceptance of JSON class tokens", () => {

@@ -3,7 +3,7 @@ import * as e from "./errors";
 import { assertValidRegexFlags } from "./ExtRegExp";
 import * as tg from "./typeGuards";
 import * as t from "./types";
-import { localizableVanillaRegexFlagDiff } from "./internal";
+import { hasRegexParenErrors, localizableVanillaRegexFlagDiff } from "./internal";
 import { rgxTokenFromJSON } from "./json";
 
 export type ResolveRGXTokenOptions = {
@@ -16,38 +16,6 @@ export function escapeRegex(value: string) {
     const result = value.replaceAll(/[\-\^\$.*+?^${}()|[\]\\]/g, '\\$&');
     tg.assertValidRegexString(result);
     return result;
-}
-
-function hasParenErrors(pattern: string, unicodeSets: boolean): boolean {
-    let depth = 0;
-    let charClassDepth = 0;
-
-    for (let i = 0; i < pattern.length; i++) {
-        const ch = pattern[i];
-
-        if (ch === '\\') {
-            i++;
-            continue;
-        }
-
-        if (charClassDepth > 0) {
-            // Character classes only nest with the v flag. Without it, '[' inside a class is a literal.
-            if (ch === '[' && unicodeSets) charClassDepth++;
-            else if (ch === ']') charClassDepth--;
-            continue;
-        }
-
-        if (ch === '[') {
-            charClassDepth++;
-        } else if (ch === '(') {
-            depth++;
-        } else if (ch === ')') {
-            depth--;
-            if (depth < 0) return true;
-        }
-    }
-
-    return depth !== 0;
 }
 
 export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel = true, currentFlags = '' }: ResolveRGXTokenOptions = {}): t.ValidRegexString {
@@ -112,6 +80,6 @@ export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel 
 
     const result = innerResolve();
 
-    if (!(acceptParenErrors && hasParenErrors(result, currentFlags.includes('v')))) tg.assertValidRegexString(result);
+    if (!(acceptParenErrors && hasRegexParenErrors(result, { unicode: currentFlags.includes('u'), unicodeSets: currentFlags.includes('v') }))) tg.assertValidRegexString(result);
     return result as t.ValidRegexString;
 }

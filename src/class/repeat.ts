@@ -5,7 +5,7 @@ import { RGXGroupToken } from "./group";
 import { isRGXGroupedToken, isRGXJSONToken, isRGXToken } from "src/typeGuards";
 import { assertInRange, RGXNotSupportedError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
-import { createConstructFunction } from "src/internal";
+import { createConstructFunction, toSingletonRegexSource } from "src/internal";
 import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
@@ -99,7 +99,9 @@ export class RGXRepeatToken extends RGXClassToken {
         // No-op if we're repeating zero times.
         if (this.min === 0 && this.max === 0) return null;
         
-        const resolvedSource = resolveRGXToken(this.token);
+        // The token is usually grouped already, but rgxIsGroup is trusted without being checked, and tokens are
+        // often wrapped in more groups than needed. Normalizing to a singleton fixes both before the quantifier is added.
+        const resolvedSource = toSingletonRegexSource(resolveRGXToken(this.token));
         return createRegex(`${resolvedSource}${this.repeaterSuffix}`);
     }
 

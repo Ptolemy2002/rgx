@@ -41,3 +41,29 @@ In `src/json.ts`:
 - Remove the early return in `rgxJSONClassArgs`, or remove the helper entirely.
 - Merge each built-in class' `validateJSONArgs` and `fromJSON` (in `src/class/*.ts`).
 - Update `docs/json.md` (the registry section and `rgxJSONClassArgs`), `docs/class/token/base.md`, `docs/type-reference.md`, and the related tests in `test/json.test.ts`. The tests on guarded entries and single validation become unnecessary.
+
+## Replace `rgxIsGroup` with singleton detection
+
+### Problem
+`rgxIsGroup` is named as if it means "this token is a group", but what it actually claims is that the token's output is a **singleton**: exactly one unit a quantifier can apply to as a whole (a single character, escape, character class, or group). The flag is trusted without being checked, so a token that sets it incorrectly used to make `RGXRepeatToken` produce a wrong pattern (`abc{2}` instead of `(?:abc){2}`). Whether output is a singleton can be detected from the resolved source, so the flag is unnecessary.
+
+The flag also shapes the types: `RGXGroupedConvertibleToken` and `RGXGroupedToken` exist so `isRGXGroupedToken` can narrow on it, and `RGXRepeatToken.token` is typed `RGXGroupedToken` because its setter wraps any token that isn't flagged as grouped in a non-capturing `RGXGroupToken` when it is stored.
+
+### Breaking change
+Remove `rgxIsGroup` and decide singleton-ness from the resolved source only:
+
+- Remove `rgxIsGroup` from `RGXConvertibleToken`, `RGXClassToken`, and every override (`RGXGroupToken`, `RGXLookaroundToken`, `RGXClassWrapperToken`), the character set constants in `src/constants.ts`, `createRGXBounds`, and the check in `isRGXConvertibleToken`.
+- Remove `RGXGroupedConvertibleToken` and `RGXGroupedToken`. Replace `isRGXGroupedToken` / `assertRGXGroupedToken` with a guard such as `isRGXSingletonToken` that resolves the token and checks the result with `isSingletonRegexSource`, or remove them if nothing needs them.
+- `RGXRepeatToken` stores the token it is given as-is (typed `RGXToken`), and `toRgx()` alone decides whether to group it.
+
+This breaks custom tokens that set `rgxIsGroup`, code that uses the grouped types or guards, and code that relies on `RGXRepeatToken.token` (and the token in its `toJSON()` args) being an `RGXGroupToken` for tokens that weren't grouped.
+
+### Current workaround
+- `src/internal/scanRegexSource.ts` contains a lightweight scanner (`scanRegexSource`) that tracks group and character class structure without fully parsing, so it also works on invalid sources. `hasRegexParenErrors` (used by `resolveRGXToken` to accept interpolations with unterminated groups) and `isSingletonRegexSource` / `toSingletonRegexSource` are built on it.
+- `RGXRepeatToken.toRgx()` passes the resolved source through `toSingletonRegexSource`, which wraps it in a non-capturing group if it isn't a singleton and removes non-capturing groups that only wrap a singleton. This makes the output correct even when `rgxIsGroup` is wrong, and removes the redundant group left by the setter's wrapping.
+- `rgxIsGroup`, the grouped types and guards, and the setter's wrapping are all unchanged, so `RGXRepeatToken.token` still holds an `RGXGroupToken` for tokens that aren't flagged as grouped.
+
+### Reverting the workaround
+- Make the removals listed under **Breaking change**, and remove the wrapping in the `RGXRepeatToken.token` setter. Keep the `toSingletonRegexSource` call in `toRgx()`, since it now does all of the work.
+- Update the `toJSON()` note in `docs/class/token/repeat.md` (the stored token is no longer wrapped), the `rgxIsGroup` mentions in `docs/class/token/base.md`, `group.md`, `wrapper.md`, `lookaround/*.md`, `docs/util/createRGXBounds.md`, and `docs/type-guards.md`, and the `RGXConvertibleToken` / grouped type listings at the top of the docs files and in `docs/type-reference.md`.
+- Remove or update the tests that use `rgxIsGroup` or the grouped guards (`grep -rn "rgxIsGroup\|GroupedToken" test` lists them; most are in `test/typeGuards.test.ts`, `test/typeGuards.json.test.ts`, and `test/class/wrapper.test.ts`), and test the new guard if one is added.
