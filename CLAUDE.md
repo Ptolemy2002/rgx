@@ -17,3 +17,14 @@ You can run `npm run test` to run all tests, and `npm run test:coverage` to run 
 When writing tests, aim for 100% coverage generally, but I am intentionally not covering the full depth parameter for any overrides of `RGXClassToken.clone()`, only when depth is `"max"` and when it is `0`, because testing it fully is extremely complicated to set up. A note about this is in the README.
 
 `./PENDING_BREAKING_CHANGES.md` is a running list of breaking changes that are being deferred until a major release, along with the non-breaking workarounds currently in place for them. If you implement such a workaround, add an entry there. If you are making a major release, implement the pending changes and revert their workarounds as described there.
+
+## Node version and test setup
+
+The library generates regex modifier groups like `(?i:...)`, which need Node 23 or newer. On older versions (the Claude cloud environment has defaulted to Node 22), many test suites fail with errors like `Invalid regular expression: /(?m:$)/: Invalid group`. This is the environment, not a bug in the code. If `node --version` is below 23, run the tests with a newer Node, for example:
+
+```bash
+N=$(dirname $(npx -y node@24 -e 'console.log(process.execPath)'))
+PATH=$N:$PATH npm run test
+```
+
+The `prepare` script runs `typesync`, which adds `@types/node`. If dependencies were installed without running scripts, the typecheck and many test suites fail with `Cannot find name 'setImmediate'`. Install it with `pnpm add -D @types/node --ignore-scripts`, then restore `package.json` and `pnpm-lock.yaml` with `git checkout` so the change isn't committed.
