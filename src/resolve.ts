@@ -18,7 +18,7 @@ export function escapeRegex(value: string) {
     return result;
 }
 
-function hasParenErrors(pattern: string): boolean {
+function hasParenErrors(pattern: string, unicodeSets: boolean): boolean {
     let depth = 0;
     let charClassDepth = 0;
 
@@ -31,7 +31,8 @@ function hasParenErrors(pattern: string): boolean {
         }
 
         if (charClassDepth > 0) {
-            if (ch === '[') charClassDepth++;
+            // Character classes only nest with the v flag. Without it, '[' inside a class is a literal.
+            if (ch === '[' && unicodeSets) charClassDepth++;
             else if (ch === ']') charClassDepth--;
             continue;
         }
@@ -111,6 +112,6 @@ export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel 
 
     const result = innerResolve();
 
-    if (!(acceptParenErrors && hasParenErrors(result))) tg.assertValidRegexString(result);
+    if (!(acceptParenErrors && hasParenErrors(result, currentFlags.includes('v')))) tg.assertValidRegexString(result);
     return result as t.ValidRegexString;
 }

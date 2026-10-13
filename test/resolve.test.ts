@@ -68,6 +68,24 @@ describe('resolveRGXToken', () => {
         expect(resolveRGXToken(token)).toBe('a[b(c)d]e');
     });
 
+    it('treats \'[\' inside a character class as a literal when detecting unterminated groups without the v flag', () => {
+        // Without the v flag, "[[]" is a complete class matching "[", so the group after it is unterminated.
+        const token = {
+            toRgx: () => "[[](a",
+            rgxInterpolate: true
+        };
+        expect(resolveRGXToken(token)).toBe('[[](a');
+    });
+
+    it('treats \'[\' inside a character class as nesting when detecting unterminated groups with the v flag', () => {
+        // With the v flag, "[[(]]" is a nested class containing "(", so the group after it is unterminated.
+        const token = {
+            toRgx: () => "[[(]](a",
+            rgxInterpolate: true
+        };
+        expect(resolveRGXToken(token, {currentFlags: 'v'})).toBe('[[(]](a');
+    });
+
     it('does not resolve a single convertible token with rgxInterpolate set to true returning an invalid RegExp string', () => {
         const token = {
             toRgx: () => "[[abc",
