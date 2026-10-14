@@ -9,7 +9,6 @@ type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
     readonly rgxGroupWrap?: boolean,
-    readonly rgxIsGroup?: boolean,
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
@@ -60,9 +59,7 @@ const json = rgxTokenToJSON(token);
 //     $rgx: true, class: "RGXGroupToken",
 //     args: [{ name: "num", capturing: true, flags: "" }, [
 //         { $rgx: true, class: "RGXRepeatToken", args: [
-//             { $rgx: true, class: "RGXGroupToken", args: [{ name: null, capturing: false, flags: "" }, [
-//                 { $rgx: true, class: "RGXClassWrapperToken", args: [{ $rgx: true, source: "\\d" }] }
-//             ]] },
+//             { $rgx: true, class: "RGXClassWrapperToken", args: [{ $rgx: true, source: "\\d" }] },
 //             1, 3, false
 //         ] }
 //     ]]
@@ -85,7 +82,7 @@ Converts any `RGXToken` into a JSON token. The conversion is by token type:
 - JSON object tokens are validated (`assertRGXJSONObjectToken`) and returned as-is.
 - Class tokens that override `toJSON()` are converted with it. Class tokens that do not are treated like any other convertible token (see below).
 - `RGXTokenCollection` instances are converted via `toRGXClassToken` (an `RGXClassUnionToken` for union mode, a non-capturing `RGXGroupToken` for concat mode) and then with `toJSON()`.
-- Any other convertible token (including a class token that does not override `toJSON()`) cannot be reconstructed from JSON, so when `resolveConvertible` is `true` (the default) it is resolved with `resolveRGXToken(token, { groupWrap: false })` into a JSON literal token. This is lossy: `rgxGroupWrap`, `rgxIsRepeatable`, `rgxIsGroup`, `rgxInterpolate`, and `rgxAcceptInsertion` preferences are not preserved, and the resolved string may be wrapped in an extra non-capturing group once used, though the matching behavior is the same. When `resolveConvertible` is `false`, an `RGXNotJSONSerializableError` is thrown instead.
+- Any other convertible token (including a class token that does not override `toJSON()`) cannot be reconstructed from JSON, so when `resolveConvertible` is `true` (the default) it is resolved with `resolveRGXToken(token, { groupWrap: false })` into a JSON literal token. This is lossy: `rgxGroupWrap`, `rgxIsRepeatable`, `rgxInterpolate`, and `rgxAcceptInsertion` preferences are not preserved, and the resolved string may be wrapped in an extra non-capturing group once used, though the matching behavior is the same. When `resolveConvertible` is `false`, an `RGXNotJSONSerializableError` is thrown instead.
 - Arrays are converted element-wise (with the same options).
 
 ## Parameters

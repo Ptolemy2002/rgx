@@ -13,7 +13,6 @@ type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
     readonly rgxGroupWrap?: boolean,
-    readonly rgxIsGroup?: boolean,
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
@@ -32,8 +31,6 @@ type RGXJSONFlag = typeof RGX_JSON_FLAG;
 type RGXTokenOrPart<R, S = unknown, T = any> = RGXToken | RGXPart<R, S, T>;
 
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
-type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken | RGXJSONObjectToken;
-type RGXGroupedConvertibleToken = (RGXConvertibleToken & { readonly rgxIsGroup: true }) | (Omit<RGXConvertibleToken, "toRgx"> & { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true  });
 type RGXRepeatableConvertibleToken = RGXConvertibleToken & { readonly rgxIsRepeatable: true | undefined };
 
 const validRegexSymbol = Symbol('rgx.ValidRegex');

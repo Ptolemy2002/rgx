@@ -15,40 +15,12 @@ Each entry has a `##` heading naming the change, followed by these sections:
 
 ---
 
-## Replace `rgxIsGroup` with singleton detection
-
-### Problem
-`rgxIsGroup` is named as if it means "this token is a group", but what it actually claims is that the token's output is a **singleton**: exactly one unit a quantifier can apply to as a whole (a single character, escape, character class, or group). The flag is trusted without being checked, so a token that sets it incorrectly used to make `RGXRepeatToken` produce a wrong pattern (`abc{2}` instead of `(?:abc){2}`). Whether output is a singleton can be detected from the resolved source, so the flag is unnecessary.
-
-The flag also shapes the types: `RGXGroupedConvertibleToken` and `RGXGroupedToken` exist so `isRGXGroupedToken` can narrow on it, and `RGXRepeatToken.token` is typed `RGXGroupedToken` because its setter wraps any token that isn't flagged as grouped in a non-capturing `RGXGroupToken` when it is stored.
-
-### Breaking change
-Remove `rgxIsGroup` and decide singleton-ness from the resolved source only:
-
-- Remove `rgxIsGroup` from `RGXConvertibleToken`, `RGXClassToken`, and every override (`RGXGroupToken`, `RGXLookaroundToken`, `RGXClassWrapperToken`), the character set constants in `src/constants.ts`, `createRGXBounds`, and the check in `isRGXConvertibleToken`.
-- Remove `RGXGroupedConvertibleToken` and `RGXGroupedToken`. Replace `isRGXGroupedToken` / `assertRGXGroupedToken` with a guard such as `isRGXSingletonToken` that resolves the token and checks the result with `isSingletonRegexSource`, or remove them if nothing needs them.
-- `RGXRepeatToken` stores the token it is given as-is (typed `RGXToken`), and `toRgx()` alone decides whether to group it.
-
-This breaks custom tokens that set `rgxIsGroup`, code that uses the grouped types or guards, and code that relies on `RGXRepeatToken.token` (and the token in its `toJSON()` args) being an `RGXGroupToken` for tokens that weren't grouped.
-
-### Current workaround
-- `src/internal/scanRegexSource.ts` contains a lightweight scanner (`scanRegexSource`) that tracks group and character class structure without fully parsing, so it also works on invalid sources. `hasRegexParenErrors` (used by `resolveRGXToken` to accept interpolations with unterminated groups) and `isSingletonRegexSource` / `toSingletonRegexSource` are built on it.
-- `RGXRepeatToken.toRgx()` passes the resolved source through `toSingletonRegexSource`, which wraps it in a non-capturing group if it isn't a singleton and removes non-capturing groups that only wrap a singleton. This makes the output correct even when `rgxIsGroup` is wrong, and removes the redundant group left by the setter's wrapping.
-- `rgxIsGroup`, the grouped types and guards, and the setter's wrapping are all unchanged, so `RGXRepeatToken.token` still holds an `RGXGroupToken` for tokens that aren't flagged as grouped.
-
-### Reverting the workaround
-- Make the removals listed under **Breaking change**, and remove the wrapping in the `RGXRepeatToken.token` setter. Keep the `toSingletonRegexSource` call in `toRgx()`, since it now does all of the work.
-- Update the `toJSON()` note in `docs/class/token/repeat.md` (the stored token is no longer wrapped), the `rgxIsGroup` mentions in `docs/class/token/base.md`, `group.md`, `wrapper.md`, `lookaround/*.md`, `docs/util/createRGXBounds.md`, and `docs/type-guards.md`, and the `RGXConvertibleToken` / grouped type listings at the top of the docs files and in `docs/type-reference.md`.
-- Remove or update the tests that use `rgxIsGroup` or the grouped guards (`grep -rn "rgxIsGroup\|GroupedToken" test` lists them; most are in `test/typeGuards.test.ts`, `test/typeGuards.json.test.ts`, and `test/class/wrapper.test.ts`), and test the new guard if one is added.
-
 ## Remove `rgxGroupWrap`
 
 ### Problem
 `rgxGroupWrap` sets the `groupWrap` option used when resolving a convertible token's `toRgx()` result (`src/resolve.ts`), which only decides whether a literal is resolved as `(?:x)` or `x` and whether a union is resolved as `(?:a|b)` or `a|b`. Wrapping is always safe, so `false` is only ever a size optimization, and `removeRedundantRegexGroups` now removes unneeded groups at the top level of `resolveRGXToken`, in `rgxConcat`, and (with `isolated: true`) in `rgxa`. Every `rgxGroupWrap: false` in `src/constants.ts` is on a singleton such as `/./`, `/\d/` or `/[a-z]/`, `RGXRepeatToken` normalizes its operand with `toSingletonRegexSource`, and lookarounds are already groups.
 
 The one thing `false` enables that wrapping can't is leaking an alternation into its surroundings (a token returning `/a|b/` next to `c` resolves to `a|bc`). That is a footgun, and raw output is what interpolation is for.
-
-The flag also feeds `isRGXGroupedToken` (`rgxGroupWrap === true` and grouped content), which is part of the grouped-token machinery being replaced by singleton detection.
 
 ### Breaking change
 Remove `rgxGroupWrap` from `RGXConvertibleToken`, `RGXClassToken` (and the overrides in `RGXRepeatToken` and `RGXLookaroundToken`), every constant in `src/constants.ts`, the flag transformers in `src/flag-transformer/accentInsensitive.ts`, `createRGXBounds` (`convertNoGroupWrap` and `convertToBound`), and the check in `isRGXConvertibleToken`. Convertible tokens are always resolved as if `rgxGroupWrap` were absent.
@@ -63,7 +35,6 @@ None. The flag is still supported everywhere, and redundant groups it would have
 ### Reverting the workaround
 - Make the removals listed under **Breaking change**. In `resolveRGXToken`, a convertible token's `toRgx()` result is resolved with `groupWrap: topLevel ? groupWrap : true`.
 - Serialized JSON must not gain the extra groups. `RGXClassToken.toJSON()` (`src/class/base.ts`) and `rgxTokenToJSON` (`src/json.ts`) should pass the resolved source through `removeRedundantRegexGroups` with `isolated: true` before creating the JSON literal token. This is safe because a JSON literal's source must be a valid `RegExp` on its own, and it is wrapped or flag-localized again whenever it is inserted.
-- If `isRGXGroupedToken` still exists at this point, drop its `rgxGroupWrap` branch (see **Replace `rgxIsGroup` with singleton detection**, which should be done in the same release).
 - Update the `RGXConvertibleToken` listings at the top of the docs files and in `docs/type-reference.md` (`grep -rln rgxGroupWrap docs`), the `rgxGroupWrap` description in `docs/class/token/base.md`, the `groupWrap`/`rgxGroupWrap` precedence paragraphs for `resolveRGXToken` in `docs/general.md`, and `docs/util/createRGXBounds.md`.
 - Remove or update the tests that set `rgxGroupWrap` (`grep -rln rgxGroupWrap test`), and update expected strings that gain groups.
 

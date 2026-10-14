@@ -1,7 +1,7 @@
 import { RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken } from "src/types";
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
 import { RGXClassToken } from "./base";
-import { isRGXGroupedToken, isRGXJSONObjectToken, isRGXJSONToken, isRGXToken } from "src/typeGuards";
+import { isRGXJSONObjectToken, isRGXJSONToken, isRGXToken } from "src/typeGuards";
 import { createConstructFunction } from "src/internal";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
@@ -23,10 +23,6 @@ export class RGXClassWrapperToken extends RGXClassToken {
     constructor(token: RGXToken) {
         super();
         this.token = token;
-    }
-
-    get rgxIsGroup(): boolean {
-        return isRGXGroupedToken(this.token);
     }
 
     get rgxIsRepeatable(): boolean {

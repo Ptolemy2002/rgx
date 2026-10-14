@@ -70,32 +70,26 @@ export const RGX_PREDEFINED_CONSTANTS = {
 
     // Character Sets
     "letter": {
-        rgxIsGroup: true,
         rgxGroupWrap: false,
         toRgx() { return /[a-zA-Z]/; }
     },
     "lowercase-letter": {
-        rgxIsGroup: true,
         rgxGroupWrap: false,
         toRgx() { return /[a-z]/; }
     },
     "uppercase-letter": {
-        rgxIsGroup: true,
         rgxGroupWrap: false,
         toRgx() { return /[A-Z]/; }
     },
     "non-letter": {
-        rgxIsGroup: true,
         rgxGroupWrap: false,
         toRgx() { return /[^a-zA-Z]/; }
     },
     "alphanumeric": {
-        rgxIsGroup: true,
         rgxGroupWrap: false,
         toRgx() { return /[a-zA-Z0-9]/; }
     },
     "non-alphanumeric": {
-        rgxIsGroup: true,
         rgxGroupWrap: false,
         toRgx() { return /[^a-zA-Z0-9]/; }
     },
@@ -122,7 +116,6 @@ export const RGX_PREDEFINED_CONSTANTS = {
         toRgx() { return /\S/; }
     },
     "non-newline-whitespace": {
-        rgxIsGroup: true,
         rgxGroupWrap: false,
         toRgx() { return /[^\n\S]/; }
     },
@@ -143,7 +136,6 @@ export const RGX_PREDEFINED_CONSTANTS = {
         toRgx() { return /\W/; }
     },
     "backspace": {
-        rgxIsGroup: true,
         rgxGroupWrap: false,
         toRgx() { return /[\b]/; }
     },

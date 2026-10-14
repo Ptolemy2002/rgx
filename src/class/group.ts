@@ -66,10 +66,6 @@ export class RGXGroupToken extends RGXClassToken {
         this._flags = value;
     }
 
-    get rgxIsGroup() {
-        return true as const;
-    }
-
     get rgxGroupWrap() {
         // When this token is resolved, it will wrap itself in a group, so we don't want the resolver to group wrap it again.
         return false as const;

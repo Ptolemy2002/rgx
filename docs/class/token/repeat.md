@@ -12,7 +12,6 @@ type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
     readonly rgxGroupWrap?: boolean,
-    readonly rgxIsGroup?: boolean,
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
@@ -26,8 +25,6 @@ type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken;
 type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSONObjectToken | RGXToken[];
 
-type RGXGroupedConvertibleToken = (RGXConvertibleToken & { readonly rgxIsGroup: true }) | (Omit<RGXConvertibleToken, "toRgx"> & { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true  });
-type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken | RGXJSONObjectToken;
 ```
 
 # RGXRepeatToken
@@ -44,13 +41,13 @@ A function `rgxRepeat` is provided with the same parameters as this class' const
 ```typescript
 constructor(token: RGXToken, min?: number, max?: number | null, lazy?: boolean)
 ```
-- `token` (`RGXToken`): The token to repeat. If the token is not already a grouped token, it will be automatically wrapped in a non-capturing `RGXGroupToken`.
+- `token` (`RGXToken`): The token to repeat. It is stored as-is; `toRgx()` decides whether its output needs a group.
 - `min` (`number`, optional): The minimum number of repetitions. Must be >= 0 and <= `max` (when `max` is not `null`). Non-integer values are floored. Defaults to `1`.
 - `max` (`number | null`, optional): The maximum number of repetitions. Must be >= `min` when not `null`. Non-integer values are floored. Pass `null` for unlimited repetitions. Defaults to the same as `min`.
 - `lazy` (`boolean`, optional): Whether the quantifier should be non-greedy (lazy). Defaults to `false`.
 
 ## Properties
-- `token` (`RGXGroupedToken`): The token being repeated. Setting this will throw `RGXNotSupportedError` if the value is a convertible token with `rgxIsRepeatable` set to `false`, and will automatically wrap non-grouped tokens in a non-capturing `RGXGroupToken`.
+- `token` (`RGXToken`): The token being repeated, stored as-is. Setting this will throw `RGXNotSupportedError` if the value is a convertible token with `rgxIsRepeatable` set to `false`.
 - `min` (`number`): The minimum number of repetitions. Setting this validates that the value is >= 0 and <= `max` (when `max` is not `null`), and floors non-integer values. Throws `RGXOutOfBoundsError` if validation fails.
 - `max` (`number | null`): The maximum number of repetitions. Setting this validates that the value is >= `min` when not `null`, and floors non-integer values. Pass `null` for unlimited. Throws `RGXOutOfBoundsError` if validation fails.
 - `lazy` (`boolean`): Whether the quantifier is non-greedy (lazy). When `true`, a `?` is appended to the `repeaterSuffix` (except when the suffix is `?` or empty, since those cases don't benefit from a lazy modifier). Defaults to `false`.
@@ -58,6 +55,6 @@ constructor(token: RGXToken, min?: number, max?: number | null, lazy?: boolean)
 - `rgxGroupWrap` (`false`): Returns `false` as a constant, since the quantifier suffix binds tightly to the preceding group and does not need additional wrapping.
 
 ## Methods
-- `toRgx() => RGXToken`: Resolves the repeat token to a `RegExp` by resolving the inner token and appending the `repeaterSuffix`. Before the suffix is appended, the resolved source is checked to make sure the quantifier applies to all of it: if it is not a singleton (exactly one character, escape, character class, or non-lookaround group), it is wrapped in a non-capturing group, and non-capturing groups that only wrap a singleton are removed. So `new RGXRepeatToken("a", 2)` resolves to `a{2}` rather than `(?:a){2}`, and a convertible token with `rgxIsGroup` set to `true` whose output is not actually a singleton is still wrapped correctly. Returns `null` (a no-op) when both `min` and `max` are `0`.
+- `toRgx() => RGXToken`: Resolves the repeat token to a `RegExp` by resolving the inner token and appending the `repeaterSuffix`. Before the suffix is appended, the resolved source is checked to make sure the quantifier applies to all of it: if it is not a singleton (exactly one character, escape, character class, or non-lookaround group), it is wrapped in a non-capturing group, and non-capturing groups that only wrap a singleton are removed. So `new RGXRepeatToken("a", 2)` resolves to `a{2}` rather than `(?:a){2}`, while `new RGXRepeatToken("ab", 2)` resolves to `(?:ab){2}`. Returns `null` (a no-op) when both `min` and `max` are `0`.
 - `clone(depth: CloneDepth = "max") => ThisType<this>`: Creates a clone of this instance to a specified depth: `0` for no clone, `1` for a shallow clone of the top-level token, any other number for that many levels down, and `"max"` (the default) for a full deep clone.
-- `toJSON() => RGXJSONClassToken`: Returns a JSON class token with `class` set to `"RGXRepeatToken"` and `args` set to `[rgxTokenToJSON(token), min, max, lazy]`. Note that `token` is the grouped token stored by this instance, so a non-grouped token given to the constructor appears as a non-capturing `RGXGroupToken` here. The result is accepted by `fromJSON` and by `rgxTokenFromJSON` (see [../../json.md](../../json.md)). Nested tokens are converted with `rgxTokenToJSON`, so plain convertible tokens inside this token are resolved into JSON literal tokens.
+- `toJSON() => RGXJSONClassToken`: Returns a JSON class token with `class` set to `"RGXRepeatToken"` and `args` set to `[rgxTokenToJSON(token), min, max, lazy]`. The result is accepted by `fromJSON` and by `rgxTokenFromJSON` (see [../../json.md](../../json.md)). Nested tokens are converted with `rgxTokenToJSON`, so plain convertible tokens inside this token are resolved into JSON literal tokens.

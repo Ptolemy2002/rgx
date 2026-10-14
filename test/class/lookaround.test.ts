@@ -22,12 +22,6 @@ function constructionTest<T extends typeof RGXLookaroundToken>(constructor: Cons
         expect(instance).toBeInstanceOf(RGXLookaroundToken);
     });
 
-    describe("rgxIsGroup", () => {
-        it("is true", () => {
-            const instance = constructor() as RGXLookaroundToken;
-            expect(instance.rgxIsGroup).toBe(true);
-        });
-    });
 
     describe("rgxGroupWrap", () => {
         it("is false", () => {

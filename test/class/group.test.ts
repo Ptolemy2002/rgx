@@ -139,12 +139,6 @@ describe("RGXGroupToken", () => {
         });
     });
 
-    describe("rgxIsGroup", () => {
-        it("is true", () => {
-            const instance = new RGXGroupToken();
-            expect(instance.rgxIsGroup).toBe(true);
-        });
-    });
 
     describe("resolve", () => {
         it("resolves correctly with no name and capturing true", () => {

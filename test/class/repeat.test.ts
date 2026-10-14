@@ -75,11 +75,10 @@ function constructionTest(constructor: ConstructFunction<typeof RGXRepeatToken>)
         expect(instance.token).toBe(literalToken);
     });
 
-    it("wraps a non-group token in a group token", () => {
-        const nonGroupToken = "a"; // A simple native token that is not a group.
-        const instance = constructor(nonGroupToken);
-        expect(instance.token).toBeInstanceOf(RGXGroupToken);
-        expect((instance.token as RGXGroupToken).tokens.toArray()).toEqual([nonGroupToken]);
+    it("stores the token as-is", () => {
+        const token = "ab";
+        const instance = constructor(token);
+        expect(instance.token).toBe(token);
     });
 
     it("rejects non-repeatable class tokens", () => {
@@ -136,12 +135,6 @@ describe("RGXRepeatToken", () => {
         constructionTest(rgxRepeat);
     });
 
-    describe("rgxIsGroup", () => {
-        it("is false", () => {
-            const instance = new RGXRepeatToken(null);
-            expect(instance.rgxIsGroup).toBe(false);
-        });
-    });
 
     describe("rgxGroupWrap", () => {
         it("is false", () => {
@@ -315,13 +308,13 @@ describe("RGXRepeatToken", () => {
             expect((rgx as RegExp).source).toBe("a{2,4}");
         });
 
-        it("does not group wrap convertible tokens that resolve to a singleton without rgxIsGroup", () => {
+        it("does not group wrap convertible tokens that resolve to a singleton", () => {
             const instance = new RGXRepeatToken({ toRgx: () => /[abc]/, rgxGroupWrap: false }, 2, 4);
             expect((instance.toRgx() as RegExp).source).toBe("[abc]{2,4}");
         });
 
-        it("group wraps convertible tokens with rgxIsGroup that do not resolve to a singleton", () => {
-            const instance = new RGXRepeatToken({ toRgx: () => /abc/, rgxGroupWrap: false, rgxIsGroup: true }, 2, 4);
+        it("group wraps convertible tokens that do not resolve to a singleton", () => {
+            const instance = new RGXRepeatToken({ toRgx: () => /abc/, rgxGroupWrap: false }, 2, 4);
             expect((instance.toRgx() as RegExp).source).toBe("(?:abc){2,4}");
         });
     });

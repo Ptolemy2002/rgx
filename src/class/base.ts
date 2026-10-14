@@ -45,10 +45,6 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
         return false;
     }
 
-    get rgxIsGroup() {
-        return false;
-    }
-
     get rgxIsRepeatable() {
         return true;
     }

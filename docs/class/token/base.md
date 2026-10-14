@@ -18,7 +18,6 @@ type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
     readonly rgxGroupWrap?: boolean,
-    readonly rgxIsGroup?: boolean,
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
@@ -59,7 +58,6 @@ Notably, certain methods will throw `RGXNotImplementedError` if `rgxClassInit` h
 ## Properties
 These properties only have getters.
 - `rgxInterpolate` (`boolean`): Returns `false` by default. When `true`, the resolver uses the token's `toRgx()` result as-is without further resolution or escaping. Subclasses can override this to inject pre-built regex strings directly.
-- `rgxIsGroup` (`boolean`): Returns `false` by default. Subclasses can override this to indicate whether the token represents a group. `RGXRepeatToken` does not wrap tokens with this set to `true` in an extra `RGXGroupToken`, but it checks the resolved output anyway, so an incorrect value no longer produces a wrong pattern.
 - `rgxIsRepeatable` (`boolean`): Returns `true` by default. Subclasses can override this to indicate that the token cannot be wrapped in an `RGXRepeatToken`. When `false`, attempting to set this token as the `token` property of an `RGXRepeatToken` (including via `repeat()` or `optional()`) will throw an `RGXNotSupportedError`.
 - `rgxGroupWrap` (`boolean`): Returns `true` by default. Controls whether the resolver wraps this token's resolved output in a non-capturing group. Subclasses can override this to prevent double-wrapping (e.g., when the token already wraps itself in a group).
 

@@ -9,7 +9,6 @@ type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
     readonly rgxGroupWrap?: boolean,
-    readonly rgxIsGroup?: boolean,
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };

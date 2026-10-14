@@ -9,7 +9,6 @@ type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
     readonly rgxGroupWrap?: boolean,
-    readonly rgxIsGroup?: boolean,
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
@@ -25,8 +24,6 @@ type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSON
 type RGXNonJSONToken = Exclude<RGXToken, RGXJSONObjectToken>;
 
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
-type RGXGroupedToken = RGXToken[] | RGXLiteralToken | RGXGroupedConvertibleToken | RGXJSONObjectToken;
-type RGXGroupedConvertibleToken = (RGXConvertibleToken & { readonly rgxIsGroup: true }) | (Omit<RGXConvertibleToken, "toRgx"> & { toRgx: () => RGXGroupedToken, readonly rgxGroupWrap: true  });
 type RGXRepeatableConvertibleToken = RGXConvertibleToken & { readonly rgxIsRepeatable: true | undefined };
 
 type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | 'json' | RGXTokenType[];
@@ -111,7 +108,7 @@ Asserts that the given value is a native token (string, number, boolean, or no-o
 ```typescript
 function isRGXConvertibleToken(value: unknown, returnCheck?: boolean, acceptJSON?: boolean): value is RGXConvertibleToken
 ```
-Checks if the given value is a convertible token (an object with a `toRgx` method). If the `rgxGroupWrap`, `rgxIsRepeatable`, or `rgxIsGroup` properties are present, they must be booleans; otherwise, the check fails. If the `rgxAcceptInsertion` property is present, it must be a callable that returns a `string` or `boolean`; otherwise, the check fails. Validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). When `returnCheck` is `false`, only checks for the presence and callability of function properties instead of also checking their return values.
+Checks if the given value is a convertible token (an object with a `toRgx` method). If the `rgxGroupWrap`, `rgxIsRepeatable`, or `rgxInterpolate` properties are present, they must be booleans; otherwise, the check fails. If the `rgxAcceptInsertion` property is present, it must be a callable that returns a `string` or `boolean`; otherwise, the check fails. Validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). When `returnCheck` is `false`, only checks for the presence and callability of function properties instead of also checking their return values.
 
 Note that JSON object tokens are never themselves convertible tokens, even though they may describe a class token. `acceptJSON` only controls whether a `toRgx` return value containing JSON object tokens is accepted.
 
@@ -261,25 +258,22 @@ function assertRGXToken<T extends RGXTokenTypeGuardInput = null, J extends boole
 ```
 Asserts that the given value is a valid RGX token, optionally narrowed to a specific token type, with the same logic as `isRGXToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
 
-## isRGXGroupedToken
+## isRGXSingletonToken
 ```typescript
-function isRGXGroupedToken(value: unknown, contentCheck?: boolean, acceptJSON?: boolean): value is RGXGroupedToken
+function isRGXSingletonToken(value: unknown, acceptJSON?: boolean): value is RGXToken
 ```
-
-Checks if the given value is a grouped token — a token that is implicitly or explicitly a group. Arrays and literal tokens (`RegExp`) are implicitly groups. Convertible tokens (including class tokens) are groups if they have `rgxIsGroup` set to `true`, or if they have `rgxGroupWrap` set to `true` and their `toRgx()` method returns a grouped token. When `acceptJSON` is `true` (the default), JSON literal tokens are implicitly groups (like the literals they convert to), and JSON class tokens are groups if the class token they convert to is a group.
+Checks if the given value is a token that resolves to a singleton: exactly one unit that a quantifier can apply to as a whole, such as a single character, escape, character class, or (non-lookaround) group. The token is resolved with `resolveRGXToken` and the result is checked, so the answer depends only on the token's actual output. For example, `"a"`, `/\d/`, and an array of tokens (resolved as a grouped union) are singletons, while `"ab"`, `null`, anchors like `^`, and lookaround tokens are not. Values that are not tokens, and tokens that throw an `RGXError` when resolved on their own (such as an interpolation with unbalanced brackets), are not singletons. `RGXRepeatToken` uses the same check to decide whether its token needs to be wrapped in a non-capturing group.
 
 ### Parameters
   - `value` (`unknown`): The value to check.
-  - `contentCheck` (`boolean`, optional): Whether to validate the contents of array tokens and the return values of convertible tokens. Defaults to `true`. When `false`, arrays are accepted without checking their elements, convertible tokens with `rgxGroupWrap` set to `true` are accepted without checking their `toRgx()` return value, and JSON literal tokens are accepted without checking their `source` and `flags`. This has no effect on the `rgxIsGroup` check, which always accepts the token as grouped regardless of `contentCheck`.
-  - `acceptJSON` (`boolean`, optional): Whether JSON object tokens (see [json.md](./json.md)) are accepted as described above, including within arrays and `toRgx()` return values. Defaults to `true`.
+  - `acceptJSON` (`boolean`, optional): Whether JSON object tokens (see [json.md](./json.md)) are accepted, including within arrays and `toRgx()` return values. Defaults to `true`.
 
-## assertRGXGroupedToken
+## assertRGXSingletonToken
 ```typescript
-function assertRGXGroupedToken(value: unknown, contentCheck?: boolean, acceptJSON?: boolean): asserts value is RGXGroupedToken
+function assertRGXSingletonToken(value: unknown, acceptJSON?: boolean): asserts value is RGXToken
 ```
-Asserts that the given value is a grouped token with the same logic as `isRGXGroupedToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+Asserts that the given value is a singleton token with the same logic as `isRGXSingletonToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
 
-# Other Functions
 ## rgxTokenType
 ```typescript
 function rgxTokenType(value: unknown, recognizeClass?: boolean, acceptJSON?: boolean): RGXTokenType

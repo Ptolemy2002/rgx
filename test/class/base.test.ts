@@ -112,10 +112,6 @@ describe("rgxClassInit", () => {
 });
 
 describe("RGXClassToken", () => {
-    it("is not a group by default", () => {
-        expect(testToken1.rgxIsGroup).toBe(false);
-    });
-
     it("has rgxGroupWrap as true by default", () => {
         expect(testToken1.rgxGroupWrap).toBe(true);
     });
@@ -239,8 +235,7 @@ describe("RGXClassToken", () => {
             expect(result).toBeInstanceOf(RGXRepeatToken);
 
             // The test token should be wrapped in a group token
-            expect(result.token).toBeInstanceOf(RGXGroupToken);
-            expect((result.token as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+            expect(result.token).toBe(testToken1);
 
             expect(result.min).toBe(2);
             expect(result.max).toBe(5);
@@ -251,8 +246,7 @@ describe("RGXClassToken", () => {
             const result = testToken1.repeat(3);
             expect(result).toBeInstanceOf(RGXRepeatToken);
             
-            expect(result.token).toBeInstanceOf(RGXGroupToken);
-            expect((result.token as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+            expect(result.token).toBe(testToken1);
 
             expect(result.min).toBe(3);
             expect(result.max).toBe(3);
@@ -262,8 +256,7 @@ describe("RGXClassToken", () => {
             const result = testToken1.repeat(undefined, 4);
             expect(result).toBeInstanceOf(RGXRepeatToken);
             
-            expect(result.token).toBeInstanceOf(RGXGroupToken);
-            expect((result.token as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+            expect(result.token).toBe(testToken1);
 
             expect(result.min).toBe(1);
             expect(result.max).toBe(4);
@@ -273,8 +266,7 @@ describe("RGXClassToken", () => {
             const result = testToken1.repeat(2, 5);
             expect(result).toBeInstanceOf(RGXRepeatToken);
             
-            expect(result.token).toBeInstanceOf(RGXGroupToken);
-            expect((result.token as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+            expect(result.token).toBe(testToken1);
             
             expect(result.min).toBe(2);
             expect(result.max).toBe(5);
@@ -318,8 +310,7 @@ describe("RGXClassToken", () => {
             const result = repeatToken.optional();
             expect(result).toBeInstanceOf(RGXRepeatToken);
 
-            expect(result.token).toBeInstanceOf(RGXGroupToken);
-            expect((result.token as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+            expect(result.token).toBe(testToken1);
 
             expect(result.min).toBe(0);
             expect(result.max).toBe(2);
@@ -329,8 +320,7 @@ describe("RGXClassToken", () => {
             const result = testToken1.optional();
             expect(result).toBeInstanceOf(RGXRepeatToken);
 
-            expect(result.token).toBeInstanceOf(RGXGroupToken);
-            expect((result.token as RGXGroupToken).tokens.toArray()).toEqual([testToken1]);
+            expect(result.token).toBe(testToken1);
 
             expect(result.min).toBe(0);
             expect(result.max).toBe(1);
@@ -341,8 +331,7 @@ describe("RGXClassToken", () => {
             const result = repeatToken.optional();
             expect(result).toBeInstanceOf(RGXRepeatToken);
 
-            expect(result.token).toBeInstanceOf(RGXGroupToken);
-            expect((result.token as RGXGroupToken).tokens.toArray()).toEqual([repeatToken]);
+            expect(result.token).toBe(repeatToken);
 
             expect(result.min).toBe(0);
             expect(result.max).toBe(1);

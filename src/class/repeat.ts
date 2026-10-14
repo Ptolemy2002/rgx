@@ -1,8 +1,7 @@
-import { RGXGroupedToken, RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken } from "src/types";
+import { RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken } from "src/types";
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
 import { RGXClassToken } from "./base";
-import { RGXGroupToken } from "./group";
-import { isRGXGroupedToken, isRGXJSONToken, isRGXToken } from "src/typeGuards";
+import { isRGXJSONToken, isRGXToken } from "src/typeGuards";
 import { assertInRange, RGXNotSupportedError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
 import { createConstructFunction, toSingletonRegexSource } from "src/internal";
@@ -22,7 +21,7 @@ function parseRepeatJSONArgs(args: RGXJSONValue[]): [RGXJSONToken, number?, (num
 }
 
 export class RGXRepeatToken extends RGXClassToken {
-    _token: RGXGroupedToken;
+    _token: RGXToken;
     _min: number;
     _max: number | null = null;
     lazy: boolean = false;
@@ -53,7 +52,7 @@ export class RGXRepeatToken extends RGXClassToken {
         this._max = Math.floor(value);
     }
 
-    get token(): RGXGroupedToken {
+    get token(): RGXToken {
         return this._token;
     }
 
@@ -66,9 +65,7 @@ export class RGXRepeatToken extends RGXClassToken {
             }
         }
 
-        // Make sure we are always working with a grouped token.
-        if (isRGXGroupedToken(value)) this._token = value;
-        else this._token = new RGXGroupToken({capturing: false}, value);
+        this._token = value;
     }
 
     // We don't need to group wrap this token because the repeater has no
@@ -110,8 +107,8 @@ export class RGXRepeatToken extends RGXClassToken {
         // No-op if we're repeating zero times.
         if (this.min === 0 && this.max === 0) return null;
         
-        // The token is usually grouped already, but rgxIsGroup is trusted without being checked, and tokens are
-        // often wrapped in more groups than needed. Normalizing to a singleton fixes both before the quantifier is added.
+        // The quantifier must apply to the whole token, so normalize it to a singleton before adding it. This adds a
+        // group when the token isn't a singleton, and removes groups that only wrap one.
         const resolvedSource = toSingletonRegexSource(resolveRGXToken(this.token));
         return createRegex(`${resolvedSource}${this.repeaterSuffix}`);
     }

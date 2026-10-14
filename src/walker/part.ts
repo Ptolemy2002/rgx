@@ -1,4 +1,3 @@
-import { isRGXGroupedToken, isRGXToken } from "src/typeGuards";
 import { RGXConvertibleToken, RGXToken } from "src/types";
 import type { RGXWalker } from "./base";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";

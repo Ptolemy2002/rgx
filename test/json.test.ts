@@ -9,7 +9,7 @@ import {
     ExtRegExp, registerFlagTransformer, unregisterFlagTransformer,
     RGXInvalidJSONClassKeyError, RGXJSONClassConflictError, RGXJSONClassArgsValidationFailedError,
     RGXNotJSONSerializableError, RGXInvalidJSONTokenError, RGXInvalidTokenError, RGXNotImplementedError, RGXInvalidRegexStringError,
-    RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken, rgxConstant, resolveRGXToken, rgxa, RGXInsertionRejectedError
+    RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken, rgxConstant, isRGXSingletonToken, resolveRGXToken, rgxa, RGXInsertionRejectedError
 } from "src/index";
 import { expectError } from "./utils";
 
@@ -447,7 +447,7 @@ describe("built-in class token round trips", () => {
         const token = new RGXRepeatToken("a", 2, null, true);
         expect(token.toJSON()).toEqual({
             $rgx: true, class: "RGXRepeatToken",
-            args: [{ $rgx: true, class: "RGXGroupToken", args: [{ name: null, capturing: false, flags: "" }, ["a"]] }, 2, null, true]
+            args: ["a", 2, null, true]
         });
 
         const result = roundTrip(token) as RGXRepeatToken;
@@ -585,20 +585,20 @@ describe("JSON tokens in the rest of the library", () => {
 
     it("wraps JSON tokens correctly in RGXClassWrapperToken", () => {
         const literalWrapper = new RGXClassWrapperToken({ $rgx: true, source: "a" });
-        expect(literalWrapper.rgxIsGroup).toBe(true);
+        expect(isRGXSingletonToken(literalWrapper)).toBe(true);
         expect(literalWrapper.rgxIsRepeatable).toBe(true);
 
         const lookaheadWrapper = new RGXClassWrapperToken({ $rgx: true, class: "RGXLookaheadToken", args: [["a"]] });
-        expect(lookaheadWrapper.rgxIsGroup).toBe(true);
+        // Lookarounds are assertions, so a quantifier can't apply to them.
+        expect(isRGXSingletonToken(lookaheadWrapper)).toBe(false);
         expect(lookaheadWrapper.rgxIsRepeatable).toBe(false);
 
-        // Same as wrapping the class token directly: its toRgx result is a literal, which is a group.
         const subpatternWrapper = new RGXClassWrapperToken({ $rgx: true, class: "RGXSubpatternToken", args: [1] });
-        expect(subpatternWrapper.rgxIsGroup).toBe(true);
+        expect(isRGXSingletonToken(subpatternWrapper)).toBe(true);
         expect(subpatternWrapper.rgxIsRepeatable).toBe(true);
 
-        const nativeWrapper = new RGXClassWrapperToken({ $rgx: true, class: "RGXClassWrapperToken", args: ["a"] });
-        expect(nativeWrapper.rgxIsGroup).toBe(false);
+        const nativeWrapper = new RGXClassWrapperToken({ $rgx: true, class: "RGXClassWrapperToken", args: ["ab"] });
+        expect(isRGXSingletonToken(nativeWrapper)).toBe(false);
     });
 
     it("rejects repeating a non-repeatable JSON class token", () => {

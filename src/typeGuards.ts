@@ -1,7 +1,8 @@
 import * as t from "./types";
 import * as e from "./errors";
 import isCallable from "is-callable";
-import { isConstructor } from "./internal";
+import { isConstructor, isSingletonRegexSource } from "./internal";
+import { resolveRGXToken } from "./resolve";
 import { RGXClassToken } from "./class";
 import { ExtRegExp } from "./ExtRegExp";
 import { RGXTokenCollection } from "./collection";
@@ -47,10 +48,9 @@ export function assertRGXNativeToken(value: unknown): asserts value is t.RGXNati
 
 export function isRGXConvertibleToken(value: unknown, returnCheck: boolean = true, acceptJSON: boolean = true): value is t.RGXConvertibleToken {
     if (typeof value === 'object' && value !== null && 'toRgx' in value) {
-        // The rgxGroupWrap, interpolate, rgxIsRepeatable, and rgxIsGroup properties are optional, but if they exist they must be booleans.
+        // The rgxGroupWrap, interpolate, and rgxIsRepeatable properties are optional, but if they exist they must be booleans.
         if ('rgxGroupWrap' in value && typeof value.rgxGroupWrap !== 'boolean') return false;
         if ('rgxIsRepeatable' in value && typeof value.rgxIsRepeatable !== 'boolean') return false;
-        if ('rgxIsGroup' in value && typeof value.rgxIsGroup !== 'boolean') return false;
         if ('rgxInterpolate' in value && typeof value.rgxInterpolate !== 'boolean') return false;
 
         // If the rgxAcceptInsertion property exists, it must be a function that returns a string or boolean.
@@ -307,34 +307,27 @@ export function assertRGXToken<
     }
 }
 
-export function isRGXGroupedToken(value: unknown, contentCheck: boolean = true, acceptJSON: boolean = true): value is t.RGXGroupedToken  {
-    // JSON literal tokens are literals once converted, so they are implicitly groups.
-    // JSON class tokens are groups if the class token they convert to is a group.
-    if (acceptJSON && isRGXJSONLiteralToken(value, contentCheck)) return true;
-    if (acceptJSON && isRGXJSONClassToken(value)) return isRGXGroupedToken(rgxTokenFromJSON(value), contentCheck, false);
+// Whether the token resolves to a singleton: exactly one unit that a quantifier can apply to as a whole, such as a
+// single character, escape, character class, or (non-assertion) group.
+export function isRGXSingletonToken(value: unknown, acceptJSON: boolean = true): value is t.RGXToken {
+    if (!isRGXToken(value, null, true, acceptJSON)) return false;
 
-    // Arrays and Literals are implicitly groups.
-    // Classes are only groups if they have the isGroup property set to true.
-    return (
-        isRGXArrayToken(value, contentCheck, acceptJSON) ||
-        isRGXToken(value, "literal", true, false) ||
-        (isRGXConvertibleToken(value, false) && (
-            value.rgxIsGroup || 
-            (
-                value.rgxGroupWrap === true && (
-                    !contentCheck || isRGXGroupedToken(value.toRgx(), true, acceptJSON)
-                )
-            )
-        ))
-    );
+    try {
+        return isSingletonRegexSource(resolveRGXToken(value));
+    } catch (err) {
+        // Tokens that can't be resolved on their own (such as unbalanced interpolations) aren't singletons.
+        if (err instanceof e.RGXError) return false;
+
+        // This is ignored because I don't know what kind of
+        // unexpected errors might happen.
+        /* istanbul ignore next */
+        throw err;
+    }
 }
 
-export function assertRGXGroupedToken(value: unknown, contentCheck: boolean = true, acceptJSON: boolean = true): asserts value is t.RGXGroupedToken {
-    if (!isRGXGroupedToken(value, contentCheck, acceptJSON)) {
-        throw new e.RGXInvalidTokenError(
-            "Invalid group token, class token is not group, or convertible token is not group wrapped.",
-            {type: "custom", values: ['array', 'literal', 'class', 'convertible']}, value
-        );
+export function assertRGXSingletonToken(value: unknown, acceptJSON: boolean = true): asserts value is t.RGXToken {
+    if (!isRGXSingletonToken(value, acceptJSON)) {
+        throw new e.RGXInvalidTokenError("Invalid singleton token", { type: "custom", values: ["token that resolves to a singleton"] }, value);
     }
 }
 

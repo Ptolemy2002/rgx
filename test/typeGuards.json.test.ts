@@ -2,7 +2,7 @@ import {
     isRGXJSONValue, assertRGXJSONValue, isRGXJSONNativeToken, assertRGXJSONNativeToken,
     isRGXJSONLiteralToken, assertRGXJSONLiteralToken, isRGXJSONClassToken, assertRGXJSONClassToken,
     isRGXJSONObjectToken, assertRGXJSONObjectToken, isRGXJSONToken, assertRGXJSONToken,
-    isRGXToken, assertRGXToken, isRGXArrayToken, isRGXConvertibleToken, isRGXGroupedToken, assertRGXGroupedToken,
+    isRGXToken, assertRGXToken, isRGXArrayToken, isRGXConvertibleToken, isRGXSingletonToken, assertRGXSingletonToken,
     rgxTokenType, rgxTokenTypeFlat, rgxTokenTypeGuardInputToFlat,
     RGXInvalidJSONTokenError, RGXInvalidTokenError, RGXSubpatternToken, RGXLookaheadToken, RGXGroupToken,
     registerFlagTransformer, unregisterFlagTransformer, registerRGXJSONClass, unregisterRGXJSONClass
@@ -12,7 +12,6 @@ const literalJSON = { $rgx: true as const, source: "abc", flags: "i" };
 const classJSON = { $rgx: true as const, class: "RGXSubpatternToken", args: [1] };
 const lookaheadJSON = { $rgx: true as const, class: "RGXLookaheadToken", args: [["a"]] };
 const groupJSON = { $rgx: true as const, class: "RGXGroupToken", args: [{}, ["a"]] };
-const wrapperJSON = { $rgx: true as const, class: "RGXClassWrapperToken", args: ["a"] };
 
 describe("isRGXJSONValue", () => {
     it("accepts JSON values", () => {
@@ -264,28 +263,21 @@ describe("isRGXConvertibleToken with JSON tokens", () => {
     });
 });
 
-describe("isRGXGroupedToken with JSON tokens", () => {
-    it("treats JSON literal tokens as groups", () => {
-        expect(isRGXGroupedToken(literalJSON)).toBe(true);
-        expect(isRGXGroupedToken(literalJSON, true, false)).toBe(false);
-        expect(isRGXGroupedToken({ $rgx: true, source: "[" }, false)).toBe(true);
-        expect(isRGXGroupedToken({ $rgx: true, source: "[" })).toBe(false);
-    });
-
-    it("checks the converted class token for JSON class tokens", () => {
-        expect(isRGXGroupedToken(lookaheadJSON)).toBe(true);
-        expect(isRGXGroupedToken(groupJSON)).toBe(true);
-        expect(isRGXGroupedToken(wrapperJSON)).toBe(false);
-        expect(isRGXGroupedToken(lookaheadJSON, true, false)).toBe(false);
-        expect(() => assertRGXGroupedToken(wrapperJSON)).toThrow(RGXInvalidTokenError);
-        expect(() => assertRGXGroupedToken(lookaheadJSON)).not.toThrow();
+describe("isRGXSingletonToken with JSON tokens", () => {
+    it("checks what JSON tokens resolve to", () => {
+        expect(isRGXSingletonToken(literalJSON)).toBe(true);
+        expect(isRGXSingletonToken(groupJSON)).toBe(true);
+        // Lookarounds are assertions, so a quantifier can't apply to them.
+        expect(isRGXSingletonToken(lookaheadJSON)).toBe(false);
+        expect(() => assertRGXSingletonToken(lookaheadJSON)).toThrow(RGXInvalidTokenError);
+        expect(isRGXSingletonToken({ $rgx: true, source: "[" })).toBe(false);
     });
 
     it("respects acceptJSON within arrays and convertible results", () => {
-        expect(isRGXGroupedToken([literalJSON])).toBe(true);
-        expect(isRGXGroupedToken([literalJSON], true, false)).toBe(false);
-        expect(isRGXGroupedToken({ rgxGroupWrap: true, toRgx: () => literalJSON })).toBe(true);
-        expect(isRGXGroupedToken({ rgxGroupWrap: true, toRgx: () => literalJSON }, true, false)).toBe(false);
+        expect(isRGXSingletonToken([literalJSON])).toBe(true);
+        expect(isRGXSingletonToken([literalJSON], false)).toBe(false);
+        expect(isRGXSingletonToken({ toRgx: () => literalJSON })).toBe(true);
+        expect(isRGXSingletonToken({ toRgx: () => literalJSON }, false)).toBe(false);
     });
 });
 

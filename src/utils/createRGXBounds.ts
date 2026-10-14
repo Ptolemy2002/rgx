@@ -23,9 +23,8 @@ function convertNoGroupWrap(token: RGXToken): RGXToken {
 }
 
 function convertToBound(token: ExtRegExp): RGXConvertibleToken {
-    // Bounds are not groups themselves, cannot be repeated (since they don't consume characters)
-    // and should never be group wrapped
-    const boundPart = { rgxGroupWrap: false, rgxIsGroup: false, rgxIsRepeatable: false };
+    // Bounds cannot be repeated (since they don't consume characters) and should never be group wrapped
+    const boundPart = { rgxGroupWrap: false, rgxIsRepeatable: false };
 
     return {
         ...boundPart,

@@ -12,7 +12,6 @@ type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
     readonly rgxGroupWrap?: boolean,
-    readonly rgxIsGroup?: boolean,
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
@@ -49,7 +48,6 @@ constructor(tokens?: RGXTokenCollectionInput, positive?: boolean)
 - `negative` (`boolean`): Whether the lookaround is negative. Setting this updates `positive` accordingly.
 
 These properties only have getters.
-- `rgxIsGroup` (`true`): Returns `true` as a constant, indicating this token represents a group.
 - `rgxIsRepeatable` (`false`): Returns `false` as a constant, since lookaround assertions cannot be repeated.
 - `rgxGroupWrap` (`false`): Returns `false` as a constant, since the lookaround already wraps itself in a group.
 

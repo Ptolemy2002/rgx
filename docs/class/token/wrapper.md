@@ -12,7 +12,6 @@ type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
     readonly rgxGroupWrap?: boolean,
-    readonly rgxIsGroup?: boolean,
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
@@ -28,7 +27,7 @@ type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSON
 ```
 
 # RGXClassWrapperToken
-A class that wraps any `RGXToken` as an `RGXClassToken`, giving you access to the extended API class tokens provide. It delegates `rgxIsGroup` and `rgxIsRepeatable` to the wrapped token where possible.
+A class that wraps any `RGXToken` as an `RGXClassToken`, giving you access to the extended API class tokens provide. It delegates `rgxIsRepeatable` to the wrapped token where possible.
 
 A function `rgxClassWrapper` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
 
@@ -47,7 +46,6 @@ constructor(token: RGXToken)
 - `token` (`RGXToken`): The wrapped token.
 
 These properties only have getters.
-- `rgxIsGroup` (`boolean`): Delegates to the wrapped token's group status via `isRGXGroupedToken`. Returns `true` if the wrapped token is a grouped token, otherwise `false`.
 - `rgxIsRepeatable` (`boolean`): If the wrapped token is an `RGXConvertibleToken`, delegates to its `rgxIsRepeatable` property (defaulting to `true` if not present). If the wrapped token is a JSON object token, it is first converted with `rgxTokenFromJSON` and the converted token is checked instead. Otherwise, returns `true`.
 
 ## Methods

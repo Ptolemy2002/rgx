@@ -12,7 +12,6 @@ type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
     readonly rgxGroupWrap?: boolean,
-    readonly rgxIsGroup?: boolean,
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
@@ -62,7 +61,6 @@ constructor(args?: RGXGroupTokenArgs, tokens?: RGXTokenCollectionInput)
 - `flags` (`string`): The localizable flags (`i`, `m`, `s`) to apply to the group. Setting this validates the value via `assertValidRegexLocalizableFlags`.
 
 These properties only have a getter.
-- `rgxIsGroup` (`true`): Returns `true` as a constant, indicating this token represents a group.
 - `rgxGroupWrap` (`false`): Returns `false` as a constant, since the group already wraps itself, preventing the resolver from double-wrapping.
 
 ## Methods

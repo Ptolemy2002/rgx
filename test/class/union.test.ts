@@ -87,12 +87,6 @@ describe("RGXClassUnionToken", () => {
         constructionTest(rgxClassUnion);
     });
 
-    describe("rgxIsGroup", () => {
-        it("is false", () => {
-            const instance = new RGXClassUnionToken();
-            expect(instance.rgxIsGroup).toBe(false);
-        });
-    });
 
     it("resolves correctly", () => {
         const instance = new RGXClassUnionToken(["a", "b"]);
