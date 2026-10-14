@@ -43,8 +43,10 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
         }
     };
 
-    get rgxIsRepeatable() {
-        return true;
+    // Unset by default, so the token is only non-repeatable if it is detected as consuming no characters.
+    // Subclasses can override this to set an explicit preference.
+    get rgxIsRepeatable(): boolean | undefined {
+        return undefined;
     }
 
     or(...others: RGXTokenCollectionInput[]): RGXClassUnionToken {

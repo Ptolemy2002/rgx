@@ -1,7 +1,7 @@
 import * as t from "./types";
 import * as e from "./errors";
 import isCallable from "is-callable";
-import { isConstructor, isSingletonRegexSource } from "./internal";
+import { isConstructor, isNonConsumingRGXToken, isSingletonRegexSource } from "./internal";
 import { resolveRGXToken } from "./resolve";
 import { RGXClassToken } from "./class";
 import { ExtRegExp } from "./ExtRegExp";
@@ -48,8 +48,8 @@ export function assertRGXNativeToken(value: unknown): asserts value is t.RGXNati
 
 export function isRGXConvertibleToken(value: unknown, returnCheck: boolean = true, acceptJSON: boolean = true): value is t.RGXConvertibleToken {
     if (typeof value === 'object' && value !== null && 'toRgx' in value) {
-        // The rgxIsRepeatable property is optional, but if it exists it must be a boolean.
-        if ('rgxIsRepeatable' in value && typeof value.rgxIsRepeatable !== 'boolean') return false;
+        // The rgxIsRepeatable property is optional, but if it is set it must be a boolean.
+        if ('rgxIsRepeatable' in value && value.rgxIsRepeatable !== undefined && typeof value.rgxIsRepeatable !== 'boolean') return false;
 
         // If the rgxAcceptInsertion property exists, it must be a function that returns a string or boolean.
         if ('rgxAcceptInsertion' in value) {
@@ -310,9 +310,10 @@ export function isRGXToken<
     // Interpolation tokens are source fragments, which can't be repeated as a unit.
     if (type === 'repeatable' && isRGXInterpolationToken(value)) return false;
 
-    // Non-covertible tokens are repeatable by default. Convertible tokens are only non-repeatable if they have the rgxIsRepeatable property set to false.
+    // Non-covertible tokens are repeatable by default. Convertible tokens trust their rgxIsRepeatable property when it is
+    // set, and otherwise are only non-repeatable if they are detected as consuming no characters.
     if (type === 'repeatable' && !isRGXConvertibleToken(value, false)) return true;
-    if (type === 'repeatable' && isRGXConvertibleToken(value, true, acceptJSON)) return value.rgxIsRepeatable ?? true;
+    if (type === 'repeatable' && isRGXConvertibleToken(value, true, acceptJSON)) return value.rgxIsRepeatable ?? !isNonConsumingRGXToken(value);
 
     if (typeMatches('array') && isRGXArrayToken(value, true, acceptJSON)) return true;
 

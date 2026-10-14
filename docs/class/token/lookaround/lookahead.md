@@ -53,7 +53,7 @@ Inherited from `RGXLookaroundToken`.
 - `negative` (`boolean`): Whether the lookaround is negative. Setting this updates `positive` accordingly.
 
 These properties only have getters.
-- `rgxIsRepeatable` (`false`): Returns `false` as a constant, since lookaround assertions cannot be repeated.
+- `rgxIsRepeatable` (`undefined`): Not set, since lookaround assertions are detected as consuming no characters, which makes them non-repeatable.
 
 ## Methods
 - `negate() => RGXLookaheadToken`: Returns a new `RGXLookaheadToken` with the opposite positivity, preserving the original tokens.

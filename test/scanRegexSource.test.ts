@@ -1,4 +1,4 @@
-import { hasRegexParenErrors, isSingletonRegexSource, removeRedundantRegexGroups, scanOptionsFromFlags, scanRegexSource, toSingletonRegexSource, tokenizeRegexSource, regexSourceUnitText } from "src/internal/scanRegexSource";
+import { hasRegexParenErrors, isNonConsumingRegexSource, isSingletonRegexSource, removeRedundantRegexGroups, scanOptionsFromFlags, scanRegexSource, toSingletonRegexSource, tokenizeRegexSource, regexSourceUnitText } from "src/internal/scanRegexSource";
 
 describe("scanRegexSource", () => {
     it("counts top-level units", () => {
@@ -111,6 +111,34 @@ describe("isSingletonRegexSource", () => {
         for (const source of ["^", "$", "|", "*", "{", "]", "\\b", "\\B", "(?=a)", "(?!a)", "(?<=a)", "(?<!a)"]) {
             expect(isSingletonRegexSource(source)).toBe(false);
         }
+    });
+
+    it("rejects groups that only contain assertions", () => {
+        for (const source of ["(?:^)", "(?:(?=a))", "(^)", "(?:^|$)"]) {
+            expect(isSingletonRegexSource(source)).toBe(false);
+        }
+
+        expect(isSingletonRegexSource("(?:)")).toBe(true);
+    });
+});
+
+describe("isNonConsumingRegexSource", () => {
+    it("accepts sources made entirely of assertions", () => {
+        for (const source of ["^", "$", "\\b", "\\B", "(?=a)", "(?!a+)", "(?<=a)", "(?<!a)", "^$", "(?:^)", "(^)", "(?<=\\W|^)(?=\\w)", "^|$", "^|", "(?:)^", "(?!)"]) {
+            expect(isNonConsumingRegexSource(source)).toBe(true);
+        }
+    });
+
+    it("rejects sources that might consume characters", () => {
+        for (const source of ["", "(?:)", "()", "a", "a?", "^a", "^|a", "(?:^a)", "^*", "\\d", "[^]", "(?=a)b"]) {
+            expect(isNonConsumingRegexSource(source)).toBe(false);
+        }
+    });
+
+    it("rejects sources with paren errors", () => {
+        expect(isNonConsumingRegexSource("(?=a")).toBe(false);
+        expect(isNonConsumingRegexSource("^)")).toBe(false);
+        expect(isNonConsumingRegexSource("(?:^")).toBe(false);
     });
 });
 

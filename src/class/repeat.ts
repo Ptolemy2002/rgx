@@ -1,10 +1,10 @@
 import { RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken } from "src/types";
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
 import { RGXClassToken } from "./base";
-import { isRGXJSONToken, isRGXToken } from "src/typeGuards";
+import { isRGXConvertibleToken, isRGXJSONObjectToken, isRGXJSONToken, isRGXToken } from "src/typeGuards";
 import { assertInRange, RGXNotSupportedError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
-import { createConstructFunction, toSingletonRegexSource } from "src/internal";
+import { createConstructFunction, isNonConsumingRGXToken, toSingletonRegexSource } from "src/internal";
 import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
@@ -18,6 +18,23 @@ function parseRepeatJSONArgs(args: RGXJSONValue[]): [RGXJSONToken, number?, (num
     if (max !== undefined && max !== null && typeof max !== "number") return "Argument 2 (max) must be a number or null, if present.";
     if (lazy !== undefined && typeof lazy !== "boolean") return "Argument 3 (lazy) must be a boolean, if present.";
     return [token, min, max, lazy];
+}
+
+// Tokens already warned about, so each token is only warned about once even though it may be repeated many times.
+const warnedNonConsumingTokens = new WeakSet<object>();
+
+// Repeating a token explicitly marked as repeatable is allowed even if it consumes no characters, since it does no harm,
+// but it is almost certainly a mistake.
+function warnIfRepeatingNonConsuming(value: RGXToken) {
+    if (!isRGXToken(value, "convertible") || warnedNonConsumingTokens.has(value)) return;
+
+    // JSON class tokens become class tokens, which may be marked as repeatable.
+    const token = isRGXJSONObjectToken(value, false) ? rgxTokenFromJSON(value) : value;
+    if (!isRGXConvertibleToken(token, false) || token.rgxIsRepeatable !== true || !isNonConsumingRGXToken(token)) return;
+
+    warnedNonConsumingTokens.add(value);
+    const name = RGXClassToken.check(token) ? `${token.constructor.name} token` : "convertible token";
+    console.warn(`RGX: Repeating a ${name} that is marked as repeatable (rgxIsRepeatable: true) but consumes no characters, so repeating it has no effect.`);
 }
 
 export class RGXRepeatToken extends RGXClassToken {
@@ -62,13 +79,15 @@ export class RGXRepeatToken extends RGXClassToken {
         }
 
         if (isRGXToken(value, "convertible") && !isRGXToken(value, "repeatable")) {
+            const reason = "The token was marked as non-repeatable, or was detected as consuming no characters.";
             if (isRGXToken(value, "class")) {
-                throw new RGXNotSupportedError(`Repeating ${value.constructor.name} tokens`, "The token was manually marked as non-repeatable.");
+                throw new RGXNotSupportedError(`Repeating ${value.constructor.name} tokens`, reason);
             } else {
-                throw new RGXNotSupportedError("Repeating tokens with {rgxIsRepeatable: false}", "The token was manually marked as non-repeatable.");
+                throw new RGXNotSupportedError("Repeating non-repeatable convertible tokens", reason);
             }
         }
 
+        warnIfRepeatingNonConsuming(value);
         this._token = value;
     }
 

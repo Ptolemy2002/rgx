@@ -46,7 +46,7 @@ constructor(token: RGXToken)
 - `token` (`RGXToken`): The wrapped token.
 
 These properties only have getters.
-- `rgxIsRepeatable` (`boolean`): If the wrapped token is an `RGXConvertibleToken`, delegates to its `rgxIsRepeatable` property (defaulting to `true` if not present). If the wrapped token is a JSON object token, it is first converted with `rgxTokenFromJSON` and the converted token is checked instead. Otherwise, returns `true`.
+- `rgxIsRepeatable` (`boolean`): If the wrapped token is an `RGXConvertibleToken` with an `rgxIsRepeatable` preference, delegates to it. If the wrapped token is an interpolation token, returns `false`. Otherwise (including convertible tokens without a preference and non-convertible tokens such as literals), returns whether the wrapped token is detected as consuming characters (see `isRGXToken` in [type-guards.md](../../type-guards.md)), so wrapping `/^/` gives a non-repeatable token even though `/^/` itself is repeatable. If the wrapped token is a JSON object token, it is first converted with `rgxTokenFromJSON` and the converted token is checked instead.
 
 ## Methods
 - `unwrap() => RGXToken`: Returns the original wrapped token.

@@ -15,31 +15,6 @@ Each entry has a `##` heading naming the change, followed by these sections:
 
 ---
 
-## Detect `rgxIsRepeatable` automatically when it isn't set
-
-### Problem
-`rgxIsRepeatable` defaults to `true`, so a token is only treated as non-repeatable when it says so. Every built-in token that sets it to `false` does so because its output consumes no characters (anchors, word bounds, `escape-bound`, `never`, lookarounds, `createRGXBounds` results), which can be detected from the resolved source. A custom zero-width token that forgets the flag can be repeated, which is meaningless.
-
-### Breaking change
-`rgxIsRepeatable` stays a two-state `boolean`, but its absence means "detect" instead of "repeatable":
-
-- When present, it is trusted.
-- When absent, the token is repeatable unless its resolved source is detected as consuming no characters. Detection lives in `src/internal/scanRegexSource.ts` and must err toward "consumes characters": only sources made entirely of assertions (`^`, `$`, `\b`, `\B`, and lookaround groups, plus empty groups) are non-consuming. A source that only might consume nothing, such as `a?`, is repeatable.
-- When it is explicitly `true` and the source is detected as non-consuming, repeating is allowed (it's the user's choice and does no harm), but a warning is printed with `console.warn`. Print it at most once per token (for example, with a module-level `WeakSet`), since a repeated token is resolved several times.
-
-`RGXRepeatableConvertibleToken` and the `"repeatable"` checks in `isRGXToken` change accordingly, and `RGXClassToken.rgxIsRepeatable` no longer returns `true` by default (it is absent, or `undefined`, unless a subclass sets it).
-
-This breaks code that repeats a zero-width token without setting `rgxIsRepeatable` (it now throws `RGXNotSupportedError`), and code that reads `rgxIsRepeatable` expecting a `boolean` on every class token.
-
-### Current workaround
-None. Built-in zero-width tokens set `rgxIsRepeatable: false` explicitly, and tokens that don't set it are repeatable.
-
-### Reverting the workaround
-- Add the detection helper and use it in `isRGXToken` (`"repeatable"`), `RGXClassWrapperToken.rgxIsRepeatable`, and the `RGXRepeatToken.token` setter, which also prints the warning.
-- Remove `rgxIsRepeatable: false` where detection now gives the same answer: the zero-width constants in `src/constants.ts`, `src/flag-transformer/accentInsensitive.ts` (check it is zero-width first), `createRGXBounds`, and `RGXLookaroundToken`. Keep it on anything that consumes characters but shouldn't be repeated.
-- Update the `rgxIsRepeatable` descriptions in `docs/class/token/base.md` (including `repeat()` and `optional()`), `docs/type-guards.md`, and `docs/class/token/repeat.md`.
-- Test the detection helper, the warning (once per token), and an explicit `true` on a zero-width token.
-
 ## Give `rgxAcceptInsertion` its real context, including for nested tokens
 
 ### Problem

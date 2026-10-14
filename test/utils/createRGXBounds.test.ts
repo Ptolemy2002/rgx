@@ -1,6 +1,6 @@
 import { ExtRegExp } from "src/ExtRegExp";
 import { rgxa } from "src/index";
-import { isRGXConvertibleToken } from "src/typeGuards";
+import { isRGXConvertibleToken, isRGXToken } from "src/typeGuards";
 import { createRGXBounds } from "src/utils";
 
 describe("createRGXBounds", () => {
@@ -42,23 +42,22 @@ describe("createRGXBounds", () => {
         expect((endBound.toRgx() as ExtRegExp).flags).toBe("i");
     });
 
-    it("correctly sets the convertible token options of the bounds when passed non-convertible tokens", () => {
+    it("creates bounds that are detected as non-repeatable when passed non-convertible tokens", () => {
         const [startBound, endBound] = createRGXBounds("a", "b", {flags: "i"});
 
-        expect(startBound.rgxIsRepeatable).toBe(false);
-
-        expect(endBound.rgxIsRepeatable).toBe(false);
+        expect(isRGXToken(startBound, "repeatable")).toBe(false);
+        expect(isRGXToken(endBound, "repeatable")).toBe(false);
     });
 
-    it("correctly sets the convertible token options of the bounds when passed convertible tokens", () => {
+    it("creates bounds that are detected as non-repeatable when passed repeatable convertible tokens", () => {
         const positive = { toRgx() { return "a"; }, rgxIsRepeatable: true };
         const negative = { toRgx() { return "b"; }, rgxIsRepeatable: true };
 
         const [startBound, endBound] = createRGXBounds(positive, negative, {flags: "i"});
-        
-        expect(startBound.rgxIsRepeatable).toBe(false);
 
-        expect(endBound.rgxIsRepeatable).toBe(false);
+        expect(isRGXToken(startBound, "repeatable")).toBe(false);
+        expect(isRGXToken(endBound, "repeatable")).toBe(false);
+        expect(isRGXToken(createRGXBounds("a", "b", { inner: false })[0], "repeatable")).toBe(false);
     });
 
     it("creates a startBound that only matches positions preceded by the negative token and followed by the positive token when both anchorStart and anchorEnd are false", () => {

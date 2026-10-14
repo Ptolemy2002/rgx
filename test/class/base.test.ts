@@ -1,5 +1,6 @@
 import { rgxClassInit, RGXClassToken, RGXClassUnionToken, RGXClassWrapperToken, RGXExclusionToken, RGXGroupToken, RGXLookaheadToken, RGXLookbehindToken, RGXRepeatToken } from "src/class";
 import { RGXNotImplementedError, RGXInvalidTokenError, RGXNotSupportedError } from "src/errors";
+import { isRGXToken } from "src/typeGuards";
 
 class TestClassToken extends RGXClassToken {
     toRgx() {
@@ -112,8 +113,12 @@ describe("rgxClassInit", () => {
 });
 
 describe("RGXClassToken", () => {
-    it("is repeatable by default", () => {
-        expect(testToken1.rgxIsRepeatable).toBe(true);
+    it("has no explicit repeatability preference by default", () => {
+        expect(testToken1.rgxIsRepeatable).toBeUndefined();
+    });
+
+    it("is repeatable by default when it consumes characters", () => {
+        expect(isRGXToken(testToken1, "repeatable")).toBe(true);
     });
 
     it("resolves to a valid regex string via resolve()", () => {

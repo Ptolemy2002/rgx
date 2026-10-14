@@ -2,7 +2,7 @@ import { RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken } from "src/typ
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
 import { RGXClassToken } from "./base";
 import { isRGXJSONObjectToken, isRGXJSONToken, isRGXToken } from "src/typeGuards";
-import { createConstructFunction } from "src/internal";
+import { createConstructFunction, isNonConsumingRGXToken } from "src/internal";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
@@ -26,12 +26,13 @@ export class RGXClassWrapperToken extends RGXClassToken {
     }
 
     get rgxIsRepeatable(): boolean {
-        // JSON tokens become literal or class tokens, so check the converted token instead.
+        // JSON tokens become literal, class, or interpolation tokens, so check the converted token instead.
         const token = isRGXJSONObjectToken(this.token, false) ? rgxTokenFromJSON(this.token) : this.token;
-        if (isRGXToken(token, 'convertible', true, false)) return token.rgxIsRepeatable ?? true;
         if (isRGXToken(token, 'interpolation', true, false)) return false;
-        // Assume any other token is repeatable, since we don't know its implementation.
-        return true;
+        // Explicit preferences of convertible tokens are kept.
+        if (isRGXToken(token, 'convertible', true, false) && token.rgxIsRepeatable !== undefined) return token.rgxIsRepeatable;
+        // Otherwise, the wrapper is detected like any other convertible token.
+        return !isNonConsumingRGXToken(token);
     }
 
     unwrap(): RGXToken {

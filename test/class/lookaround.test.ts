@@ -1,6 +1,7 @@
 import { RGXLookaroundToken, RGXLookaheadToken, RGXLookbehindToken, rgxLookahead, rgxLookbehind, RGXClassToken } from "src/class";
 import { RGXTokenCollection } from "src/collection";
 import { RGXInvalidTokenError } from "src/errors";
+import { isRGXToken } from "src/typeGuards";
 import { ConstructFunction } from "src/internal";
 
 const isRGXLookaroundToken = RGXLookaroundToken.check;
@@ -136,7 +137,9 @@ describe("RGXLookaheadToken", () => {
 
     it("is not repeatable", () => {
         const instance = new RGXLookaheadToken();
-        expect(instance.rgxIsRepeatable).toBe(false);
+        expect(instance.rgxIsRepeatable).toBeUndefined();
+        // Lookarounds consume no characters, so they are detected as non-repeatable.
+        expect(isRGXToken(instance, "repeatable")).toBe(false);
     });
 
     describe("negate", () => {
@@ -230,7 +233,9 @@ describe("RGXLookbehindToken", () => {
 
     it("is not repeatable", () => {
         const instance = new RGXLookbehindToken();
-        expect(instance.rgxIsRepeatable).toBe(false);
+        expect(instance.rgxIsRepeatable).toBeUndefined();
+        // Lookarounds consume no characters, so they are detected as non-repeatable.
+        expect(isRGXToken(instance, "repeatable")).toBe(false);
     });
 
     describe("negate", () => {

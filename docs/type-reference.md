@@ -31,7 +31,8 @@ type RGXJSONFlag = typeof RGX_JSON_FLAG;
 type RGXTokenOrPart<R, S = unknown, T = any> = RGXToken | RGXPart<R, S, T>;
 
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
-type RGXRepeatableConvertibleToken = RGXConvertibleToken & { readonly rgxIsRepeatable: true | undefined };
+// When rgxIsRepeatable is absent, the token is only repeatable if it isn't detected as consuming no characters, which types can't express.
+type RGXRepeatableConvertibleToken = RGXConvertibleToken & { readonly rgxIsRepeatable?: true };
 
 const validRegexSymbol = Symbol('rgx.ValidRegex');
 type ValidRegexBrandSymbol = typeof validRegexSymbol;
@@ -68,7 +69,7 @@ type RGXTokenTypeGuardInput =
     // - Constructors for class tokens
     // - The RegExp and ExtRegExp constructors, which can be used to indicate literal tokens
     // - RGXTokenCollection, which can be used to indicate arrays of tokens
-    // - "repeatable", which can be used to indicate any token that is repeatable (i.e. has rgxIsRepeatable true or does not specify rgxIsRepeatable)
+    // - "repeatable", which can be used to indicate any token that is repeatable (see isRGXToken in type-guards.md)
     // - "json", which can be used to indicate any JSON token (native, JSON object token, or array of JSON tokens)
     // - Arrays of any of the above, allowing for nested token type specifications
 ;

@@ -20,38 +20,30 @@ export const RGX_PREDEFINED_CONSTANTS = {
         toRgx() { return /./; }
     },
     "start": {
-        rgxIsRepeatable: false,
         toRgx() { return /^/; }
     },
     "line-start": {
-        rgxIsRepeatable: false,
         toRgx() { return /^/m; }
     },
     "end": {
-        rgxIsRepeatable: false,
         toRgx() { return /$/; }
     },
     "line-end": {
-        rgxIsRepeatable: false,
         toRgx() { return /$/m; }
     },
     "word-bound": {
-        rgxIsRepeatable: false,
         toRgx() { return /\b/; }
     },
     "non-word-bound": {
-        rgxIsRepeatable: false,
         toRgx() { return /\B/; }
     },
     "word-bound-start": {
-        rgxIsRepeatable: false,
         toRgx() {
             // Make sure there is a non-word character before and a word character after
             return /(?<=\W|^)(?=\w)/;
         }
     },
     "word-bound-end": {
-        rgxIsRepeatable: false,
         toRgx() {
             // Make sure there is a word character before and a non-word character after
             return /(?<=\w)(?=\W|$)/;
@@ -115,7 +107,6 @@ export const RGX_PREDEFINED_CONSTANTS = {
 
     // Complex Constructs
     "escape-bound": {
-        rgxIsRepeatable: false,
         toRgx() {
             // Put this before any pattern to ensure that the pattern is escaped, i.e., preceded by an odd number of backslashes.
             return /(?<=(?<!\\)\\(?:\\\\)*)/;
@@ -123,7 +114,6 @@ export const RGX_PREDEFINED_CONSTANTS = {
     },
 
     "non-escape-bound": {
-        rgxIsRepeatable: false,
         toRgx() {
             // Put this before any pattern to ensure that the pattern is not escaped, i.e., not preceded by an odd number of backslashes.
             // Essentially equivalent to escape-bound, but without the extra backslash between the negative lookbehind and the non-capturing group.
@@ -132,7 +122,6 @@ export const RGX_PREDEFINED_CONSTANTS = {
     },
 
     "never": {
-        rgxIsRepeatable: false,
         toRgx() {
             // Never succeed
             return /(?!)/

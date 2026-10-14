@@ -48,7 +48,7 @@ constructor(tokens?: RGXTokenCollectionInput, positive?: boolean)
 - `negative` (`boolean`): Whether the lookaround is negative. Setting this updates `positive` accordingly.
 
 These properties only have getters.
-- `rgxIsRepeatable` (`false`): Returns `false` as a constant, since lookaround assertions cannot be repeated.
+- `rgxIsRepeatable` (`undefined`): Not set, since lookaround assertions are detected as consuming no characters, which makes them non-repeatable.
 
 ## Abstract Methods
 - `negate() => RGXLookaroundToken`: Returns a new lookaround token of the same type with the opposite positivity, preserving the original tokens.

@@ -151,14 +151,14 @@ const assertionTexts = new Set(['^', '$', '\\b', '\\B']);
 
 // Whether the units are all assertions, alternation bars, or groups that only contain the same (including empty
 // groups), with at least one assertion somewhere. This errs toward false, since only units that can never consume
-// characters are recognized: something that only might consume nothing, such as "a?", is not.
+// characters are recognized: something that only might consume nothing, such as "a?", is not. Only called on units
+// whose groups are all closed.
 function isNonConsumingUnits(units: RegexSourceUnit[]): boolean {
     let hasAssertion = false;
 
     const check = (units: RegexSourceUnit[]): boolean => units.every(unit => {
         if (unit.kind === 'alternation') return true;
         if (unit.kind === 'group') {
-            if (!unit.closed) return false;
             if (assertionGroupPrefixes.has(unit.prefix)) return hasAssertion = true;
             return check(unit.children);
         }
@@ -196,17 +196,12 @@ export function isSingletonRegexSource(source: string, options: ScanRegexSourceO
     return depth === 0 && !unmatchedClose && isSingletonUnits(units);
 }
 
-// Returns a singleton equivalent to the source, adding a non-capturing group if it isn't one already and removing
-// any non-capturing groups that only wrap another singleton, so a quantifier can be appended to the result.
+// Returns a singleton equivalent to the source, so a quantifier can be appended to the result. Redundant
+// non-capturing groups are removed first (it is safe to treat the source as isolated, since the only thing appended
+// to the result is the quantifier, which a non-singleton is protected from by the group added around it).
 export function toSingletonRegexSource(source: string, options: ScanRegexSourceOptions = {}): string {
+    source = removeRedundantRegexGroups(source, { ...options, isolated: true });
     if (!isSingletonRegexSource(source, options)) return `(?:${source})`;
-
-    while (source.startsWith('(?:')) {
-        const inner = source.slice(3, -1);
-        if (!isSingletonRegexSource(inner, options)) break;
-        source = inner;
-    }
-
     return source;
 }
 

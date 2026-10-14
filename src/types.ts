@@ -35,7 +35,8 @@ export type RGXNonJSONToken = Exclude<RGXToken, RGXJSONObjectToken>;
 
 export type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 
-export type RGXRepeatableConvertibleToken = RGXConvertibleToken & { readonly rgxIsRepeatable: true | undefined };
+// When rgxIsRepeatable is absent, the token is only repeatable if it isn't detected as consuming no characters, which types can't express.
+export type RGXRepeatableConvertibleToken = RGXConvertibleToken & { readonly rgxIsRepeatable?: true };
 
 export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'interpolation' | 'class' | 'json' | RGXTokenType[];
 export type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";

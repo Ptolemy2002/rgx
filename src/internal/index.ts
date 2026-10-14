@@ -6,3 +6,4 @@ export * from "./assureAcceptance";
 export * from "./localizableVanillaRegexFlagDiff";
 export * from "./scanRegexSource";
 export * from "./parseLookaroundJSONArgs";
+export * from "./nonConsumingToken";

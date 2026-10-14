@@ -14,12 +14,10 @@ const accentPatterns: string[] = [
 const nonEscapeBound = resolveRGXToken(rgxConstant("non-escape-bound"));
 
 const nonLocalizedFlagBound = resolveRGXToken({
-    rgxIsRepeatable: false,
     toRgx() { return /(?<!\(\?[ms]*\-?[ms]*)/; }
 });
 
 const nonCharacterClassBound = resolveRGXToken({
-    rgxIsRepeatable: false,
     toRgx() { return /(?<!\[[^\]]*)/; }
 });
 

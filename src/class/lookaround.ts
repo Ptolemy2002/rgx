@@ -15,10 +15,6 @@ export abstract class RGXLookaroundToken extends RGXClassToken {
         }
     };
 
-    get rgxIsRepeatable() {
-        return false as const;
-    }
-
     set negative(value: boolean) {
         this._negative = value;
     }

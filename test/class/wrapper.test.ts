@@ -98,12 +98,21 @@ describe("RGXClassWrapperToken", () => {
             expect(instance.rgxIsRepeatable).toBe(false);
         });
 
-        it("is true for non-convertible tokens", () => {
+        it("is true for non-convertible tokens that consume characters", () => {
             const instance1 = new RGXClassWrapperToken("test");
             expect(instance1.rgxIsRepeatable).toBe(true);
 
             const instance2 = new RGXClassWrapperToken(["a", "b"]);
             expect(instance2.rgxIsRepeatable).toBe(true);
+        });
+
+        it("is false for tokens without an explicit preference that consume no characters", () => {
+            expect(new RGXClassWrapperToken(/^/).rgxIsRepeatable).toBe(false);
+            expect(new RGXClassWrapperToken({ toRgx: () => /(?=a)/ }).rgxIsRepeatable).toBe(false);
+        });
+
+        it("keeps an explicit true preference of tokens that consume no characters", () => {
+            expect(new RGXClassWrapperToken({ toRgx: () => /^/, rgxIsRepeatable: true }).rgxIsRepeatable).toBe(true);
         });
     });
 

@@ -11,14 +11,9 @@ export type CreateRGXBoundsOptions = {
     inner?: boolean;
 };
 
+// Bounds are detected as non-repeatable, since they only contain lookarounds and so consume no characters.
 function convertToBound(token: ExtRegExp): RGXConvertibleToken {
-    // Bounds cannot be repeated, since they don't consume characters.
-    const boundPart = { rgxIsRepeatable: false };
-
-    return {
-        ...boundPart,
-        toRgx: () => token
-    };
+    return { toRgx: () => token };
 }
 
 export function createRGXBounds(

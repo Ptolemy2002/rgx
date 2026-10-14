@@ -24,7 +24,8 @@ type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXInte
 type RGXNonJSONToken = Exclude<RGXToken, RGXJSONObjectToken>;
 
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
-type RGXRepeatableConvertibleToken = RGXConvertibleToken & { readonly rgxIsRepeatable: true | undefined };
+// When rgxIsRepeatable is absent, the token is only repeatable if it isn't detected as consuming no characters, which types can't express.
+type RGXRepeatableConvertibleToken = RGXConvertibleToken & { readonly rgxIsRepeatable?: true };
 
 type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'interpolation' | 'class' | 'json' | RGXTokenType[];
 type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
@@ -35,7 +36,7 @@ type RGXTokenTypeGuardInput =
     // - Constructors for class tokens
     // - The RegExp and ExtRegExp constructors, which can be used to indicate literal tokens
     // - RGXTokenCollection, which can be used to indicate arrays of tokens
-    // - "repeatable", which can be used to indicate any token that is repeatable (i.e. has rgxIsRepeatable true or does not specify rgxIsRepeatable)
+    // - "repeatable", which can be used to indicate any token that is repeatable (see isRGXToken in type-guards.md)
     // - "json", which can be used to indicate any JSON token (native, JSON object token, or array of JSON tokens)
     // - Arrays of any of the above, allowing for nested token type specifications
 ;
@@ -108,7 +109,7 @@ Asserts that the given value is a native token (string, number, boolean, or no-o
 ```typescript
 function isRGXConvertibleToken(value: unknown, returnCheck?: boolean, acceptJSON?: boolean): value is RGXConvertibleToken
 ```
-Checks if the given value is a convertible token (an object with a `toRgx` method). If the `rgxIsRepeatable` property is present, it must be a boolean; otherwise, the check fails. If the `rgxAcceptInsertion` property is present, it must be a callable that returns a `string` or `boolean`; otherwise, the check fails. Validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). When `returnCheck` is `false`, only checks for the presence and callability of function properties instead of also checking their return values.
+Checks if the given value is a convertible token (an object with a `toRgx` method). If the `rgxIsRepeatable` property is present and not `undefined`, it must be a boolean; otherwise, the check fails. If the `rgxAcceptInsertion` property is present, it must be a callable that returns a `string` or `boolean`; otherwise, the check fails. Validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). When `returnCheck` is `false`, only checks for the presence and callability of function properties instead of also checking their return values.
 
 Note that JSON object tokens are never themselves convertible tokens, even though they may describe a class token. `acceptJSON` only controls whether a `toRgx` return value containing JSON object tokens is accepted.
 
@@ -255,7 +256,7 @@ When `type` is a constructor, it performs an `instanceof` check against that spe
 
 When `type` is an array, it checks that every element of the value array is a valid RGX token matching the corresponding type in the `type` array. If `matchLength` is `true` (the default), it also requires that the value array has the same length as the type array; if `false`, it allows the value array to be longer than the type array, as long as all elements up to the length of the type array match and all elements after that are still valid RGX tokens of any type.
 
-When `type` is `"repeatable"`, it passes for any token that is not convertible, then checks if `rgxIsRepeatable` is `true | undefined` for convertible tokens.
+When `type` is `"repeatable"`, it passes for any token that is not convertible (except interpolation tokens, which are never repeatable). For convertible tokens, an `rgxIsRepeatable` that is set is trusted. When it is absent (or `undefined`), the token is repeatable unless its resolved source is detected as consuming no characters. Detection only recognizes sources made entirely of assertions (`^`, `$`, `\b`, `\B`, and lookaround groups), possibly inside other groups or between alternation bars, so it errs toward "consumes characters": a source that only might consume nothing, such as `a?`, is repeatable. Literal tokens are never detected, so `/^/` is repeatable.
 
 When `type` is `"json"`, it passes for any JSON token (see `isRGXJSONToken`). This type is explicit, so `acceptJSON` has no effect on it.
 
@@ -269,7 +270,7 @@ When `acceptJSON` is `true` (the default), JSON object tokens (see [json.md](./j
     - Constructors for class tokens, which check for instances of those specific constructors.
     - The `RegExp` and `ExtRegExp` constructors, which check for literal tokens.
     - The `RGXTokenCollection` constructor, which checks for arrays of tokens.
-    - The string literal `"repeatable"`, which checks for any token that is repeatable (i.e. has `rgxIsRepeatable` true or does not specify `rgxIsRepeatable`).
+    - The string literal `"repeatable"`, which checks for any token that is repeatable (see above).
     - The string literal `"json"`, which checks for any JSON token.
     - Arrays of any of the above, allowing for nested token type specifications.
    Defaults to `null`.
