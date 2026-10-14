@@ -21,19 +21,25 @@ describe('resolveRGXToken', () => {
         expect(resolveRGXToken(token)).toBe('abc');
     });
 
-    it('resolves a single convertible token with no rgxGroupWrap property returning a RegExp', () => {
+    it('resolves a single convertible token returning a RegExp', () => {
         const token = {
             toRgx: () => /abc/
         };
         expect(resolveRGXToken(token)).toBe('(?:abc)');
     });
 
-    it('resolves a single convertible token with rgxGroupWrap set to false returning a RegExp', () => {
+    it('resolves a single convertible token returning a RegExp without group wrapping when groupWrap is false', () => {
         const token = {
-            toRgx: () => /abc/,
-            rgxGroupWrap: false
+            toRgx: () => /abc/
         };
-        expect(resolveRGXToken(token)).toBe('abc');
+        expect(resolveRGXToken(token, { groupWrap: false })).toBe('abc');
+    });
+
+    it('group wraps the result of a nested convertible token even when groupWrap is false', () => {
+        const token = {
+            toRgx: () => ({ toRgx: () => /a|b/ })
+        };
+        expect(resolveRGXToken(token, { groupWrap: false })).toBe('(?:a|b)');
     });
 
     it('resolves a single convertible token with rgxInterpolate set to true returning a valid RegExp string', () => {

@@ -55,8 +55,8 @@ export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel 
             }
 
             // The top-level group-wrapping preference propogates to a direct convertible token, but after that
-            // the preference falls back to true whenever a token doesn't explicitly specify a preference.
-            return resolveRGXToken(token.toRgx(), { groupWrap: token.rgxGroupWrap ?? (topLevel ? groupWrap : true), topLevel: false, currentFlags });
+            // the preference falls back to true.
+            return resolveRGXToken(token.toRgx(), { groupWrap: topLevel ? groupWrap : true, topLevel: false, currentFlags });
         }
 
         // Interpret arrays as unions

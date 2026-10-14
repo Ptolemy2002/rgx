@@ -5,6 +5,7 @@ import { RGXClassToken, toRGXClassToken } from "./class";
 import { RGXTokenCollection } from "./collection";
 import { ExtRegExp, extractVanillaRegexFlags } from "./ExtRegExp";
 import { resolveRGXToken } from "./resolve";
+import { removeRedundantRegexGroups } from "./internal/scanRegexSource";
 
 // Parses the args of a JSON class token into a typed tuple, or returns the reason they were rejected.
 export type RGXJSONClassArgsParser<A extends unknown[]> = (args: t.RGXJSONValue[]) => A | string;
@@ -128,7 +129,9 @@ export function rgxTokenToJSON(token: t.RGXToken, { resolveConvertible = true }:
             throw new e.RGXNotJSONSerializableError("Cannot convert token to JSON", token, "Convertible tokens that are not class tokens with a custom toJSON method can only be converted by resolving them, but resolveConvertible is false.");
         }
 
-        return createRGXJSONLiteralToken(resolveRGXToken(token, { groupWrap: false }));
+        // A JSON literal's source must be a valid regex on its own, and it is wrapped again whenever it is inserted,
+        // so groups at its edges can be removed.
+        return createRGXJSONLiteralToken(removeRedundantRegexGroups(resolveRGXToken(token, { groupWrap: false }), { isolated: true }));
     }
 
     if (tg.isRGXArrayToken(token, false)) {

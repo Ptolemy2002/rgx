@@ -14,45 +14,36 @@ export const RGX_PREDEFINED_CONSTANTS = {
 
     // Special Characters
     "any": {
-        rgxGroupWrap: false,
         toRgx() { return /./s; }
     },
     "non-newline": {
-        rgxGroupWrap: false,
         toRgx() { return /./; }
     },
     "start": {
-        rgxGroupWrap: false,
         rgxIsRepeatable: false,
         toRgx() { return /^/; }
     },
     "line-start": {
-        rgxGroupWrap: false,
         rgxIsRepeatable: false,
         toRgx() { return /^/m; }
     },
     "end": {
-        rgxGroupWrap: false,
         rgxIsRepeatable: false,
         toRgx() { return /$/; }
     },
     "line-end": {
-        rgxGroupWrap: false,
         rgxIsRepeatable: false,
         toRgx() { return /$/m; }
     },
     "word-bound": {
-        rgxGroupWrap: false,
         rgxIsRepeatable: false,
         toRgx() { return /\b/; }
     },
     "non-word-bound": {
-        rgxGroupWrap: false,
         rgxIsRepeatable: false,
         toRgx() { return /\B/; }
     },
     "word-bound-start": {
-        rgxGroupWrap: false,
         rgxIsRepeatable: false,
         toRgx() {
             // Make sure there is a non-word character before and a word character after
@@ -60,7 +51,6 @@ export const RGX_PREDEFINED_CONSTANTS = {
         }
     },
     "word-bound-end": {
-        rgxGroupWrap: false,
         rgxIsRepeatable: false,
         toRgx() {
             // Make sure there is a word character before and a non-word character after
@@ -70,79 +60,61 @@ export const RGX_PREDEFINED_CONSTANTS = {
 
     // Character Sets
     "letter": {
-        rgxGroupWrap: false,
         toRgx() { return /[a-zA-Z]/; }
     },
     "lowercase-letter": {
-        rgxGroupWrap: false,
         toRgx() { return /[a-z]/; }
     },
     "uppercase-letter": {
-        rgxGroupWrap: false,
         toRgx() { return /[A-Z]/; }
     },
     "non-letter": {
-        rgxGroupWrap: false,
         toRgx() { return /[^a-zA-Z]/; }
     },
     "alphanumeric": {
-        rgxGroupWrap: false,
         toRgx() { return /[a-zA-Z0-9]/; }
     },
     "non-alphanumeric": {
-        rgxGroupWrap: false,
         toRgx() { return /[^a-zA-Z0-9]/; }
     },
 
     // Predefined Character Sets
     "digit": {
-        rgxGroupWrap: false,
         toRgx() { return /\d/; }
     },
     "non-digit": {
-        rgxGroupWrap: false,
         toRgx() { return /\D/; }
     },
     "whitespace": {
-        rgxGroupWrap: false,
         toRgx() { return /\s/; }
     },
     "whitespace-block": rgxRepeat({
-        rgxGroupWrap: false,
         toRgx() { return /\s/; }
     }, 1, null),
     "non-whitespace": {
-        rgxGroupWrap: false,
         toRgx() { return /\S/; }
     },
     "non-newline-whitespace": {
-        rgxGroupWrap: false,
         toRgx() { return /[^\n\S]/; }
     },
     "non-newline-whitespace-block": rgxRepeat({
-        rgxGroupWrap: false,
         toRgx() { return /[^\n\S]/; }
     }, 1, null),
     "vertical-whitespace": {
-        rgxGroupWrap: false,
         toRgx() { return /\v/; }
     },
     "word-char": {
-        rgxGroupWrap: false,
         toRgx() { return /\w/; }
     },
     "non-word-char": {
-        rgxGroupWrap: false,
         toRgx() { return /\W/; }
     },
     "backspace": {
-        rgxGroupWrap: false,
         toRgx() { return /[\b]/; }
     },
 
     // Complex Constructs
     "escape-bound": {
-        rgxGroupWrap: false,
         rgxIsRepeatable: false,
         toRgx() {
             // Put this before any pattern to ensure that the pattern is escaped, i.e., preceded by an odd number of backslashes.
@@ -151,7 +123,6 @@ export const RGX_PREDEFINED_CONSTANTS = {
     },
 
     "non-escape-bound": {
-        rgxGroupWrap: false,
         rgxIsRepeatable: false,
         toRgx() {
             // Put this before any pattern to ensure that the pattern is not escaped, i.e., not preceded by an odd number of backslashes.
@@ -161,7 +132,6 @@ export const RGX_PREDEFINED_CONSTANTS = {
     },
 
     "never": {
-        rgxGroupWrap: false,
         rgxIsRepeatable: false,
         toRgx() {
             // Never succeed

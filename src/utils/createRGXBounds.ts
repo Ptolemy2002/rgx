@@ -1,6 +1,5 @@
 
 import { RGXConvertibleToken, RGXToken, ValidRegexString } from "src/types";
-import { isRGXConvertibleToken } from "src/typeGuards";
 import { createRegex } from "./createRegex";
 import { resolveRGXToken } from "src/resolve";
 import { ExtRegExp } from "src/ExtRegExp";
@@ -12,19 +11,9 @@ export type CreateRGXBoundsOptions = {
     inner?: boolean;
 };
 
-function convertNoGroupWrap(token: RGXToken): RGXToken {
-    const boundPart = { rgxGroupWrap: false };
-
-    if (isRGXConvertibleToken(token)) {
-        return { ...token, ...boundPart };
-    } else {
-        return token;
-    }
-}
-
 function convertToBound(token: ExtRegExp): RGXConvertibleToken {
-    // Bounds cannot be repeated (since they don't consume characters) and should never be group wrapped
-    const boundPart = { rgxGroupWrap: false, rgxIsRepeatable: false };
+    // Bounds cannot be repeated, since they don't consume characters.
+    const boundPart = { rgxIsRepeatable: false };
 
     return {
         ...boundPart,
@@ -41,8 +30,8 @@ export function createRGXBounds(
     else if (typeof options === "boolean") options = { anchorStart: options, anchorEnd: options };
     const { flags = "", anchorStart = true, anchorEnd = true, inner = true } = options;
 
-    const resolvedPositive = resolveRGXToken(convertNoGroupWrap(positive), { groupWrap: false, currentFlags: flags });
-    const resolvedNegative = resolveRGXToken(convertNoGroupWrap(negative), { groupWrap: false, currentFlags: flags });
+    const resolvedPositive = resolveRGXToken(positive, { groupWrap: false, currentFlags: flags });
+    const resolvedNegative = resolveRGXToken(negative, { groupWrap: false, currentFlags: flags });
 
     const startLookbehind = `(?<=${resolvedNegative}${anchorStart ? "|^" : ""})`;
     const startLookahead = inner ? `(?=${resolvedPositive})` : "";

@@ -112,10 +112,6 @@ describe("rgxClassInit", () => {
 });
 
 describe("RGXClassToken", () => {
-    it("has rgxGroupWrap as true by default", () => {
-        expect(testToken1.rgxGroupWrap).toBe(true);
-    });
-
     it("is repeatable by default", () => {
         expect(testToken1.rgxIsRepeatable).toBe(true);
     });

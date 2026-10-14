@@ -1,6 +1,8 @@
-import { RGX_JSON_FLAG, RGXConvertibleToken, RGXJSONClassToken, RGXJSONObjectToken, RGXToken, ValidRegexFlags, ValidRegexString } from "src/types";
+import { RGXConvertibleToken, RGXJSONClassToken, RGXJSONObjectToken, RGXToken, ValidRegexFlags, ValidRegexString } from "src/types";
 import { RGXTokenCollectionInput } from "src/collection";
 import { RGXInvalidTokenError, RGXNotImplementedError } from "src/errors";
+import { createRGXJSONLiteralToken } from "src/json";
+import { removeRedundantRegexGroups } from "src/internal/scanRegexSource";
 import { resolveRGXToken, ResolveRGXTokenOptions } from "src/resolve";
 import { CloneDepth } from "@ptolemy2002/immutability-utils";
 import type { RGXClassUnionToken } from "./union";
@@ -21,7 +23,7 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
     // class, reconstruct an equivalent token. By default, it falls back to resolving the token into a
     // JSON literal token, the same way plain convertible tokens are handled by rgxTokenToJSON. This is lossy.
     toJSON(): RGXJSONObjectToken {
-        return { [RGX_JSON_FLAG]: true, source: resolveRGXToken(this, { groupWrap: false }) };
+        return createRGXJSONLiteralToken(removeRedundantRegexGroups(resolveRGXToken(this, { groupWrap: false }), { isolated: true }));
     }
 
     static fromJSON(json: RGXJSONClassToken): RGXClassToken {
@@ -46,10 +48,6 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
     }
 
     get rgxIsRepeatable() {
-        return true;
-    }
-
-    get rgxGroupWrap() {
         return true;
     }
 

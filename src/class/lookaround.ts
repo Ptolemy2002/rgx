@@ -19,10 +19,6 @@ export abstract class RGXLookaroundToken extends RGXClassToken {
         return false as const;
     }
 
-    get rgxGroupWrap() {
-        return false as const;
-    }
-
     set negative(value: boolean) {
         this._negative = value;
     }

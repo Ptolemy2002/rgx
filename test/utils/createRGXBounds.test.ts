@@ -45,23 +45,19 @@ describe("createRGXBounds", () => {
     it("correctly sets the convertible token options of the bounds when passed non-convertible tokens", () => {
         const [startBound, endBound] = createRGXBounds("a", "b", {flags: "i"});
 
-        expect(startBound.rgxGroupWrap).toBe(false);
         expect(startBound.rgxIsRepeatable).toBe(false);
 
-        expect(endBound.rgxGroupWrap).toBe(false);
         expect(endBound.rgxIsRepeatable).toBe(false);
     });
 
     it("correctly sets the convertible token options of the bounds when passed convertible tokens", () => {
-        const positive = { toRgx() { return "a"; }, rgxGroupWrap: true, rgxIsRepeatable: true };
-        const negative = { toRgx() { return "b"; }, rgxGroupWrap: true, rgxIsRepeatable: true };
+        const positive = { toRgx() { return "a"; }, rgxIsRepeatable: true };
+        const negative = { toRgx() { return "b"; }, rgxIsRepeatable: true };
 
         const [startBound, endBound] = createRGXBounds(positive, negative, {flags: "i"});
         
-        expect(startBound.rgxGroupWrap).toBe(false);
         expect(startBound.rgxIsRepeatable).toBe(false);
 
-        expect(endBound.rgxGroupWrap).toBe(false);
         expect(endBound.rgxIsRepeatable).toBe(false);
     });
 

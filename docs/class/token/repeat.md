@@ -11,7 +11,6 @@ type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
-    readonly rgxGroupWrap?: boolean,
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
@@ -52,7 +51,6 @@ constructor(token: RGXToken, min?: number, max?: number | null, lazy?: boolean)
 - `max` (`number | null`): The maximum number of repetitions. Setting this validates that the value is >= `min` when not `null`, and floors non-integer values. Pass `null` for unlimited. Throws `RGXOutOfBoundsError` if validation fails.
 - `lazy` (`boolean`): Whether the quantifier is non-greedy (lazy). When `true`, a `?` is appended to the `repeaterSuffix` (except when the suffix is `?` or empty, since those cases don't benefit from a lazy modifier). Defaults to `false`.
 - `repeaterSuffix` (`string`): Returns the regex quantifier suffix based on the current `min`, `max`, and `lazy` values: `*` for `{0,}`, `+` for `{1,}`, `?` for `{0,1}`, `{n}` for exact repetitions, `{n,}` for minimum-only, `{n,m}` for a range, or an empty string for `{1,1}` (exactly once, no quantifier needed). When `lazy` is `true`, a `?` is appended to the suffix (e.g., `*?`, `+?`, `{2,5}?`), except when the suffix is already `?` or empty.
-- `rgxGroupWrap` (`false`): Returns `false` as a constant, since the quantifier suffix binds tightly to the preceding group and does not need additional wrapping.
 
 ## Methods
 - `toRgx() => RGXToken`: Resolves the repeat token to a `RegExp` by resolving the inner token and appending the `repeaterSuffix`. Before the suffix is appended, the resolved source is checked to make sure the quantifier applies to all of it: if it is not a singleton (exactly one character, escape, character class, or non-lookaround group), it is wrapped in a non-capturing group, and non-capturing groups that only wrap a singleton are removed. So `new RGXRepeatToken("a", 2)` resolves to `a{2}` rather than `(?:a){2}`, while `new RGXRepeatToken("ab", 2)` resolves to `(?:ab){2}`. Returns `null` (a no-op) when both `min` and `max` are `0`.

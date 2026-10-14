@@ -11,7 +11,6 @@ type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
-    readonly rgxGroupWrap?: boolean,
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
@@ -61,7 +60,6 @@ constructor(args?: RGXGroupTokenArgs, tokens?: RGXTokenCollectionInput)
 - `flags` (`string`): The localizable flags (`i`, `m`, `s`) to apply to the group. Setting this validates the value via `assertValidRegexLocalizableFlags`.
 
 These properties only have a getter.
-- `rgxGroupWrap` (`false`): Returns `false` as a constant, since the group already wraps itself, preventing the resolver from double-wrapping.
 
 ## Methods
 - `toRgx() => RegExp`: Resolves the group by concatenating the internal tokens and wrapping the result in the appropriate group syntax: `(?<name>...)` for named groups, `(?:...)` for non-capturing groups without flags, or `(...)` for capturing groups without flags. When `flags` is non-empty, a flag-modifying wrapper is applied: non-capturing groups use `(?flags-notflags:...)` directly, while named and capturing groups are wrapped as `(?flags-notflags:(...))`. The flag diff string is computed against the full `"ims"` set — flags not present in `flags` appear after the dash.

@@ -23,13 +23,6 @@ function constructionTest<T extends typeof RGXLookaroundToken>(constructor: Cons
     });
 
 
-    describe("rgxGroupWrap", () => {
-        it("is false", () => {
-            const instance = constructor() as RGXLookaroundToken;
-            expect(instance.rgxGroupWrap).toBe(false);
-        });
-    });
-
     it("is positive by default", () => {
         const instance = constructor() as RGXLookaroundToken;
         expect(instance.positive).toBe(true);

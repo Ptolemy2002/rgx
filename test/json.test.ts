@@ -74,6 +74,16 @@ class UnimplementedClassToken extends RGXClassToken {
     }
 }
 
+class NestedUnimplementedClassToken extends RGXClassToken {
+    toRgx() {
+        return { toRgx: () => /\d/ };
+    }
+
+    clone() {
+        return new NestedUnimplementedClassToken();
+    }
+}
+
 // Returns the reason a class' fromJSON rejected the given args.
 function fromJSONRejection(cls: { name: string, fromJSON: (json: RGXJSONClassToken) => unknown }, args: RGXJSONValue[]): string | null {
     let reason: string | null = null;
@@ -172,6 +182,8 @@ describe("RGXClassToken JSON defaults", () => {
         expect(new UnimplementedClassToken().toJSON()).toEqual({ $rgx: true, source: "x" });
         expect(rgxTokenToJSON(new UnimplementedClassToken())).toEqual({ $rgx: true, source: "x" });
         expect(JSON.parse(JSON.stringify(new UnimplementedClassToken()))).toEqual({ $rgx: true, source: "x" });
+        // Groups added around nested convertible tokens are removed from the source.
+        expect(new NestedUnimplementedClassToken().toJSON()).toEqual({ $rgx: true, source: "\\d" });
         // Nested within built-in class tokens
         expect(rgxTokenToJSON(new RGXGroupToken({}, [new UnimplementedClassToken()]))).toEqual(
             rgxTokenToJSON(new RGXGroupToken({}, [{ $rgx: true, source: "x" }]))
@@ -281,6 +293,12 @@ describe("rgxTokenToJSON", () => {
         expect(rgxTokenToJSON({ toRgx: () => "abc" })).toEqual({ $rgx: true, source: "abc" });
         expect(rgxTokenToJSON({ toRgx: () => ["a", "b"] })).toEqual({ $rgx: true, source: "a|b" });
         expect(rgxTokenToJSON(rgxConstant("start"))).toEqual({ $rgx: true, class: "RGXClassWrapperToken", args: [{ $rgx: true, source: "^" }] });
+    });
+
+    it("removes the groups that resolving adds around the source of a resolved convertible token", () => {
+        // Nested convertible tokens are always group wrapped when resolved, but the JSON literal doesn't keep the group.
+        expect(rgxTokenToJSON({ toRgx: () => ({ toRgx: () => /\d/ }) })).toEqual({ $rgx: true, source: "\\d" });
+        expect(rgxTokenToJSON({ toRgx: () => ({ toRgx: () => /a|b/ }) })).toEqual({ $rgx: true, source: "a|b" });
     });
 
     it("rejects plain convertible tokens when resolveConvertible is false", () => {

@@ -68,12 +68,6 @@ export class RGXRepeatToken extends RGXClassToken {
         this._token = value;
     }
 
-    // We don't need to group wrap this token because the repeater has no
-    // semantics that would change if there are other tokens to the right.
-    get rgxGroupWrap() {
-        return false as const;
-    }
-
     // By default, repeat a fixed number of times.
     constructor(token: RGXToken, min: number = 1, max: number | null = min, lazy=false) {
         super();

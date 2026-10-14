@@ -147,18 +147,49 @@ export function hasRegexParenErrors(source: string, options: ScanRegexSourceOpti
 const unquantifiableTexts = new Set(['^', '$', '{', '}', ']', ')', '\\b', '\\B']);
 const assertionGroupPrefixes = new Set(['(?=', '(?!', '(?<=', '(?<!']);
 
+const assertionTexts = new Set(['^', '$', '\\b', '\\B']);
+
+// Whether the units are all assertions, alternation bars, or groups that only contain the same (including empty
+// groups), with at least one assertion somewhere. This errs toward false, since only units that can never consume
+// characters are recognized: something that only might consume nothing, such as "a?", is not.
+function isNonConsumingUnits(units: RegexSourceUnit[]): boolean {
+    let hasAssertion = false;
+
+    const check = (units: RegexSourceUnit[]): boolean => units.every(unit => {
+        if (unit.kind === 'alternation') return true;
+        if (unit.kind === 'group') {
+            if (!unit.closed) return false;
+            if (assertionGroupPrefixes.has(unit.prefix)) return hasAssertion = true;
+            return check(unit.children);
+        }
+
+        if (unit.kind === 'quantifier' || !assertionTexts.has(unit.text)) return false;
+        return hasAssertion = true;
+    });
+
+    return check(units) && hasAssertion;
+}
+
+// Whether the source consumes no characters wherever it matches, because it is made entirely of assertions
+// ("^", "$", "\b", "\B", and lookaround groups), possibly inside other groups or between alternation bars.
+export function isNonConsumingRegexSource(source: string, options: ScanRegexSourceOptions = {}): boolean {
+    const { units, depth, unmatchedClose } = tokenizeRegexSource(source, options);
+    return depth === 0 && !unmatchedClose && isNonConsumingUnits(units);
+}
+
 // Whether the units are a singleton: exactly one unit that a quantifier can apply to as a whole.
 function isSingletonUnits(units: RegexSourceUnit[]): boolean {
     if (unitCount(units) !== 1) return false;
 
     const unit = units[0]!;
-    if (unit.kind === 'group') return unit.closed && !assertionGroupPrefixes.has(unit.prefix);
+    // Groups that only contain assertions are as meaningless to quantify as the assertions themselves.
+    if (unit.kind === 'group') return unit.closed && !assertionGroupPrefixes.has(unit.prefix) && !isNonConsumingUnits(unit.children);
     if (unit.kind === 'quantifier' || unit.kind === 'alternation') return false;
     return !unquantifiableTexts.has(unit.text);
 }
 
 // Whether the source is a singleton: exactly one unit that a quantifier can apply to as a whole,
-// such as a single character, escape, character class, or (non-assertion) group. This errs toward
+// such as a single character, escape, character class, or group that isn't an assertion and doesn't only contain them. This errs toward
 // false, since wrapping a singleton in a group again is harmless, but quantifying a non-singleton is not.
 export function isSingletonRegexSource(source: string, options: ScanRegexSourceOptions = {}): boolean {
     const { units, depth, unmatchedClose } = tokenizeRegexSource(source, options);

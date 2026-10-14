@@ -11,7 +11,6 @@ type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
-    readonly rgxGroupWrap?: boolean,
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
@@ -54,7 +53,6 @@ Inherited from `RGXLookaroundToken`.
 
 These properties only have getters.
 - `rgxIsRepeatable` (`false`): Returns `false` as a constant, since lookaround assertions cannot be repeated.
-- `rgxGroupWrap` (`false`): Returns `false` as a constant, since the lookaround already wraps itself in a group.
 
 ## Methods
 - `negate() => RGXLookaheadToken`: Returns a new `RGXLookaheadToken` with the opposite positivity, preserving the original tokens.

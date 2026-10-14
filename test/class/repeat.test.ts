@@ -136,13 +136,6 @@ describe("RGXRepeatToken", () => {
     });
 
 
-    describe("rgxGroupWrap", () => {
-        it("is false", () => {
-            const instance = new RGXRepeatToken(null);
-            expect(instance.rgxGroupWrap).toBe(false);
-        });
-    });
-
     describe("min setter", () => {
         it("accepts any positive value less than max", () => {
             const instance = new RGXRepeatToken(null, 0, 5);
@@ -309,12 +302,12 @@ describe("RGXRepeatToken", () => {
         });
 
         it("does not group wrap convertible tokens that resolve to a singleton", () => {
-            const instance = new RGXRepeatToken({ toRgx: () => /[abc]/, rgxGroupWrap: false }, 2, 4);
+            const instance = new RGXRepeatToken({ toRgx: () => /[abc]/ }, 2, 4);
             expect((instance.toRgx() as RegExp).source).toBe("[abc]{2,4}");
         });
 
         it("group wraps convertible tokens that do not resolve to a singleton", () => {
-            const instance = new RGXRepeatToken({ toRgx: () => /abc/, rgxGroupWrap: false }, 2, 4);
+            const instance = new RGXRepeatToken({ toRgx: () => "abc" }, 2, 4);
             expect((instance.toRgx() as RegExp).source).toBe("(?:abc){2,4}");
         });
     });

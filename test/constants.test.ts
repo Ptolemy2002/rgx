@@ -145,7 +145,7 @@ describe("rgxConstant", () => {
     describe("start constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("start"));
-            expect(result).toBe("^");
+            expect(result).toBe("(?:^)");
         });
     });
 
@@ -159,7 +159,7 @@ describe("rgxConstant", () => {
     describe("end constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("end"));
-            expect(result).toBe("$");
+            expect(result).toBe("(?:$)");
         });
     });
 
@@ -173,28 +173,28 @@ describe("rgxConstant", () => {
     describe("word-bound constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("word-bound"));
-            expect(result).toBe("\\b");
+            expect(result).toBe("(?:\\b)");
         });
     });
 
     describe("non-word-bound constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("non-word-bound"));
-            expect(result).toBe("\\B");
+            expect(result).toBe("(?:\\B)");
         });
     });
 
     describe("word-bound-start constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("word-bound-start"));
-            expect(result).toBe("(?<=\\W|^)(?=\\w)");
+            expect(result).toBe("(?:(?<=\\W|^)(?=\\w))");
         });
     });
 
     describe("word-bound-end constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("word-bound-end"));
-            expect(result).toBe("(?<=\\w)(?=\\W|$)");
+            expect(result).toBe("(?:(?<=\\w)(?=\\W|$))");
         });
     });
 
@@ -245,35 +245,35 @@ describe("rgxConstant", () => {
     describe("digit constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("digit"));
-            expect(result).toBe("\\d");
+            expect(result).toBe("(?:\\d)");
         });
     });
 
     describe("non-digit constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("non-digit"));
-            expect(result).toBe("\\D");
+            expect(result).toBe("(?:\\D)");
         });
     });
 
     describe("whitespace constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("whitespace"));
-            expect(result).toBe("\\s");
+            expect(result).toBe("(?:\\s)");
         });
     });
 
     describe("whitespace-block constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("whitespace-block"));
-            expect(result).toBe("\\s+");
+            expect(result).toBe("(?:\\s+)");
         });
     });
 
     describe("non-whitespace constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("non-whitespace"));
-            expect(result).toBe("\\S");
+            expect(result).toBe("(?:\\S)");
         });
     });
 
@@ -287,28 +287,28 @@ describe("rgxConstant", () => {
     describe("non-newline-whitespace-block constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("non-newline-whitespace-block"));
-            expect(result).toBe("[^\\n\\S]+");
+            expect(result).toBe("(?:[^\\n\\S]+)");
         });
     });
 
     describe("vertical-whitespace constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("vertical-whitespace"));
-            expect(result).toBe("\\v");
+            expect(result).toBe("(?:\\v)");
         });
     });
 
     describe("word-char constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("word-char"));
-            expect(result).toBe("\\w");
+            expect(result).toBe("(?:\\w)");
         });
     });
 
     describe("non-word-char constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("non-word-char"));
-            expect(result).toBe("\\W");
+            expect(result).toBe("(?:\\W)");
         });
     });
 
@@ -322,21 +322,21 @@ describe("rgxConstant", () => {
     describe("escape-bound constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("escape-bound"));
-            expect(result).toBe("(?<=(?<!\\\\)\\\\(?:\\\\\\\\)*)");
+            expect(result).toBe("(?:(?<=(?<!\\\\)\\\\(?:\\\\\\\\)*))");
         });
     });
 
     describe("non-escape-bound constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("non-escape-bound"));
-            expect(result).toBe("(?<=(?<!\\\\)(?:\\\\\\\\)*)");
+            expect(result).toBe("(?:(?<=(?<!\\\\)(?:\\\\\\\\)*))");
         });
     });
 
     describe("never constant", () => {
         it("resolves correctly", () => {
             const result = resolveRGXToken(rgxConstant("never"));
-            expect(result).toBe("(?!)");
+            expect(result).toBe("(?:(?!))");
         });
     });
 });

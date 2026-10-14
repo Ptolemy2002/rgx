@@ -15,29 +15,6 @@ Each entry has a `##` heading naming the change, followed by these sections:
 
 ---
 
-## Remove `rgxGroupWrap`
-
-### Problem
-`rgxGroupWrap` sets the `groupWrap` option used when resolving a convertible token's `toRgx()` result (`src/resolve.ts`), which only decides whether a literal is resolved as `(?:x)` or `x` and whether a union is resolved as `(?:a|b)` or `a|b`. Wrapping is always safe, so `false` is only ever a size optimization, and `removeRedundantRegexGroups` now removes unneeded groups at the top level of `resolveRGXToken`, in `rgxConcat`, and (with `isolated: true`) in `rgxa`. Every `rgxGroupWrap: false` in `src/constants.ts` is on a singleton such as `/./`, `/\d/` or `/[a-z]/`, `RGXRepeatToken` normalizes its operand with `toSingletonRegexSource`, and lookarounds are already groups.
-
-The one thing `false` enables that wrapping can't is leaking an alternation into its surroundings (a token returning `/a|b/` next to `c` resolves to `a|bc`). That is a footgun, and raw output is what interpolation is for.
-
-### Breaking change
-Remove `rgxGroupWrap` from `RGXConvertibleToken`, `RGXClassToken` (and the overrides in `RGXRepeatToken` and `RGXLookaroundToken`), every constant in `src/constants.ts`, the flag transformers in `src/flag-transformer/accentInsensitive.ts`, `createRGXBounds` (`convertNoGroupWrap` and `convertToBound`), and the check in `isRGXConvertibleToken`. Convertible tokens are always resolved as if `rgxGroupWrap` were absent.
-
-The `groupWrap` option of `resolveRGXToken` and `rgxConcat` stays: the resolver is mostly internal, and it may keep extra groups in intermediate output.
-
-This breaks custom tokens that set `rgxGroupWrap`, code that relies on an unwrapped alternation leaking out of a token, and code that compares intermediate resolver output exactly (some of it gains groups such as `(?:\d)`, since the remover keeps groups at the edges of non-isolated sources when their last unit is an escape).
-
-### Current workaround
-None. The flag is still supported everywhere, and redundant groups it would have prevented are removed by `removeRedundantRegexGroups` regardless.
-
-### Reverting the workaround
-- Make the removals listed under **Breaking change**. In `resolveRGXToken`, a convertible token's `toRgx()` result is resolved with `groupWrap: topLevel ? groupWrap : true`.
-- Serialized JSON must not gain the extra groups. `RGXClassToken.toJSON()` (`src/class/base.ts`) and `rgxTokenToJSON` (`src/json.ts`) should pass the resolved source through `removeRedundantRegexGroups` with `isolated: true` before creating the JSON literal token. This is safe because a JSON literal's source must be a valid `RegExp` on its own, and it is wrapped or flag-localized again whenever it is inserted.
-- Update the `RGXConvertibleToken` listings at the top of the docs files and in `docs/type-reference.md` (`grep -rln rgxGroupWrap docs`), the `rgxGroupWrap` description in `docs/class/token/base.md`, the `groupWrap`/`rgxGroupWrap` precedence paragraphs for `resolveRGXToken` in `docs/general.md`, and `docs/util/createRGXBounds.md`.
-- Remove or update the tests that set `rgxGroupWrap` (`grep -rln rgxGroupWrap test`), and update expected strings that gain groups.
-
 ## Make interpolation a separate token type instead of `rgxInterpolate`
 
 ### Problem

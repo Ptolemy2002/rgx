@@ -289,18 +289,6 @@ describe('Type Guards', () => {
             expect(() => assertRGXConvertibleToken(true)).toThrow(RGXInvalidTokenError);
         });
 
-        it('accepts objects with an rgxGroupWrap property that is a boolean', () => {
-            const token = { toRgx: () => 'foo', rgxGroupWrap: true };
-            expect(isRGXConvertibleToken(token)).toBe(true);
-            expect(() => assertRGXConvertibleToken(token)).not.toThrow();
-        });
-
-        it('rejects objects with an rgxGroupWrap property that is not a boolean', () => {
-            const token = { toRgx: () => 'foo', rgxGroupWrap: 'not a boolean' };
-            expect(isRGXConvertibleToken(token)).toBe(false);
-            expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
-        });
-
         it('accepts objects with an rgxIsRepeatable property that is a boolean', () => {
             const token = { toRgx: () => 'foo', rgxIsRepeatable: true };
             expect(isRGXConvertibleToken(token)).toBe(true);
@@ -379,7 +367,7 @@ describe('Type Guards', () => {
         it('accepts tokens that resolve to a single unit', () => {
             const tokens: RGXToken[] = [
                 'a', /\d/, /[abc]/, ['a', 'b'], new RGXGroupToken({}, ['a', 'b']),
-                { toRgx: () => /[abc]/, rgxGroupWrap: false }
+                { toRgx: () => /[abc]/ }, { toRgx: () => /abc/ }
             ];
 
             for (const token of tokens) {
@@ -390,8 +378,7 @@ describe('Type Guards', () => {
 
         it('rejects tokens that resolve to more or less than a single quantifiable unit', () => {
             const tokens: RGXToken[] = [
-                'ab', null, { toRgx: () => /abc/, rgxGroupWrap: false }, { toRgx: () => /a+/, rgxGroupWrap: false },
-                { toRgx: () => /^/, rgxGroupWrap: false }, new RGXLookaheadToken(['a'])
+                'ab', null, { toRgx: () => 'abc' }, { toRgx: () => /^/ }, /^/, /(?:^|$)/, new RGXLookaheadToken(['a'])
             ];
 
             for (const token of tokens) {

@@ -48,8 +48,7 @@ export function assertRGXNativeToken(value: unknown): asserts value is t.RGXNati
 
 export function isRGXConvertibleToken(value: unknown, returnCheck: boolean = true, acceptJSON: boolean = true): value is t.RGXConvertibleToken {
     if (typeof value === 'object' && value !== null && 'toRgx' in value) {
-        // The rgxGroupWrap, interpolate, and rgxIsRepeatable properties are optional, but if they exist they must be booleans.
-        if ('rgxGroupWrap' in value && typeof value.rgxGroupWrap !== 'boolean') return false;
+        // The rgxIsRepeatable and rgxInterpolate properties are optional, but if they exist they must be booleans.
         if ('rgxIsRepeatable' in value && typeof value.rgxIsRepeatable !== 'boolean') return false;
         if ('rgxInterpolate' in value && typeof value.rgxInterpolate !== 'boolean') return false;
 

@@ -8,7 +8,6 @@ type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
-    readonly rgxGroupWrap?: boolean,
     readonly rgxIsRepeatable?: boolean,
     readonly rgxInterpolate?: boolean
 };
@@ -36,9 +35,9 @@ function createRGXBounds(positive: RGXToken, negative: RGXToken, options?: Creat
 ```
 Creates a pair of boundary tokens representing the start and end of a region defined by a `positive` pattern, delimited by a `negative` pattern. The returned tokens are zero-width assertions (they consume no characters) that can be inserted into an RGX pattern to match at the edges of the positive region.
 
-The first element of the returned tuple is the start bound and the second element is the end bound. When `inner` is `true` (the default), both bounds assert the `positive` pattern in addition to `negative`: the start bound is `(?<=negative|^)(?=positive)`, which only fires where `negative` ends and `positive` begins; the end bound is `(?<=positive)(?=negative|$)`, which only fires where `positive` ends and `negative` begins. When `inner` is `false`, the `positive` assertion is dropped entirely: the start bound becomes `(?<=negative|^)` (fires at every position immediately after `negative` or the start of string, regardless of what follows) and the end bound becomes `(?=negative|$)` (fires at every position immediately before `negative` or the end of string, regardless of what precedes). Both tokens have `rgxGroupWrap: false` and `rgxIsRepeatable: false`, since boundary assertions do not consume characters and cannot be meaningfully repeated or group-wrapped.
+The first element of the returned tuple is the start bound and the second element is the end bound. When `inner` is `true` (the default), both bounds assert the `positive` pattern in addition to `negative`: the start bound is `(?<=negative|^)(?=positive)`, which only fires where `negative` ends and `positive` begins; the end bound is `(?<=positive)(?=negative|$)`, which only fires where `positive` ends and `negative` begins. When `inner` is `false`, the `positive` assertion is dropped entirely: the start bound becomes `(?<=negative|^)` (fires at every position immediately after `negative` or the start of string, regardless of what follows) and the end bound becomes `(?=negative|$)` (fires at every position immediately before `negative` or the end of string, regardless of what precedes). Both tokens have `rgxIsRepeatable: false`, since boundary assertions do not consume characters and cannot be meaningfully repeated.
 
-Both `positive` and `negative` are resolved without group wrapping before being embedded into the lookbehind and lookahead. If either token is a convertible token with an explicit `rgxGroupWrap` preference, that preference is overridden to `false` for the top-level resolution.
+Both `positive` and `negative` are resolved with `groupWrap: false` before being embedded into the lookbehind and lookahead. Like any top-level resolution, this only affects the token itself (and the direct result of a convertible token's `toRgx()`); anything nested deeper is still group wrapped.
 
 ## Parameters
   - `positive` (`RGXToken`): The token representing the pattern that defines the region being bounded.
