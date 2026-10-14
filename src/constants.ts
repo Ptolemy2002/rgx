@@ -1,4 +1,4 @@
-import { RGXClassToken, rgxClassWrapper } from "./class";
+import { RGXClassToken, rgxClassWrapper, rgxRepeat } from "./class";
 import { RGXConstantConflictError, RGXInvalidConstantKeyError } from "./errors";
 import { RGXToken } from "./types";
 
@@ -113,10 +113,10 @@ export const RGX_PREDEFINED_CONSTANTS = {
         rgxGroupWrap: false,
         toRgx() { return /\s/; }
     },
-    "whitespace-block": {
+    "whitespace-block": rgxRepeat({
         rgxGroupWrap: false,
-        toRgx() { return /\s+/; }
-    },
+        toRgx() { return /\s/; }
+    }, 1, null),
     "non-whitespace": {
         rgxGroupWrap: false,
         toRgx() { return /\S/; }
@@ -126,10 +126,10 @@ export const RGX_PREDEFINED_CONSTANTS = {
         rgxGroupWrap: false,
         toRgx() { return /[^\n\S]/; }
     },
-    "non-newline-whitespace-block": {
+    "non-newline-whitespace-block": rgxRepeat({
         rgxGroupWrap: false,
-        toRgx() { return /[^\n\S]+/; }
-    },
+        toRgx() { return /[^\n\S]/; }
+    }, 1, null),
     "vertical-whitespace": {
         rgxGroupWrap: false,
         toRgx() { return /\v/; }
