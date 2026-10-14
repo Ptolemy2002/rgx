@@ -1,10 +1,10 @@
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 import { RGXClassToken } from "./base";
-import { createConstructFunction, localizableVanillaRegexFlagDiff } from "src/internal";
+import { createConstructFunction, localizableVanillaRegexFlagDiff, withRGXInsertionFlags } from "src/internal";
 import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
 import { assertValidIdentifier, assertValidRegexLocalizableFlags } from "src/typeGuards";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
-import { RGXJSONClassToken, RGXJSONToken, RGXJSONValue } from "src/types";
+import { RGXJSONClassToken, RGXJSONToken, RGXJSONValue, ValidRegexFlags } from "src/types";
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
 import { isRGXJSONToken } from "src/typeGuards";
 
@@ -77,8 +77,11 @@ export class RGXGroupToken extends RGXClassToken {
     }
 
     toRgx() {
-        // The collection token doesn't group itself, so this is safe.
-        let result: string = this.tokens.toRgx().source;
+        // The collection token doesn't group itself, so this is safe. Modifier flags apply to the tokens inside.
+        let result: string = withRGXInsertionFlags(
+            flags => this.flags.length > 0 ? (flags.replace(/[ims]/g, '') + this.flags) as ValidRegexFlags : flags,
+            () => this.tokens.toRgx().source
+        );
 
         const hasFlags = this.flags.length > 0;
         // This will return the flags that are not present in the flags variable, preceded by a "-" if there are any.

@@ -3,7 +3,10 @@ import * as e from "./errors";
 import { assertValidRegexFlags } from "./ExtRegExp";
 import * as tg from "./typeGuards";
 import * as t from "./types";
-import { hasRegexParenErrors, localizableVanillaRegexFlagDiff, removeRedundantRegexGroups, scanOptionsFromFlags } from "./internal";
+import {
+    claimRGXInsertionPlacement, hasRegexParenErrors, isRGXInsertionCheckActive, localizableVanillaRegexFlagDiff,
+    placeRGXToken, removeRedundantRegexGroups, scanOptionsFromFlags
+} from "./internal";
 import { rgxTokenFromJSON } from "./json";
 
 export type ResolveRGXTokenOptions = {
@@ -22,7 +25,15 @@ export function rgxInterpolation(source: string): t.RGXInterpolationToken {
     return { rgxInterpolation: source };
 }
 
-export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel = true, currentFlags = '' }: ResolveRGXTokenOptions = {}): t.ValidRegexString {
+export function resolveRGXToken(token: t.RGXToken, options: ResolveRGXTokenOptions = {}): t.ValidRegexString {
+    let { groupWrap = true, topLevel = true, currentFlags = '' } = options;
+
+    // While a pattern is being built, a token resolved on its own (such as by a container's toRgx()) is placed
+    // as the only token at its level. Arrays aren't placed themselves, since their members are placed below.
+    if (!claimRGXInsertionPlacement(token) && topLevel && isRGXInsertionCheckActive() && !tg.isRGXArrayToken(token, false)) {
+        return placeRGXToken([token], 0, () => resolveRGXToken(token, options));
+    }
+
     assertValidRegexFlags(currentFlags);
 
     // JSON tokens are converted to their runtime equivalents (literal, class, or interpolation tokens) before resolving.
@@ -59,7 +70,13 @@ export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel 
         if (tg.isRGXConvertibleToken(token)) {
             // The top-level group-wrapping preference propogates to a direct convertible token, but after that
             // the preference falls back to true.
-            return resolveRGXToken(token.toRgx(), { groupWrap: topLevel ? groupWrap : true, topLevel: false, currentFlags });
+            const result = token.toRgx();
+            const resultOptions = { groupWrap: topLevel ? groupWrap : true, topLevel: false, currentFlags };
+
+            // A single token returned by toRgx() (such as the token an RGXClassWrapperToken wraps) is placed inside
+            // this one. Arrays place their own members.
+            if (tg.isRGXArrayToken(result, false)) return resolveRGXToken(result, resultOptions);
+            return placeRGXToken([result], 0, () => resolveRGXToken(result, resultOptions));
         }
 
         // Interpret arrays as unions
@@ -68,14 +85,16 @@ export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel 
 
             if (token.length > 1) {
                 // Remove duplicates
-                token = [...removeRgxUnionDuplicates(...token)];
+                const members = [...removeRgxUnionDuplicates(...token)];
 
                 // Don't preserve group wrapping preference for the recursive calls
-                if (groupWrap) return '(?:' + token.map(t => resolveRGXToken(t, { groupWrap: true, topLevel: false, currentFlags })).join('|') + ')';
-                else return token.map(t => resolveRGXToken(t, { groupWrap: true, topLevel: false, currentFlags })).join('|');
+                const resolved = members.map((member, i) => placeRGXToken(members, i, () => resolveRGXToken(member, { groupWrap: true, topLevel: false, currentFlags })));
+                if (groupWrap) return '(?:' + resolved.join('|') + ')';
+                else return resolved.join('|');
             }
 
-            return resolveRGXToken(token[0], { groupWrap: true, topLevel: false, currentFlags });
+            const members = token;
+            return placeRGXToken(members, 0, () => resolveRGXToken(members[0], { groupWrap: true, topLevel: false, currentFlags }));
         }
 
         // Ignoring this line since it should be impossible to reach if the types are correct, but we need it to satisfy the return type

@@ -9,9 +9,16 @@ import { CloneDepth } from "@ptolemy2002/immutability-utils";
 type RGXNoOpToken = null | undefined;
 type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
+type RGXInsertionContext = {
+    readonly flags: ValidRegexFlags;              // effective at this position, including enclosing modifier groups
+    readonly siblings: readonly RGXToken[];       // the tokens at the same level, including this one
+    readonly index: number;                       // this token's position in siblings
+    readonly parent: RGXInsertionContext | null;  // the enclosing level, or null at the top level
+    readonly container: RGXToken | null;          // the token whose contents this level is, or null at the top level
+};
 type RGXConvertibleToken = {
     toRgx: () => RGXToken,
-    rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
+    rgxAcceptInsertion?: (context: RGXInsertionContext) => string | boolean,
     readonly rgxIsRepeatable?: boolean
 };
 type RGXInterpolationToken = { readonly rgxInterpolation: string };
@@ -86,7 +93,7 @@ The following are utilities for creating `RGXWalker` instances without the need 
 ```typescript
 function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {multiline=true, verbatim=true, ...options}: RGXWOptions<R, S> = {}): (strings: TemplateStringsArray, ...tokens: RGXTokenOrPart<R, S, T>[]) => RGXWalker<R, S>
 ```
-Creates an `RGXWalker` instance from an interpolation of strings and tokens. The template literal is interpreted as a raw string, meaning any escape sequences are left as-is instead of being resolved to their charcter equivalents. Plain tokens are processed exactly like in `rgx`; `RGXPart` instances are tested for their inner token to accept insertion, then passed through. Instead of returning an `ExtRegExp`, it returns an `RGXWalker` that can be used to walk through matches of the regex pattern in the source string.
+Creates an `RGXWalker` instance from an interpolation of strings and tokens. The template literal is interpreted as a raw string, meaning any escape sequences are left as-is instead of being resolved to their charcter equivalents. Tokens are checked for acceptance like in `rgxwa`, then passed through. Instead of returning an `ExtRegExp`, it returns an `RGXWalker` that can be used to walk through matches of the regex pattern in the source string.
 
 ### Parameters
   - `source` (`string`): An arbitrary string value that will be included in the `source` property of the walker object.
@@ -107,7 +114,7 @@ Creates an `RGXWalker` instance from an interpolation of strings and tokens. The
 ```typescript
 function rgxwa<R = unknown, S = unknown, T = unknown>(source: string, tokens: RGXTokenOrPart<R, S, T>[], options: Omit<RGXWOptions<R, S>, "multiline"> = {}): RGXWalker<R, S>
 ```
-As an alternative to using the `rgxw` template tag, you can directly call `rgxwa` with a source string, an array of tokens and/or parts, and options to get an `RGXWalker` instance. This is useful in cases where you don't want to use a template literal. Plain tokens are validated exactly like in `rgxa`; `RGXPart` instances are tested for their inner token to accept insertion and passed through to the walker. The provided options are passed through to configure the resulting walker.
+As an alternative to using the `rgxw` template tag, you can directly call `rgxwa` with a source string, an array of tokens and/or parts, and options to get an `RGXWalker` instance. This is useful in cases where you don't want to use a template literal. Each plain token and the inner token of each `RGXPart` is checked for acceptance at its position (including tokens nested inside it) by resolving it as the top level of a pattern with no flags, since the walker matches each token on its own without flags (see `rgxAcceptInsertion` in [base.md](./token/base.md)). Because of this, the tokens are resolved once when the walker is created. `RGXPart` instances are then passed through to the walker. The provided options are passed through to configure the resulting walker.
 
 #### Parameters
   - `source` (`string`): An arbitrary string value that will be included in the `source` property of the walker object.

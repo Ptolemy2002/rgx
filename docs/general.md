@@ -5,9 +5,16 @@ The following is a reference to types relevant to the components listed in this 
 type RGXNoOpToken = null | undefined;
 type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
+type RGXInsertionContext = {
+    readonly flags: ValidRegexFlags;              // effective at this position, including enclosing modifier groups
+    readonly siblings: readonly RGXToken[];       // the tokens at the same level, including this one
+    readonly index: number;                       // this token's position in siblings
+    readonly parent: RGXInsertionContext | null;  // the enclosing level, or null at the top level
+    readonly container: RGXToken | null;          // the token whose contents this level is, or null at the top level
+};
 type RGXConvertibleToken = {
     toRgx: () => RGXToken,
-    rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
+    rgxAcceptInsertion?: (context: RGXInsertionContext) => string | boolean,
     readonly rgxIsRepeatable?: boolean
 };
 type RGXInterpolationToken = { readonly rgxInterpolation: string };
@@ -66,7 +73,7 @@ type RGXWOptions<R = unknown> = RGXWalkerOptions<R> & RGXOptions;
 function rgx(flags?: string, options?: RGXOptions): (strings: TemplateStringsArray, ...tokens: RGXToken[]) => ExtRegExp
 ```
 
-Creates and returns a template tag function that constructs an `ExtRegExp` object from the provided template literal with the provided flags. The template literal is interpreted as a raw string, meaning any escape sequences are left as-is instead of being resolved to their charcter equivalents. The template literal can contain RGX tokens, which will be resolved and concatenated with the literal parts to form the final regex pattern. Redundant non-capturing groups in the final pattern are removed (see `resolveRGXToken` and `rgxa`), including ones written directly in the template, while capturing, named, inline modifier, and lookaround groups are always kept. Before constructing the pattern, any convertible token that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown with details about the reason and exactly where the rejection occurred.
+Creates and returns a template tag function that constructs an `ExtRegExp` object from the provided template literal with the provided flags. The template literal is interpreted as a raw string, meaning any escape sequences are left as-is instead of being resolved to their charcter equivalents. The template literal can contain RGX tokens, which will be resolved and concatenated with the literal parts to form the final regex pattern. Redundant non-capturing groups in the final pattern are removed (see `resolveRGXToken` and `rgxa`), including ones written directly in the template, while capturing, named, inline modifier, and lookaround groups are always kept. Insertion checks (see `rgxAcceptInsertion` in [base.md](./class/token/base.md)) run while the pattern is built: every convertible token that defines `rgxAcceptInsertion`, at any depth, is called once for each place it is inserted, with an `RGXInsertionContext` describing that place; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown with details about the reason and exactly where the rejection occurred.
 
 When `multiline` is `true` (the default), the literal string parts of the template are processed to strip newlines, trim leading whitespace from each line, and remove empty lines, then joined together. This allows you to write regex patterns across multiple lines in the source code for readability without the newlines and indentation becoming part of the pattern. Only the literal string parts between tokens are affected — interpolated values (tokens) are preserved as-is, including string tokens passed via `${"..."}`. Also, comments (denoted with `//`) ending a line or on a line by themselves are stripped. If a command ends a line, that line is also stripped of whitespace on the right side.
 
@@ -124,7 +131,7 @@ const pattern6 = rgx()`
 ```typescript
 function rgxa(tokens: RGXToken[], flags?: string): ExtRegExp
 ```
-As an alternative to using the `rgx` template tag, you can directly call `rgxa` with an array of RGX tokens and optional flags to get an `ExtRegExp` object. This is useful in cases where you don't want to use a template literal. Like `rgx`, the provided `flags` are passed as `currentFlags` to the resolver, enabling inline modifier groups for `RegExp` literal tokens whose localizable flags differ. Before constructing the pattern, any convertible token in the array that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown with details about the reason and exactly where the rejection occurred. Since nothing else is added to the final pattern, redundant non-capturing groups at its start and end are removed as well, so `rgxa([/a/, /b/])` produces `ab` rather than `(?:a)(?:b)`.
+As an alternative to using the `rgx` template tag, you can directly call `rgxa` with an array of RGX tokens and optional flags to get an `ExtRegExp` object. This is useful in cases where you don't want to use a template literal. Like `rgx`, the provided `flags` are passed as `currentFlags` to the resolver, enabling inline modifier groups for `RegExp` literal tokens whose localizable flags differ. Insertion checks (see `rgxAcceptInsertion` in [base.md](./class/token/base.md)) run while the pattern is built, with the given `flags` at the top level: every convertible token that defines `rgxAcceptInsertion`, at any depth, is called once for each place it is inserted, with an `RGXInsertionContext` describing that place; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown with details about the reason and exactly where the rejection occurred. Since nothing else is added to the final pattern, redundant non-capturing groups at its start and end are removed as well, so `rgxa([/a/, /b/])` produces `ab` rather than `(?:a)(?:b)`.
 
 ## Parameters
   - `tokens` (`RGXToken[]`): The RGX tokens to be resolved and concatenated to form the regex pattern.
@@ -180,7 +187,7 @@ rgxa([rgxInterpolation("(?<word>"), /\w+/, rgxInterpolation(")")]); // /(?<word>
 ```typescript
 function rgxConcat(tokens: RGXToken[], groupWrap?: boolean, currentFlags?: string): ValidRegexString
 ```
-A helper function that resolves an array of RGX tokens and concatenates their resolved string representations together. Redundant non-capturing groups left by joining the resolved tokens are then removed, following the same rules as `resolveRGXToken`. Before returning, any convertible token in the array that defines `rgxAcceptInsertion` is checked; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown with details about the reason and exactly where the rejection occurred.
+A helper function that resolves an array of RGX tokens and concatenates their resolved string representations together. Redundant non-capturing groups left by joining the resolved tokens are then removed, following the same rules as `resolveRGXToken`. When called while a pattern is being built (by `rgxa`, `rgx`, or a container such as a concat-mode `RGXTokenCollection` resolved inside one), each token in the array is checked for acceptance at its position, with the array as its siblings, before it is resolved (see `rgxAcceptInsertion` in [base.md](./class/token/base.md)). When called on its own, no insertion checks run.
 
 ## Parameters
   - `tokens` (`RGXToken[]`): The array of RGX tokens to resolve and concatenate.

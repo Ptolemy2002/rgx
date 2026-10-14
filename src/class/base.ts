@@ -1,8 +1,9 @@
-import { RGXConvertibleToken, RGXJSONClassToken, RGXJSONObjectToken, RGXToken, ValidRegexFlags, ValidRegexString } from "src/types";
+import { RGXConvertibleToken, RGXInsertionContext, RGXJSONClassToken, RGXJSONObjectToken, RGXToken, ValidRegexString } from "src/types";
 import { RGXTokenCollectionInput } from "src/collection";
 import { RGXInvalidTokenError, RGXNotImplementedError } from "src/errors";
 import { createRGXJSONLiteralToken } from "src/json";
 import { removeRedundantRegexGroups } from "src/internal/scanRegexSource";
+import { withoutRGXInsertionChecks } from "src/internal/insertionContext";
 import { resolveRGXToken, ResolveRGXTokenOptions } from "src/resolve";
 import { CloneDepth } from "@ptolemy2002/immutability-utils";
 import type { RGXClassUnionToken } from "./union";
@@ -23,14 +24,16 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
     // class, reconstruct an equivalent token. By default, it falls back to resolving the token into a
     // JSON literal token, the same way plain convertible tokens are handled by rgxTokenToJSON. This is lossy.
     toJSON(): RGXJSONObjectToken {
-        return createRGXJSONLiteralToken(removeRedundantRegexGroups(resolveRGXToken(this, { groupWrap: false }), { isolated: true }));
+        // Serializing the token isn't part of building a pattern.
+        const source = withoutRGXInsertionChecks(() => resolveRGXToken(this, { groupWrap: false }));
+        return createRGXJSONLiteralToken(removeRedundantRegexGroups(source, { isolated: true }));
     }
 
     static fromJSON(json: RGXJSONClassToken): RGXClassToken {
         throw new RGXNotImplementedError('RGXClassToken.fromJSON(json)', 'subclasses must override this static method in order to be registered in the JSON class registry.');
     }
 
-    rgxAcceptInsertion(tokens: RGXToken[], flags: ValidRegexFlags): string | boolean {
+    rgxAcceptInsertion(context: RGXInsertionContext): string | boolean {
         return true;
     }
 

@@ -2,12 +2,14 @@ import { RGXError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
 import { RGXToken } from "src/types";
 import { isNonConsumingRegexSource } from "./scanRegexSource";
+import { withoutRGXInsertionChecks } from "./insertionContext";
 
 // Whether the token is detected as consuming no characters wherever it matches (see isNonConsumingRegexSource).
 // This errs toward false, so tokens that can't be resolved on their own are assumed to consume characters.
 export function isNonConsumingRGXToken(token: RGXToken): boolean {
     try {
-        return isNonConsumingRegexSource(resolveRGXToken(token));
+        // Checking the token isn't part of building a pattern.
+        return isNonConsumingRegexSource(withoutRGXInsertionChecks(() => resolveRGXToken(token)));
     } catch (err) {
         if (err instanceof RGXError) return false;
 

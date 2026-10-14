@@ -5,9 +5,16 @@ The following is a reference to types relevant to the components listed in this 
 type RGXNoOpToken = null | undefined;
 type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
+type RGXInsertionContext = {
+    readonly flags: ValidRegexFlags;              // effective at this position, including enclosing modifier groups
+    readonly siblings: readonly RGXToken[];       // the tokens at the same level, including this one
+    readonly index: number;                       // this token's position in siblings
+    readonly parent: RGXInsertionContext | null;  // the enclosing level, or null at the top level
+    readonly container: RGXToken | null;          // the token whose contents this level is, or null at the top level
+};
 type RGXConvertibleToken = {
     toRgx: () => RGXToken,
-    rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
+    rgxAcceptInsertion?: (context: RGXInsertionContext) => string | boolean,
     readonly rgxIsRepeatable?: boolean
 };
 type RGXInterpolationToken = { readonly rgxInterpolation: string };
@@ -109,7 +116,7 @@ Asserts that the given value is a native token (string, number, boolean, or no-o
 ```typescript
 function isRGXConvertibleToken(value: unknown, returnCheck?: boolean, acceptJSON?: boolean): value is RGXConvertibleToken
 ```
-Checks if the given value is a convertible token (an object with a `toRgx` method). If the `rgxIsRepeatable` property is present and not `undefined`, it must be a boolean; otherwise, the check fails. If the `rgxAcceptInsertion` property is present, it must be a callable that returns a `string` or `boolean`; otherwise, the check fails. Validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). When `returnCheck` is `false`, only checks for the presence and callability of function properties instead of also checking their return values.
+Checks if the given value is a convertible token (an object with a `toRgx` method). If the `rgxIsRepeatable` property is present and not `undefined`, it must be a boolean; otherwise, the check fails. If the `rgxAcceptInsertion` property is present, it must be callable; otherwise, the check fails. It is never called here, since it is only meant to run while a pattern is being built, so its return value is checked then instead. Validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). When `returnCheck` is `false`, only checks for the presence and callability of `toRgx` instead of also checking its return value.
 
 Note that JSON object tokens are never themselves convertible tokens, even though they may describe a class token. `acceptJSON` only controls whether a `toRgx` return value containing JSON object tokens is accepted.
 

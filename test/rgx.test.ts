@@ -457,30 +457,35 @@ describe('rgxConcat', () => {
         expect(result).toBe('(?i:bar)');
     });
 
-    it('Throws the correct error for a convertible token that rejects insertion', () => {
+    it('does not check insertions when called outside of a pattern being built', () => {
         const token = { toRgx: () => "foo", rgxAcceptInsertion: () => false };
-        expectError(() => rgxConcat(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
+        expect(rgxConcat(['bar', token, 'baz', new TestClassToken1()])).toBe('barfoobaztest');
+    });
+
+    it('Throws the correct error for a convertible token that rejects insertion when building a pattern', () => {
+        const token = { toRgx: () => "foo", rgxAcceptInsertion: () => false };
+        expectError(() => rgxa(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
             expect(e.message).toBe("Insertion rejected; Additional info: index 1, token type unknown");
         });
     });
 
-    it('Throws the correct error for a convertible token that rejects insertion with a message', () => {
+    it('Throws the correct error for a convertible token that rejects insertion with a message when building a pattern', () => {
         const token = { toRgx: () => "foo", rgxAcceptInsertion: () => "Always rejects" };
-        expectError(() => rgxConcat(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
+        expectError(() => rgxa(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
             expect(e.message).toBe("Insertion rejected; Reason: Always rejects; Additional info: index 1, token type unknown");
         });
     });
 
-    it('Throws the correct error for a class token that rejects insertion', () => {
+    it('Throws the correct error for a class token that rejects insertion when building a pattern', () => {
         const token = new TestClassToken1();
-        expectError(() => rgxConcat(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
+        expectError(() => rgxa(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
             expect(e.message).toBe("Insertion rejected; Additional info: index 1, token type TestClassToken1");
         });
     });
 
-    it('Throws the correct error for a class token that rejects insertion with a message', () => {
+    it('Throws the correct error for a class token that rejects insertion with a message when building a pattern', () => {
         const token = new TestClassToken2();
-        expectError(() => rgxConcat(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
+        expectError(() => rgxa(['bar', token, 'baz']), RGXInsertionRejectedError, (e) => {
             expect(e.message).toBe("Insertion rejected; Reason: class: always rejects; Additional info: index 1, token type TestClassToken2");
         });
     });

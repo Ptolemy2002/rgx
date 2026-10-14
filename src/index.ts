@@ -2,7 +2,8 @@ import * as t from "./types";
 import { rgxClassInit } from "./class";
 import { registerCustomFlagTransformers } from "./flag-transformer";
 import { rgxConcat } from "./concat";
-import { assureAcceptance } from "./internal/assureAcceptance";
+import { placeRGXToken, withRGXInsertionRoot } from "./internal/insertionContext";
+import { resolveRGXToken } from "./resolve";
 import { removeRedundantRegexGroups, scanOptionsFromFlags } from "./internal/scanRegexSource";
 import { rgxTaggedTemplateToArray } from "./internal/taggedTemplateToArray";
 import { assertValidRegexFlags, ExtRegExp } from "./ExtRegExp";
@@ -16,9 +17,10 @@ registerCustomFlagTransformers();
 
 export function rgxa(tokens: t.RGXToken[], flags: string = ''): ExtRegExp {
     assertValidRegexFlags(flags);
-    assureAcceptance(tokens, flags);
+    // Insertions are checked while the pattern is built.
+    const concatenated = withRGXInsertionRoot(flags, () => rgxConcat(tokens, true, flags));
     // Nothing else is added to the final pattern, so groups at its edges can be removed too.
-    const pattern = removeRedundantRegexGroups(rgxConcat(tokens, true, flags), { ...scanOptionsFromFlags(flags), isolated: true });
+    const pattern = removeRedundantRegexGroups(concatenated, { ...scanOptionsFromFlags(flags), isolated: true });
     return createRegex(pattern, flags, true);
 }
 
@@ -33,7 +35,13 @@ export function rgxwa<R = unknown, S = unknown, T = unknown>(
     source: string, tokens: RGXTokenOrPart<R, S, T>[],
     options: Omit<t.RGXWOptions<R, S>, "multiline"> = {}
 ) {
-    assureAcceptance(tokens.map(t => RGXPart.check(t) ? t.token : t), '' as t.ValidRegexFlags);
+    // The walker matches each token on its own, without flags, so each one is checked at its position by resolving it
+    // as the top level of a pattern with no flags.
+    const plainTokens = tokens.map(t => RGXPart.check(t) ? t.token : t);
+    withRGXInsertionRoot('' as t.ValidRegexFlags, () => {
+        plainTokens.forEach((token, i) => placeRGXToken(plainTokens, i, () => resolveRGXToken(token)));
+    });
+
     return new RGXWalker<R, S>(source, tokens, options);
 }
 

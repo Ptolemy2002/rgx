@@ -1,5 +1,5 @@
 import { assertValidRegexFlags } from "./ExtRegExp";
-import { assureAcceptance, removeRedundantRegexGroups, scanOptionsFromFlags } from "./internal";
+import { placeRGXToken, removeRedundantRegexGroups, scanOptionsFromFlags } from "./internal";
 import { resolveRGXToken } from "./resolve";
 import * as t from "./types";
 
@@ -8,9 +8,9 @@ export function rgxConcat(tokens: t.RGXToken[], groupWrap=true, currentFlags='')
     assertValidRegexFlags(currentFlags);
     // Joining the resolved tokens can leave groups that are only redundant next to each other, such as "(?:a)(?:b)".
     const result = removeRedundantRegexGroups(
-        tokens.map(t => resolveRGXToken(t, {groupWrap, currentFlags})).join(''),
+        // While a pattern is being built, each token is checked for acceptance at its position.
+        tokens.map((token, i) => placeRGXToken(tokens, i, () => resolveRGXToken(token, {groupWrap, currentFlags}))).join(''),
         scanOptionsFromFlags(currentFlags)
     ) as t.ValidRegexString;
-    assureAcceptance(tokens, currentFlags);
     return result;
 }

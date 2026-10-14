@@ -14,9 +14,16 @@ type ResolveRGXTokenOptions = {
 type RGXNoOpToken = null | undefined;
 type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
+type RGXInsertionContext = {
+    readonly flags: ValidRegexFlags;              // effective at this position, including enclosing modifier groups
+    readonly siblings: readonly RGXToken[];       // the tokens at the same level, including this one
+    readonly index: number;                       // this token's position in siblings
+    readonly parent: RGXInsertionContext | null;  // the enclosing level, or null at the top level
+    readonly container: RGXToken | null;          // the token whose contents this level is, or null at the top level
+};
 type RGXConvertibleToken = {
     toRgx: () => RGXToken,
-    rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
+    rgxAcceptInsertion?: (context: RGXInsertionContext) => string | boolean,
     readonly rgxIsRepeatable?: boolean
 };
 type RGXInterpolationToken = { readonly rgxInterpolation: string };
@@ -60,7 +67,14 @@ These properties only have getters.
 - `rgxIsRepeatable` (`boolean | undefined`): Returns `undefined` by default, meaning the token has no explicit preference: it is repeatable unless its resolved source is detected as consuming no characters (see `isRGXToken` in [type-guards.md](../../type-guards.md)), so a subclass whose output is made entirely of assertions doesn't need to override this. Subclasses can override this to set an explicit preference, which is always trusted. When the token is not repeatable, attempting to set it as the `token` property of an `RGXRepeatToken` (including via `repeat()` or `optional()`) will throw an `RGXNotSupportedError`. When it is explicitly `true` but the token consumes no characters, repeating it is allowed, but a warning is printed with `console.warn` (at most once per token).
 
 ## Methods
-- `rgxAcceptInsertion(tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean`: Called during pattern construction (via `rgx`, `rgxa`, or `rgxConcat`) to allow the token to reject its own insertion based on the surrounding tokens and the pattern's flags. Returns `true` to accept insertion (the default), `false` to reject with no reason, or a string to reject with a reason message. When a token rejects insertion, an `RGXInsertionRejectedError` is thrown. Subclasses can override this to enforce constraints such as requiring certain flags to be present.
+- `rgxAcceptInsertion(context: RGXInsertionContext) => string | boolean`: Called while a pattern is being built (via `rgx`, `rgxa`, `rgxw`, or `rgxwa`) to allow the token to reject its own insertion based on where it is placed. Returns `true` to accept insertion (the default), `false` to reject with no reason, or a string to reject with a reason message. When a token rejects insertion, an `RGXInsertionRejectedError` is thrown. Subclasses can override this to enforce constraints such as requiring certain flags to be present. The same applies to the optional `rgxAcceptInsertion` property of any convertible token.
+
+  The hook is called once for each place the token is inserted, at any depth: tokens nested in groups, lookarounds, repeats, unions, collections, exclusions, wrappers, arrays, and the results of `toRgx()` are all checked. The read-only `context` describes the place:
+  - `flags`: The flags effective at this position. This is the pattern's flags (`''` for walkers, which match each token without flags), with the localizable flags (`i`, `m`, `s`) replaced by those of the innermost enclosing `RGXGroupToken` that sets `flags`.
+  - `siblings` and `index`: The tokens at the same level and this token's position among them. At the top level, `siblings` is the array given to `rgxa` (or the template's parts and tokens). Inside a container, it is the container's own tokens (for example, a group's tokens or a union's alternatives), or just this token for containers with a single token (such as a repeat's token, or the token an `RGXClassWrapperToken` wraps).
+  - `parent` and `container`: The context of the enclosing level and the token whose contents this level is, or `null` at the top level. Following `parent` up gives the path to the token from the top level.
+
+  The hook is only called while a pattern is being built. A standalone `resolveRGXToken` or `rgxConcat`, `toJSON()`, type guards, and checks the library makes while building (such as whether a token is a singleton or repeatable) never call it, and anything the hook itself resolves is not checked either. Since the type guards don't call it, its return value is checked when it is called: anything other than a string or boolean throws an `RGXInvalidTokenError`. Checking the whole pattern (for example, that a named group exists anywhere in it) is out of scope, since opaque convertible tokens can't be inspected structurally.
 - `or(...others: RGXTokenCollectionInput[]) => RGXClassUnionToken`: Creates an `RGXClassUnionToken` that represents a union (alternation) of this token with the provided others. If any of the `others` are `RGXClassUnionToken` instances, their tokens are flattened into the union rather than nested. If `this` is already an `RGXClassUnionToken`, its existing tokens are preserved and the others are appended.
 - `group(args?: RGXGroupTokenArgs, ...others: RGXTokenCollectionInput[]) => RGXGroupToken`: Wraps this token in an `RGXGroupToken` with the provided arguments. The `args` parameter defaults to `{}`, which creates a capturing group with no name. Any additional `others` are included in the group alongside `this`. This is a convenience method that creates a new `RGXGroupToken` with `this` and the `others` as the tokens.
 - `repeat(min?: number, max?: number | null, lazy?: boolean) => RGXRepeatToken`: Wraps this token in an `RGXRepeatToken` with the given repetition bounds. `min` defaults to `1`, `max` defaults to `min`, `lazy` defaults to `false`. Pass `null` for `max` to allow unlimited repetitions. When `lazy` is `true`, the resulting quantifier will be non-greedy. This is a convenience method that creates a new `RGXRepeatToken` with `this` as the token. Throws `RGXNotSupportedError` if called on a token that is not repeatable, i.e. one with `rgxIsRepeatable` set to `false`, or one without a preference that is detected as consuming no characters (e.g., `RGXLookaroundToken`).

@@ -8,9 +8,16 @@ import { CloneDepth } from "@ptolemy2002/immutability-utils";
 type RGXNoOpToken = null | undefined;
 type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
+type RGXInsertionContext = {
+    readonly flags: ValidRegexFlags;              // effective at this position, including enclosing modifier groups
+    readonly siblings: readonly RGXToken[];       // the tokens at the same level, including this one
+    readonly index: number;                       // this token's position in siblings
+    readonly parent: RGXInsertionContext | null;  // the enclosing level, or null at the top level
+    readonly container: RGXToken | null;          // the token whose contents this level is, or null at the top level
+};
 type RGXConvertibleToken = {
     toRgx: () => RGXToken,
-    rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
+    rgxAcceptInsertion?: (context: RGXInsertionContext) => string | boolean,
     readonly rgxIsRepeatable?: boolean
 };
 type RGXInterpolationToken = { readonly rgxInterpolation: string };

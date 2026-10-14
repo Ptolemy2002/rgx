@@ -1,7 +1,7 @@
 import * as t from "./types";
 import * as e from "./errors";
 import isCallable from "is-callable";
-import { isConstructor, isNonConsumingRGXToken, isSingletonRegexSource } from "./internal";
+import { isConstructor, isNonConsumingRGXToken, isSingletonRegexSource, withoutRGXInsertionChecks } from "./internal";
 import { resolveRGXToken } from "./resolve";
 import { RGXClassToken } from "./class";
 import { ExtRegExp } from "./ExtRegExp";
@@ -51,19 +51,14 @@ export function isRGXConvertibleToken(value: unknown, returnCheck: boolean = tru
         // The rgxIsRepeatable property is optional, but if it is set it must be a boolean.
         if ('rgxIsRepeatable' in value && value.rgxIsRepeatable !== undefined && typeof value.rgxIsRepeatable !== 'boolean') return false;
 
-        // If the rgxAcceptInsertion property exists, it must be a function that returns a string or boolean.
-        if ('rgxAcceptInsertion' in value) {
-            if (!isCallable(value.rgxAcceptInsertion)) return false;
-
-            if (returnCheck) {
-                const acceptResult = value.rgxAcceptInsertion([], '' as t.ValidRegexFlags);
-                if (typeof acceptResult !== 'string' && typeof acceptResult !== 'boolean') return false;
-            }
-        }
+        // If the rgxAcceptInsertion property exists, it must be a function. It is only called while a pattern is being
+        // built, where its return value is checked, since calling it here would run it outside of any real placement.
+        if ('rgxAcceptInsertion' in value && !isCallable(value.rgxAcceptInsertion)) return false;
 
         if (isCallable(value.toRgx)) {
             if (!returnCheck) return true;
-            const rv = value.toRgx();
+            // Checking the token isn't part of building a pattern.
+            const rv = withoutRGXInsertionChecks(() => (value.toRgx as () => unknown)());
             return isRGXNativeToken(rv) || isRGXLiteralToken(rv) || 
                 isRGXNoOpToken(rv) || isRGXInterpolationToken(rv) || isRGXArrayToken(rv, true, acceptJSON) ||
                 (acceptJSON && isRGXJSONObjectToken(rv)) ||
@@ -345,7 +340,7 @@ export function isRGXSingletonToken(value: unknown, acceptJSON: boolean = true):
     if (!isRGXToken(value, null, true, acceptJSON)) return false;
 
     try {
-        return isSingletonRegexSource(resolveRGXToken(value));
+        return isSingletonRegexSource(withoutRGXInsertionChecks(() => resolveRGXToken(value)));
     } catch (err) {
         // Tokens that can't be resolved on their own (such as unbalanced interpolations) aren't singletons.
         if (err instanceof e.RGXError) return false;

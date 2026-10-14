@@ -417,17 +417,19 @@ constructor(functionality: string, message?: string | null)
 - `functionality` (`string`): The description of the unsupported functionality.
 
 ## RGXInsertionRejectedError
-A specific error class for token insertion rejection. This error is thrown when a convertible token's `rgxAcceptInsertion` method returns `false` or a string (rejection reason) during pattern construction via `rgx`, `rgxa`, `rgxw`, `rgxwa`, or `rgxConcat`. The error code is set to `INSERTION_REJECTED` on instantiation.
+A specific error class for token insertion rejection. This error is thrown when a convertible token's `rgxAcceptInsertion` method returns `false` or a string (rejection reason) while a pattern is being built via `rgx`, `rgxa`, `rgxw`, or `rgxwa`. The message includes where the token was placed: the path of indices from the top level of the pattern (for example, `index 1 > 0`) and the containers along the way (for example, `(inside RGXGroupToken)`). The error code is set to `INSERTION_REJECTED` on instantiation.
 
 ### Constructor
 ```typescript
-constructor(reason?: string | null, message?: string | null)
+constructor(reason?: string | null, message?: string | null, context?: RGXInsertionContext | null)
 ```
 - `reason` (`string | null`, optional): The reason the insertion was rejected. Defaults to `null`.
 - `message` (`string | null`, optional): An optional additional message providing more context. Defaults to `null`.
+- `context` (`RGXInsertionContext | null`, optional): Where the rejected token was placed. Defaults to `null`.
 
 ### Properties
 - `reason` (`string | null`): The reason the insertion was rejected, or `null` if no reason was provided.
+- `context` (`RGXInsertionContext | null`): Where the rejected token was placed (see `rgxAcceptInsertion` in [base.md](./token/base.md)), or `null` if unknown.
 
 ## RGXOutOfBoundsError
 A specific error class for out-of-bounds values. This error is thrown when a numeric value falls outside an expected range. The error code is set to `OUT_OF_BOUNDS` on instantiation.

@@ -7,9 +7,23 @@ import type { RGXWalkerOptions } from "./walker";
 export type RGXNoOpToken = null | undefined;
 export type RGXLiteralToken = RegExp;
 export type RGXNativeToken = string | number | boolean | RGXNoOpToken;
+// Where a token is placed in a pattern that is being built.
+export type RGXInsertionContext = {
+    // The flags effective at this position, including the flags of enclosing modifier groups.
+    readonly flags: ValidRegexFlags;
+    // The tokens at the same level as this one, including this one.
+    readonly siblings: readonly RGXToken[];
+    // This token's position in siblings.
+    readonly index: number;
+    // The context of the enclosing level, or null at the top level of the pattern.
+    readonly parent: RGXInsertionContext | null;
+    // The token whose contents this level is, or null at the top level of the pattern.
+    readonly container: RGXToken | null;
+};
+
 export type RGXConvertibleToken = {
     toRgx: () => RGXToken,
-    rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
+    rgxAcceptInsertion?: (context: RGXInsertionContext) => string | boolean,
     readonly rgxIsRepeatable?: boolean
 };
 // A raw source fragment that is inserted as-is, without escaping. Unlike a literal token, it doesn't have to be a valid

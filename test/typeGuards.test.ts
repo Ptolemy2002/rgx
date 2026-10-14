@@ -327,10 +327,12 @@ describe('Type Guards', () => {
             expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
         });
 
-        it('rejects objects with an rgxAcceptInsertion property that is a function not returning a string or boolean', () => {
-            const token = { toRgx: () => 'foo', rgxAcceptInsertion: () => 42 };
-            expect(isRGXConvertibleToken(token)).toBe(false);
-            expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
+        it('does not call the rgxAcceptInsertion method, so its return value is not checked', () => {
+            const rgxAcceptInsertion = jest.fn(() => 42);
+            const token = { toRgx: () => 'foo', rgxAcceptInsertion };
+            expect(isRGXConvertibleToken(token)).toBe(true);
+            expect(() => assertRGXConvertibleToken(token)).not.toThrow();
+            expect(rgxAcceptInsertion).not.toHaveBeenCalled();
         });
     });
 
