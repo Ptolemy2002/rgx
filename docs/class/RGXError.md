@@ -2,7 +2,7 @@
 The following is a reference to types relevant to the classes listed in this file. The full type reference for the library can be found in [type-reference.md](../type-reference.md).
 
 ```typescript
-type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | 'json' | RGXTokenType[];
+type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'interpolation' | 'class' | 'json' | RGXTokenType[];
 type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
 
 type RGXErrorCode =

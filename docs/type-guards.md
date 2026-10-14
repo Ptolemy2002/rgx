@@ -8,24 +8,25 @@ type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
-    readonly rgxIsRepeatable?: boolean,
-    readonly rgxInterpolate?: boolean
+    readonly rgxIsRepeatable?: boolean
 };
+type RGXInterpolationToken = { readonly rgxInterpolation: string };
 type RGXJSONPrimitive = string | number | boolean | null;
 type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
 type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
 type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
 type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string };
 type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
-type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken;
+type RGXJSONInterpolationToken = { $rgx: true, interpolation: string };
+type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInterpolationToken;
 type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
-type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSONObjectToken | RGXToken[];
+type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXInterpolationToken | RGXJSONObjectToken | RGXToken[];
 type RGXNonJSONToken = Exclude<RGXToken, RGXJSONObjectToken>;
 
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 type RGXRepeatableConvertibleToken = RGXConvertibleToken & { readonly rgxIsRepeatable: true | undefined };
 
-type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | 'json' | RGXTokenType[];
+type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'interpolation' | 'class' | 'json' | RGXTokenType[];
 type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
 type RGXTokenTypeGuardInput = 
     // A union of all possible inputs that can be used to specify token types in type guards, including:
@@ -107,7 +108,7 @@ Asserts that the given value is a native token (string, number, boolean, or no-o
 ```typescript
 function isRGXConvertibleToken(value: unknown, returnCheck?: boolean, acceptJSON?: boolean): value is RGXConvertibleToken
 ```
-Checks if the given value is a convertible token (an object with a `toRgx` method). If the `rgxIsRepeatable` or `rgxInterpolate` properties are present, they must be booleans; otherwise, the check fails. If the `rgxAcceptInsertion` property is present, it must be a callable that returns a `string` or `boolean`; otherwise, the check fails. Validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). When `returnCheck` is `false`, only checks for the presence and callability of function properties instead of also checking their return values.
+Checks if the given value is a convertible token (an object with a `toRgx` method). If the `rgxIsRepeatable` property is present, it must be a boolean; otherwise, the check fails. If the `rgxAcceptInsertion` property is present, it must be a callable that returns a `string` or `boolean`; otherwise, the check fails. Validates that `toRgx` is callable and returns a valid `RGXToken` (which can be any RGX token type, including other convertible tokens, allowing for recursive structures). When `returnCheck` is `false`, only checks for the presence and callability of function properties instead of also checking their return values.
 
 Note that JSON object tokens are never themselves convertible tokens, even though they may describe a class token. `acceptJSON` only controls whether a `toRgx` return value containing JSON object tokens is accepted.
 
@@ -121,6 +122,18 @@ Note that JSON object tokens are never themselves convertible tokens, even thoug
 function assertRGXConvertibleToken(value: unknown, returnCheck?: boolean, acceptJSON?: boolean): asserts value is RGXConvertibleToken
 ```
 Asserts that the given value is a convertible token (an object with a `toRgx` method) with the same logic as `isRGXConvertibleToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
+
+## isRGXInterpolationToken
+```typescript
+function isRGXInterpolationToken(value: unknown): value is RGXInterpolationToken
+```
+Checks if the given value is an interpolation token (see `rgxInterpolation` in [general.md](./general.md)): an object with an `rgxInterpolation` string and no `toRgx` method. The string doesn't have to be a valid regex. Interpolation tokens are never convertible tokens.
+
+## assertRGXInterpolationToken
+```typescript
+function assertRGXInterpolationToken(value: unknown): asserts value is RGXInterpolationToken
+```
+Asserts that the given value is an interpolation token with the same logic as `isRGXInterpolationToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
 
 ## isRGXArrayToken
 ```typescript
@@ -195,11 +208,23 @@ function assertRGXJSONClassToken(value: unknown, registryCheck?: boolean): asser
 ```
 Asserts that the given value is a JSON class token with the same logic as `isRGXJSONClassToken`. If the assertion fails, an `RGXInvalidJSONTokenError` will be thrown.
 
+## isRGXJSONInterpolationToken
+```typescript
+function isRGXJSONInterpolationToken(value: unknown): value is RGXJSONInterpolationToken
+```
+Checks if the given value is a JSON interpolation token: a plain object with `$rgx` set to `true`, an `interpolation` string, and neither a `source` nor a `class` key. The interpolation doesn't have to be a valid regex, so there is no content check.
+
+## assertRGXJSONInterpolationToken
+```typescript
+function assertRGXJSONInterpolationToken(value: unknown): asserts value is RGXJSONInterpolationToken
+```
+Asserts that the given value is a JSON interpolation token with the same logic as `isRGXJSONInterpolationToken`. If the assertion fails, an `RGXInvalidJSONTokenError` will be thrown.
+
 ## isRGXJSONObjectToken
 ```typescript
 function isRGXJSONObjectToken(value: unknown, contentCheck?: boolean): value is RGXJSONObjectToken
 ```
-Checks if the given value is either a JSON literal token or a JSON class token. `contentCheck` is forwarded to `isRGXJSONLiteralToken` as `contentCheck` and to `isRGXJSONClassToken` as `registryCheck`. Defaults to `true`.
+Checks if the given value is a JSON literal token, a JSON class token, or a JSON interpolation token. `contentCheck` is forwarded to `isRGXJSONLiteralToken` as `contentCheck` and to `isRGXJSONClassToken` as `registryCheck`. Defaults to `true`.
 
 ## assertRGXJSONObjectToken
 ```typescript
@@ -224,7 +249,7 @@ Asserts that the given value is a JSON token with the same logic as `isRGXJSONTo
 function isRGXToken<T extends RGXTokenTypeGuardInput = null, J extends boolean = true>(value: unknown, type?: T, matchLength?: boolean, acceptJSON?: J): value is RGXTokenFromType<T, J>
 ```
 
-Checks if the given value is a valid RGX token, optionally narrowed to a specific token type. When `type` is `null` (the default), it checks against all token types. When `type` is a specific token type string, it checks only against that type. The `'class'` type matches `RGXClassToken` instances specifically, while `'convertible'` also matches class tokens since they implement the convertible interface.
+Checks if the given value is a valid RGX token, optionally narrowed to a specific token type. When `type` is `null` (the default), it checks against all token types. When `type` is a specific token type string, it checks only against that type. The `'class'` type matches `RGXClassToken` instances specifically, while `'convertible'` also matches class tokens since they implement the convertible interface. The `'interpolation'` type matches interpolation tokens, which are never convertible.
 
 When `type` is a constructor, it performs an `instanceof` check against that specific constructor, allowing you to narrow to a specific class token subclass rather than all class tokens. In this case, `RGXTokenFromType` resolves to `InstanceType<T>`, giving you the specific subclass type.
 
@@ -234,7 +259,7 @@ When `type` is `"repeatable"`, it passes for any token that is not convertible, 
 
 When `type` is `"json"`, it passes for any JSON token (see `isRGXJSONToken`). This type is explicit, so `acceptJSON` has no effect on it.
 
-When `acceptJSON` is `true` (the default), JSON object tokens (see [json.md](./json.md)) are accepted wherever their converted form would be: JSON literal tokens match `'literal'`, JSON class tokens match `'class'` and `'convertible'`, a JSON class token matches a constructor when the token it converts to is an instance of that constructor, and `"repeatable"` is checked against the converted token. Only JSON object tokens that would convert successfully are accepted (i.e. the literal content is valid and the class is registered with valid args). When `acceptJSON` is `false`, JSON object tokens are never accepted (except with the explicit `"json"` type), and `RGXTokenFromType` narrows to the non-JSON forms only.
+When `acceptJSON` is `true` (the default), JSON object tokens (see [json.md](./json.md)) are accepted wherever their converted form would be: JSON literal tokens match `'literal'`, JSON class tokens match `'class'` and `'convertible'`, JSON interpolation tokens match `'interpolation'`, a JSON class token matches a constructor when the token it converts to is an instance of that constructor, and `"repeatable"` is checked against the converted token. Only JSON object tokens that would convert successfully are accepted (i.e. the literal content is valid and the class is registered with valid args). When `acceptJSON` is `false`, JSON object tokens are never accepted (except with the explicit `"json"` type), and `RGXTokenFromType` narrows to the non-JSON forms only.
 
 ### Parameters
   - `value` (`unknown`): The value to check.
@@ -261,7 +286,7 @@ Asserts that the given value is a valid RGX token, optionally narrowed to a spec
 ```typescript
 function isRGXSingletonToken(value: unknown, acceptJSON?: boolean): value is RGXToken
 ```
-Checks if the given value is a token that resolves to a singleton: exactly one unit that a quantifier can apply to as a whole, such as a single character, escape, character class, or (non-lookaround) group. The token is resolved with `resolveRGXToken` and the result is checked, so the answer depends only on the token's actual output. For example, `"a"`, `/\d/`, and an array of tokens (resolved as a grouped union) are singletons, while `"ab"`, `null`, anchors like `^`, and lookaround tokens are not. Values that are not tokens, and tokens that throw an `RGXError` when resolved on their own (such as an interpolation with unbalanced brackets), are not singletons. `RGXRepeatToken` uses the same check to decide whether its token needs to be wrapped in a non-capturing group.
+Checks if the given value is a token that resolves to a singleton: exactly one unit that a quantifier can apply to as a whole, such as a single character, escape, character class, or (non-lookaround) group. The token is resolved with `resolveRGXToken` and the result is checked, so the answer depends only on the token's actual output. For example, `"a"`, `/\d/`, and an array of tokens (resolved as a grouped union) are singletons, while `"ab"`, `null`, anchors like `^`, and lookaround tokens are not. Values that are not tokens, and tokens that throw an `RGXError` when resolved on their own (such as an interpolation with unbalanced brackets), are not singletons. Interpolation tokens with unbalanced parentheses are not singletons either. `RGXRepeatToken` uses the same check to decide whether its token needs to be wrapped in a non-capturing group.
 
 ### Parameters
   - `value` (`unknown`): The value to check.
@@ -278,7 +303,7 @@ Asserts that the given value is a singleton token with the same logic as `isRGXS
 function rgxTokenType(value: unknown, recognizeClass?: boolean, acceptJSON?: boolean): RGXTokenType
 ```
 
-Determines the type of a given RGX token value (`no-op`, `literal`, `native`, `convertible`, `class`, `json`, or an array of the former) or throws an error if the value is not a valid RGX token.
+Determines the type of a given RGX token value (`no-op`, `literal`, `native`, `convertible`, `interpolation`, `class`, `json`, or an array of the former) or throws an error if the value is not a valid RGX token.
 
 When `recognizeClass` is `true` (the default), `RGXClassToken` instances are identified as `'class'` rather than `'convertible'`. When `recognizeClass` is `false`, class tokens are identified as `'convertible'` instead. When `acceptJSON` is `true` (the default), valid JSON object tokens (see [json.md](./json.md)) are identified as `'json'`; when `false`, they are treated as invalid tokens and an `RGXInvalidTokenError` is thrown. Note that JSON native tokens are always identified as `'native'` (or `'no-op'` for `null`), since they are native tokens. Both preferences are passed through to recursive calls for array elements.
 
@@ -303,7 +328,7 @@ if (type === 'native') {
 ```typescript
 function rgxTokenTypeFlat(value: unknown, recognizeClass?: boolean, acceptJSON?: boolean): RGXTokenTypeFlat
 ```
-Determines the flat type of a given RGX token value (`no-op`, `literal`, `native`, `convertible`, `class`, `json`, or `array`) or throws an error if the value is not a valid RGX token. The `array` type represents any array of RGX tokens, regardless of the types of the individual tokens within the array.
+Determines the flat type of a given RGX token value (`no-op`, `literal`, `native`, `convertible`, `interpolation`, `class`, `json`, or `array`) or throws an error if the value is not a valid RGX token. The `array` type represents any array of RGX tokens, regardless of the types of the individual tokens within the array.
 
 When `recognizeClass` is `true` (the default), `RGXClassToken` instances are identified as `'class'` rather than `'convertible'`. This distinction is important because class tokens are also convertible tokens, but the `'class'` type is more specific. When `recognizeClass` is `false`, class tokens are identified as `'convertible'` instead. When `acceptJSON` is `true` (the default), valid JSON object tokens are identified as `'json'`. JSON object tokens are checked before convertible tokens, so an object that has both the `$rgx` flag and a `toRgx` method is identified as `'json'`. When `acceptJSON` is `false`, JSON object tokens are treated as invalid tokens and an `RGXInvalidTokenError` is thrown.
 

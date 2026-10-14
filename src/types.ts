@@ -11,8 +11,10 @@ export type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
     readonly rgxIsRepeatable?: boolean
-    readonly rgxInterpolate?: boolean,
 };
+// A raw source fragment that is inserted as-is, without escaping. Unlike a literal token, it doesn't have to be a valid
+// regex on its own, so it may open a group that a later token closes (or close one that an earlier token opened).
+export type RGXInterpolationToken = { readonly rgxInterpolation: string };
 
 // The key that signals that a plain object is intended to be an RGX token in JSON form.
 export const RGX_JSON_FLAG = "$rgx";
@@ -24,17 +26,18 @@ export type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
 export type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
 export type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string };
 export type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
-export type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken;
+export type RGXJSONInterpolationToken = { $rgx: true, interpolation: string };
+export type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInterpolationToken;
 export type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
 
-export type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSONObjectToken | RGXToken[];
+export type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXInterpolationToken | RGXJSONObjectToken | RGXToken[];
 export type RGXNonJSONToken = Exclude<RGXToken, RGXJSONObjectToken>;
 
 export type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 
 export type RGXRepeatableConvertibleToken = RGXConvertibleToken & { readonly rgxIsRepeatable: true | undefined };
 
-export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'class' | 'json' | RGXTokenType[];
+export type RGXTokenType = 'no-op' | 'literal' | 'native' | 'convertible' | 'interpolation' | 'class' | 'json' | RGXTokenType[];
 export type RGXTokenTypeFlat = Exclude<RGXTokenType, RGXTokenType[]> | "array";
 export type RGXTokenTypeGuardInput = 
     "repeatable" |
@@ -51,10 +54,11 @@ export type RGXTokenFromType<T extends RGXTokenTypeGuardInput, J extends boolean
     T extends 'literal' ? (J extends true ? RGXLiteralToken | RGXJSONLiteralToken : RGXLiteralToken) :
     T extends 'native' ? RGXNativeToken :
     T extends 'convertible' ? (J extends true ? RGXConvertibleToken | RGXJSONClassToken : RGXConvertibleToken) :
+    T extends 'interpolation' ? (J extends true ? RGXInterpolationToken | RGXJSONInterpolationToken : RGXInterpolationToken) :
     T extends 'class' ? (J extends true ? RGXClassToken | RGXJSONClassToken : RGXClassToken) :
     T extends 'json' ? RGXJSONToken :
     T extends 'array' ? RGXToken[] :
-    T extends 'repeatable' ? Exclude<RGXToken, RGXConvertibleToken | RGXJSONClassToken> | RGXRepeatableConvertibleToken | (J extends true ? RGXJSONClassToken : never) :
+    T extends 'repeatable' ? Exclude<RGXToken, RGXConvertibleToken | RGXJSONClassToken | RGXInterpolationToken | RGXJSONInterpolationToken> | RGXRepeatableConvertibleToken | (J extends true ? RGXJSONClassToken : never) :
     T extends new (...args: unknown[]) => infer R ? (J extends true ? R | RGXJSONClassToken : R) :
     T extends RGXTokenTypeGuardInput[] ? { [K in keyof T]: T[K] extends RGXTokenTypeGuardInput ? RGXTokenFromType<T[K], J> : never } :
     never

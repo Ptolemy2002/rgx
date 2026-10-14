@@ -29,6 +29,7 @@ export class RGXClassWrapperToken extends RGXClassToken {
         // JSON tokens become literal or class tokens, so check the converted token instead.
         const token = isRGXJSONObjectToken(this.token, false) ? rgxTokenFromJSON(this.token) : this.token;
         if (isRGXToken(token, 'convertible', true, false)) return token.rgxIsRepeatable ?? true;
+        if (isRGXToken(token, 'interpolation', true, false)) return false;
         // Assume any other token is repeatable, since we don't know its implementation.
         return true;
     }

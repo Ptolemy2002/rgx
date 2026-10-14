@@ -4,7 +4,7 @@ import * as tg from "./typeGuards";
 import { RGXClassToken, toRGXClassToken } from "./class";
 import { RGXTokenCollection } from "./collection";
 import { ExtRegExp, extractVanillaRegexFlags } from "./ExtRegExp";
-import { resolveRGXToken } from "./resolve";
+import { resolveRGXToken, rgxInterpolation } from "./resolve";
 import { removeRedundantRegexGroups } from "./internal/scanRegexSource";
 
 // Parses the args of a JSON class token into a typed tuple, or returns the reason they were rejected.
@@ -80,6 +80,10 @@ export function createRGXJSONLiteralToken(source: string, flags: string = ''): t
     return { [t.RGX_JSON_FLAG]: true, source, flags };
 }
 
+export function createRGXJSONInterpolationToken(interpolation: string): t.RGXJSONInterpolationToken {
+    return { [t.RGX_JSON_FLAG]: true, interpolation };
+}
+
 export function assertRGXJSONClassTokenOf(json: unknown, name: RGXJSONClassName): asserts json is t.RGXJSONClassToken {
     tg.assertRGXJSONClassToken(json, false);
     if (json.class !== name) {
@@ -120,6 +124,9 @@ export function rgxTokenToJSON(token: t.RGXToken, { resolveConvertible = true }:
         return token;
     }
 
+    // Stored as-is, since resolving an unbalanced interpolation into a JSON literal token would fail.
+    if (tg.isRGXInterpolationToken(token)) return createRGXJSONInterpolationToken(token.rgxInterpolation);
+
     if (RGXClassToken.check(token) && token.toJSON !== RGXClassToken.prototype.toJSON) return token.toJSON();
     if (RGXTokenCollection.check(token)) return toRGXClassToken(token).toJSON();
 
@@ -150,6 +157,8 @@ export function rgxTokenFromJSON(json: t.RGXJSONToken): t.RGXNonJSONToken {
         tg.assertRGXJSONLiteralToken(json);
         return new ExtRegExp(json.source, json.flags ?? '');
     }
+
+    if (tg.isRGXJSONInterpolationToken(json)) return rgxInterpolation(json.interpolation);
 
     if (tg.isRGXJSONClassToken(json, false)) {
         // The constructor validates the args itself.

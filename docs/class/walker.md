@@ -12,18 +12,19 @@ type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
-    readonly rgxIsRepeatable?: boolean,
-    readonly rgxInterpolate?: boolean
+    readonly rgxIsRepeatable?: boolean
 };
+type RGXInterpolationToken = { readonly rgxInterpolation: string };
 type RGXJSONPrimitive = string | number | boolean | null;
 type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
 type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
 type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
 type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string };
 type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
-type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken;
+type RGXJSONInterpolationToken = { $rgx: true, interpolation: string };
+type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInterpolationToken;
 type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
-type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSONObjectToken | RGXToken[];
+type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXInterpolationToken | RGXJSONObjectToken | RGXToken[];
 type RGXTokenOrPart<R, S = unknown, T = any> = RGXToken | RGXPart<R, S, T>;
 type RGXWalkerStepDirective = "stop" | "skip" | "silent";
 
@@ -92,7 +93,7 @@ Creates an `RGXWalker` instance from an interpolation of strings and tokens. The
   - `options` (`RGXWOptions<R, S>`, optional): Additional options for configuring the behavior of the resulting `RGXWalker`. This includes:
     - `startingSourcePosition` (`number`, optional): An optional initial value for the walker's `sourcePosition` property, which tracks the current position in the source string during walking. Defaults to `0`.
     - `multiline` (`boolean`, optional): Whether to strip newlines and trim leading whitespace from the literal string parts of the template. Defaults to `true`. When `true`, each literal string part is split by newlines, each line has its leading whitespace trimmed, empty lines are removed, comments (denoted with `//`) ending a line or on a line by themselves are stripped, and the remaining lines are joined together. Interpolated tokens (including string tokens via `${"..."}`) are not affected. When `false`, literal string parts are preserved exactly as written.
-    - `verbatim` (`boolean`, optional): Whether to treat literal string parts of the template as verbatim text. Defaults to `true`. When `true`, literal string parts are escaped so that special regex characters are matched literally. When `false`, literal string parts are inserted as raw regex syntax without escaping. Interpolated values (including string tokens via `${"..."}`) are always escaped regardless of this setting.
+    - `verbatim` (`boolean`, optional): Whether to treat literal string parts of the template as verbatim text. Defaults to `true`. When `true`, literal string parts are escaped so that special regex characters are matched literally. When `false`, literal string parts are inserted as raw regex syntax without escaping, as interpolation tokens (see `rgxInterpolation` in [general.md](../general.md)) in the walker's token list. Since each token is matched on its own, each literal part must still be a valid regex by itself. Interpolated values (including string tokens via `${"..."}`) are always escaped regardless of this setting.
     - `reduced` (`R`, optional): An optional initial value for the walker's `reduced` property, which can be used to accumulate results across matches.
     - `share` (`S`, optional): An optional initial value for the walker's `share` property, which is passed to all Part callbacks and can be used as shared mutable state across parts without being accumulated in `reduced`.
     - `infinite` (`boolean`, optional): Whether the walker should continue walking even after reaching the end of the token array, matching the final token repeatedly.

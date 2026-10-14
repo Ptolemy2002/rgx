@@ -57,6 +57,10 @@ export class RGXRepeatToken extends RGXClassToken {
     }
 
     set token(value: RGXToken) {
+        if (isRGXToken(value, "interpolation")) {
+            throw new RGXNotSupportedError("Repeating interpolation tokens", "Interpolation tokens are source fragments, which can't be repeated as a unit.");
+        }
+
         if (isRGXToken(value, "convertible") && !isRGXToken(value, "repeatable")) {
             if (isRGXToken(value, "class")) {
                 throw new RGXNotSupportedError(`Repeating ${value.constructor.name} tokens`, "The token was manually marked as non-repeatable.");

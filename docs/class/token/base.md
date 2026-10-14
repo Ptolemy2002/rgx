@@ -17,18 +17,19 @@ type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
-    readonly rgxIsRepeatable?: boolean,
-    readonly rgxInterpolate?: boolean
+    readonly rgxIsRepeatable?: boolean
 };
+type RGXInterpolationToken = { readonly rgxInterpolation: string };
 type RGXJSONPrimitive = string | number | boolean | null;
 type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
 type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
 type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
 type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string };
 type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
-type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken;
+type RGXJSONInterpolationToken = { $rgx: true, interpolation: string };
+type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInterpolationToken;
 type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
-type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSONObjectToken | RGXToken[];
+type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXInterpolationToken | RGXJSONObjectToken | RGXToken[];
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
 ```
@@ -56,7 +57,6 @@ Notably, certain methods will throw `RGXNotImplementedError` if `rgxClassInit` h
 
 ## Properties
 These properties only have getters.
-- `rgxInterpolate` (`boolean`): Returns `false` by default. When `true`, the resolver uses the token's `toRgx()` result as-is without further resolution or escaping. Subclasses can override this to inject pre-built regex strings directly.
 - `rgxIsRepeatable` (`boolean`): Returns `true` by default. Subclasses can override this to indicate that the token cannot be wrapped in an `RGXRepeatToken`. When `false`, attempting to set this token as the `token` property of an `RGXRepeatToken` (including via `repeat()` or `optional()`) will throw an `RGXNotSupportedError`.
 
 ## Methods

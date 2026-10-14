@@ -16,7 +16,7 @@ export function rgxTaggedTemplateToArray<R = unknown, S = unknown, T = unknown>(
         if (string !== undefined) {
             if (!multiline) {
                 if (verbatim) array.push(string);
-                else array.push({ rgxInterpolate: true, toRgx: () => string });
+                else array.push({ rgxInterpolation: string });
             } else {
                 const startsNewLine = string.startsWith("\n");
 
@@ -49,7 +49,7 @@ export function rgxTaggedTemplateToArray<R = unknown, S = unknown, T = unknown>(
                 ;
 
                 if (verbatim) array.push(lines);
-                else array.push({ rgxInterpolate: true, toRgx: () => lines });
+                else array.push({ rgxInterpolation: lines });
             }
         }
         if (!isTokensEnd) array.push(token);

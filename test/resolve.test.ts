@@ -42,34 +42,30 @@ describe('resolveRGXToken', () => {
         expect(resolveRGXToken(token, { groupWrap: false })).toBe('(?:a|b)');
     });
 
-    it('resolves a single convertible token with rgxInterpolate set to true returning a valid RegExp string', () => {
+    it('resolves a single interpolation token with a valid regex string', () => {
         const token = {
-            toRgx: () => "(abc)",
-            rgxInterpolate: true
+            rgxInterpolation: "(abc)"
         };
         expect(resolveRGXToken(token)).toBe('(abc)');
     });
 
-    it('resolves a single convertible token with rgxInterpolate set to true returning a RegExp string with an unterminated group', () => {
+    it('resolves an interpolation token with an unterminated group', () => {
         const token = {
-            toRgx: () => "(abc",
-            rgxInterpolate: true
+            rgxInterpolation: "(abc"
         };
         expect(resolveRGXToken(token)).toBe('(abc');
     });
 
-    it('resolves a single convertible token with rgxInterpolate set to true returning a RegExp string with an unmatched parenthesis', () => {
+    it('resolves an interpolation token with an unmatched parenthesis', () => {
         const token = {
-            toRgx: () => "abc)",
-            rgxInterpolate: true
+            rgxInterpolation: "abc)"
         };
         expect(resolveRGXToken(token)).toBe('abc)');
     });
 
-    it('resolves a single convertible token with rgxInterpolate set to true returning a RegExp string with parenthesis within character classes', () => {
+    it('resolves an interpolation token with parenthesis within character classes', () => {
         const token = {
-            toRgx: () => "a[b(c)d]e",
-            rgxInterpolate: true
+            rgxInterpolation: "a[b(c)d]e"
         };
         expect(resolveRGXToken(token)).toBe('a[b(c)d]e');
     });
@@ -77,8 +73,7 @@ describe('resolveRGXToken', () => {
     it('treats \'[\' inside a character class as a literal when detecting unterminated groups without the v flag', () => {
         // Without the v flag, "[[]" is a complete class matching "[", so the group after it is unterminated.
         const token = {
-            toRgx: () => "[[](a",
-            rgxInterpolate: true
+            rgxInterpolation: "[[](a"
         };
         expect(resolveRGXToken(token)).toBe('[[](a');
     });
@@ -86,16 +81,14 @@ describe('resolveRGXToken', () => {
     it('treats \'[\' inside a character class as nesting when detecting unterminated groups with the v flag', () => {
         // With the v flag, "[[(]]" is a nested class containing "(", so the group after it is unterminated.
         const token = {
-            toRgx: () => "[[(]](a",
-            rgxInterpolate: true
+            rgxInterpolation: "[[(]](a"
         };
         expect(resolveRGXToken(token, {currentFlags: 'v'})).toBe('[[(]](a');
     });
 
-    it('does not resolve a single convertible token with rgxInterpolate set to true returning an invalid RegExp string', () => {
+    it('does not resolve an interpolation token with an invalid regex string', () => {
         const token = {
-            toRgx: () => "[[abc",
-            rgxInterpolate: true
+            rgxInterpolation: "[[abc"
         };
         expect(() => resolveRGXToken(token)).toThrow(RGXInvalidRegexStringError);
     });

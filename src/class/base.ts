@@ -43,10 +43,6 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
         }
     };
 
-    get rgxInterpolate() {
-        return false;
-    }
-
     get rgxIsRepeatable() {
         return true;
     }

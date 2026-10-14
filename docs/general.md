@@ -8,18 +8,19 @@ type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 type RGXConvertibleToken = {
     toRgx: () => RGXToken,
     rgxAcceptInsertion?: (tokens: RGXToken[], flags: ValidRegexFlags) => string | boolean,
-    readonly rgxIsRepeatable?: boolean,
-    readonly rgxInterpolate?: boolean
+    readonly rgxIsRepeatable?: boolean
 };
+type RGXInterpolationToken = { readonly rgxInterpolation: string };
 type RGXJSONPrimitive = string | number | boolean | null;
 type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
 type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
 type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
 type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string };
 type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
-type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken;
+type RGXJSONInterpolationToken = { $rgx: true, interpolation: string };
+type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInterpolationToken;
 type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
-type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXJSONObjectToken | RGXToken[];
+type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXInterpolationToken | RGXJSONObjectToken | RGXToken[];
 
 const validRegexSymbol = Symbol('rgx.ValidRegex');
 type ValidRegexBrandSymbol = typeof validRegexSymbol;
@@ -71,7 +72,7 @@ When `multiline` is `true` (the default), the literal string parts of the templa
 
 When `multiline` is `false`, all literal string parts are preserved exactly as written, including newlines and whitespace.
 
-When `verbatim` is `true` (the default), the literal string parts of the template are treated as verbatim text to be matched literally: special regex characters (such as `|`, `.`, `*`) are escaped before being inserted into the pattern. When `verbatim` is `false`, literal string parts are inserted as raw regex syntax — special characters are not escaped and work as regex operators. Note that interpolated values (tokens) are always resolved normally regardless of this setting: string tokens via `${"..."}` are always escaped.
+When `verbatim` is `true` (the default), the literal string parts of the template are treated as verbatim text to be matched literally: special regex characters (such as `|`, `.`, `*`) are escaped before being inserted into the pattern. When `verbatim` is `false`, literal string parts are inserted as raw regex syntax — special characters are not escaped and work as regex operators. Each literal string part becomes an interpolation token (see `rgxInterpolation`), so a part may open a group that a later part closes. Note that interpolated values (tokens) are always resolved normally regardless of this setting: string tokens via `${"..."}` are always escaped.
 
 The provided `flags` are passed as `currentFlags` to the resolver, enabling inline modifier groups for any `RegExp` literal tokens whose localizable flags (`i`, `m`, `s`) differ from the parent flags. For example, embedding `/foo/i` in a no-flag context produces `(?i:foo)`, while embedding `/bar/` in an `i`-flag context produces `(?-i:bar)`.
 
@@ -137,7 +138,7 @@ As an alternative to using the `rgx` template tag, you can directly call `rgxa` 
 function resolveRGXToken(token: RGXToken, options?: ResolveRGXTokenOptions): ValidRegexString
 ```
 
-Resolves an RGX token to a string. No-op tokens resolve to an empty string, literal tokens are included as-is (wrapped in a non-capturing group when `groupWrap` is `true`), native tokens are converted to strings and escaped, convertible tokens are converted using their `toRgx` method and then resolved recursively (or, if `rgxInterpolate` is `true`, their `toRgx` result is used as-is without further resolution or escaping), and arrays of tokens are resolved as unions of their resolved elements (repeats removed, placed in a non-capturing group when `groupWrap` is `true`).
+Resolves an RGX token to a string. No-op tokens resolve to an empty string, literal tokens are included as-is (wrapped in a non-capturing group when `groupWrap` is `true`), native tokens are converted to strings and escaped, interpolation tokens (see `rgxInterpolation`) are inserted as-is without escaping, convertible tokens are converted using their `toRgx` method and then resolved recursively, and arrays of tokens are resolved as unions of their resolved elements (repeats removed, placed in a non-capturing group when `groupWrap` is `true`).
 
 JSON object tokens (see [json.md](./json.md)) are converted with `rgxTokenFromJSON` before resolving, so a JSON literal token resolves exactly like the `ExtRegExp` it describes and a JSON class token resolves exactly like the class token it describes. No conversion is needed beforehand; this applies to JSON tokens nested at any depth, since nested tokens are resolved recursively. Invalid JSON object tokens throw the error `rgxTokenFromJSON` would throw (e.g. `RGXInvalidJSONClassKeyError` for an unregistered class).
 
@@ -145,7 +146,7 @@ For literal tokens (`RegExp` instances), if the token's flags differ from `curre
 
 For convertible tokens, the `toRgx()` result is resolved with the `groupWrap` option at the top level, and with `groupWrap` set to `true` in recursive calls, regardless of the option. This ensures that the caller's `groupWrap` preference only affects the outermost convertible token and does not leak into deeply nested resolution. Since wrapping is always safe, an alternation returned by a nested convertible token never leaks into its surroundings: a token returning `/a|b/` next to `c` resolves to `(?:a|b)c`. Wrapping can leave extra groups in intermediate output (for example, a convertible token returning `/\d/` resolves to `(?:\d)`, since the group is at the edge of a result that may be concatenated with other text), but they are removed from the final pattern by `rgxa` and from serialized JSON.
 
-At the top level, after the result is validated, non-capturing groups (`(?:...)`) that don't change how the pattern is read are removed, so `resolveRGXToken(["abc", /def/])` produces `(?:abc|def)` rather than `(?:abc|(?:def))`. Capturing, named, inline modifier, and lookaround groups are never removed. A group is kept when a quantifier after it must apply to more than one unit, when alternatives inside it would merge with units outside of it, when it is empty, or when removing it would join two units into one (for example, `(?:\1)0` must not become `\10`). Since the result may be concatenated with other text, groups at its start and end are only removed when no text placed next to them could change how they are read, so a result resolved with `groupWrap` set to `true` can still be followed by a quantifier. Results with unbalanced parentheses from `rgxInterpolate` tokens are returned without removing any groups.
+At the top level, after the result is validated, non-capturing groups (`(?:...)`) that don't change how the pattern is read are removed, so `resolveRGXToken(["abc", /def/])` produces `(?:abc|def)` rather than `(?:abc|(?:def))`. Capturing, named, inline modifier, and lookaround groups are never removed. A group is kept when a quantifier after it must apply to more than one unit, when alternatives inside it would merge with units outside of it, when it is empty, or when removing it would join two units into one (for example, `(?:\1)0` must not become `\10`). Since the result may be concatenated with other text, groups at its start and end are only removed when no text placed next to them could change how they are read, so a result resolved with `groupWrap` set to `true` can still be followed by a quantifier. Results with unbalanced parentheses from interpolation tokens are returned without removing any groups.
 
 ## Parameters
   - `token` (`RGXToken`): The RGX token to resolve.
@@ -155,7 +156,25 @@ At the top level, after the result is validated, non-capturing groups (`(?:...)`
     - `currentFlags` (`string`, optional): The flags of the current regex context, used to compute inline modifier groups for literal tokens. Defaults to `''`. When a literal token's localizable flags (`i`, `m`, `s`) differ from this value, the resolver wraps the token in an inline modifier group that adds or removes the differing flags locally. If invalid regex flags are provided, an `RGXInvalidRegexFlagsError` will be thrown.
 
 ## Returns
-- `ValidRegexString`: The resolved string representation of the RGX token. The result is asserted to be a valid regex string before being returned. If the result is invalid for any reason other than a parenthesis error (unmatched `(` or `)`), an `RGXInvalidRegexStringError` is thrown. If the result has a parenthesis error *and* an `rgxInterpolate` token was resolved, the result is returned as-is rather than throwing — the expectation is that a subsequent token in a concatenation will balance the parentheses (or a previous token has already opened a group); if it doesn't, the overall regex construction will catch it.
+- `ValidRegexString`: The resolved string representation of the RGX token. The result is asserted to be a valid regex string before being returned. If the result is invalid for any reason other than a parenthesis error (unmatched `(` or `)`), an `RGXInvalidRegexStringError` is thrown. If the result has a parenthesis error *and* the token is an interpolation token, the result is returned as-is rather than throwing — the expectation is that a subsequent token in a concatenation will balance the parentheses (or a previous token has already opened a group); if it doesn't, the overall regex construction will catch it.
+
+# rgxInterpolation
+```typescript
+function rgxInterpolation(source: string): RGXInterpolationToken
+```
+Creates an interpolation token: a raw source fragment that is inserted into the pattern as-is, without escaping. It is the only way to insert source that may have unbalanced parentheses, since native tokens are escaped and literal tokens must be valid regexes on their own. The fragment may open a group that a later token closes (or close one that an earlier token opened); if the final pattern is still unbalanced, building it throws. This is what the `rgx` and `rgxw` template tags insert for the literal parts of a template when `verbatim` is `false`.
+
+An interpolation token is a plain object (`{ rgxInterpolation: source }`), so it can also be written directly. It is its own token type (`'interpolation'`), not a convertible token: it has no `toRgx` method, and it is never repeatable, since repeating half a group is meaningless (`RGXRepeatToken` throws `RGXNotSupportedError` for it). It serializes to a JSON interpolation token (see [json.md](./json.md)) that stores the fragment as-is.
+
+```typescript
+rgxa([rgxInterpolation("(?<word>"), /\w+/, rgxInterpolation(")")]); // /(?<word>\w+)/
+```
+
+## Parameters
+  - `source` (`string`): The source fragment to insert.
+
+## Returns
+- `RGXInterpolationToken`: The interpolation token.
 
 # rgxConcat
 ```typescript
@@ -169,4 +188,4 @@ A helper function that resolves an array of RGX tokens and concatenates their re
   - `currentFlags` (`string`, optional): The flags of the current regex context, passed through to `resolveRGXToken` as its `currentFlags` parameter. Used to compute inline modifier groups for literal tokens whose localizable flags differ. Defaults to `''`. If invalid regex flags are provided, an `RGXInvalidRegexFlagsError` will be thrown.
 
 ## Returns
-- `ValidRegexString`: The concatenated string representation of the resolved RGX tokens. Each token is resolved via `resolveRGXToken`; invalid regex syntax throws an `RGXInvalidRegexStringError`, except that parenthesis errors (unmatched `(` or `)`) from `rgxInterpolate` tokens are tolerated (see `resolveRGXToken` returns for details), as a subsequent token in the array may balance the parentheses (or a previous token has already opened a group).
+- `ValidRegexString`: The concatenated string representation of the resolved RGX tokens. Each token is resolved via `resolveRGXToken`; invalid regex syntax throws an `RGXInvalidRegexStringError`, except that parenthesis errors (unmatched `(` or `)`) from interpolation tokens are tolerated (see `resolveRGXToken` returns for details), as a subsequent token in the array may balance the parentheses (or a previous token has already opened a group).

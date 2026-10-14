@@ -301,16 +301,12 @@ describe('Type Guards', () => {
             expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
         });
 
-        it('accepts objects with an rgxInterpolate property that is a boolean', () => {
-            const token = { toRgx: () => 'foo', rgxInterpolate: true };
-            expect(isRGXConvertibleToken(token)).toBe(true);
-            expect(() => assertRGXConvertibleToken(token)).not.toThrow();
+        it('rejects interpolation tokens', () => {
+            expect(isRGXConvertibleToken({ rgxInterpolation: 'foo' })).toBe(false);
         });
 
-        it('rejects objects with an rgxInterpolateproperty that is not a boolean', () => {
-            const token = { toRgx: () => 'foo', rgxInterpolate: 'not a boolean' };
-            expect(isRGXConvertibleToken(token)).toBe(false);
-            expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
+        it('accepts objects whose toRgx method returns an interpolation token', () => {
+            expect(isRGXConvertibleToken({ toRgx: () => ({ rgxInterpolation: '(' }) })).toBe(true);
         });
 
         it('accepts objects with an rgxAcceptInsertion property that is a function returning a string', () => {
@@ -388,8 +384,8 @@ describe('Type Guards', () => {
         });
 
         it('rejects tokens that cannot be resolved on their own', () => {
-            expect(isRGXSingletonToken({ rgxInterpolate: true, toRgx: () => '(' })).toBe(false);
-            expect(isRGXSingletonToken({ rgxInterpolate: true, toRgx: () => '[' })).toBe(false);
+            expect(isRGXSingletonToken({ rgxInterpolation: '(' })).toBe(false);
+            expect(isRGXSingletonToken({ rgxInterpolation: '[' })).toBe(false);
         });
 
         it('accepts JSON tokens only when acceptJSON is true', () => {

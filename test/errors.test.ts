@@ -127,10 +127,11 @@ describe('RGXInvalidTokenError', () => {
             'RGXInvalidTokenError: Invalid token; Expected: '
             + '[null, undefined, RegExp, ExtRegExp, string, number, boolean,'
             + ' object with a toRgx method that returns a valid native/literal token or an array of valid native/literal tokens,'
+            + ' object with an rgxInterpolation string and no toRgx method,'
             + ' array of native/literal/convertible tokens,'
             + ' instance of RGXClassToken,'
             + ' JSON-serializable native token,'
-            + ' object with $rgx set to true and either a regex source (with optional flags) or a registered class name (with optional args),'
+            + ' object with $rgx set to true and either a regex source (with optional flags), a registered class name (with optional args), or an interpolation string,'
             + ' or array of JSON tokens]; Got: [123]'
         );
     });

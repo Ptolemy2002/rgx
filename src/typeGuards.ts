@@ -48,9 +48,8 @@ export function assertRGXNativeToken(value: unknown): asserts value is t.RGXNati
 
 export function isRGXConvertibleToken(value: unknown, returnCheck: boolean = true, acceptJSON: boolean = true): value is t.RGXConvertibleToken {
     if (typeof value === 'object' && value !== null && 'toRgx' in value) {
-        // The rgxIsRepeatable and rgxInterpolate properties are optional, but if they exist they must be booleans.
+        // The rgxIsRepeatable property is optional, but if it exists it must be a boolean.
         if ('rgxIsRepeatable' in value && typeof value.rgxIsRepeatable !== 'boolean') return false;
-        if ('rgxInterpolate' in value && typeof value.rgxInterpolate !== 'boolean') return false;
 
         // If the rgxAcceptInsertion property exists, it must be a function that returns a string or boolean.
         if ('rgxAcceptInsertion' in value) {
@@ -66,7 +65,7 @@ export function isRGXConvertibleToken(value: unknown, returnCheck: boolean = tru
             if (!returnCheck) return true;
             const rv = value.toRgx();
             return isRGXNativeToken(rv) || isRGXLiteralToken(rv) || 
-                isRGXNoOpToken(rv) || isRGXArrayToken(rv, true, acceptJSON) ||
+                isRGXNoOpToken(rv) || isRGXInterpolationToken(rv) || isRGXArrayToken(rv, true, acceptJSON) ||
                 (acceptJSON && isRGXJSONObjectToken(rv)) ||
                 isRGXConvertibleToken(rv, true, acceptJSON);
         }
@@ -83,11 +82,26 @@ export function assertRGXConvertibleToken(value: unknown, returnCheck: boolean =
     }
 }
 
+// Interpolation tokens never have a toRgx method, so they are never convertible tokens.
+export function isRGXInterpolationToken(value: unknown): value is t.RGXInterpolationToken {
+    return (
+        typeof value === 'object' && value !== null && !Array.isArray(value) &&
+        'rgxInterpolation' in value && typeof value.rgxInterpolation === 'string' &&
+        !('toRgx' in value)
+    );
+}
+
+export function assertRGXInterpolationToken(value: unknown): asserts value is t.RGXInterpolationToken {
+    if (!isRGXInterpolationToken(value)) {
+        throw new e.RGXInvalidTokenError("Invalid interpolation token", {type: "tokenType", values: ['interpolation']}, value);
+    }
+}
+
 export function isRGXArrayToken(value: unknown, contentCheck: boolean = true, acceptJSON: boolean = true): value is t.RGXToken[] {
     return Array.isArray(value) && (!contentCheck || value.every(
         item =>
             isRGXNoOpToken(item) || isRGXLiteralToken(item) ||
-            isRGXNativeToken(item) ||
+            isRGXNativeToken(item) || isRGXInterpolationToken(item) ||
             (acceptJSON && isRGXJSONObjectToken(item)) ||
             isRGXConvertibleToken(item, true, acceptJSON) || isRGXArrayToken(item, true, acceptJSON)
     ));
@@ -130,7 +144,7 @@ function hasRGXJSONFlag(value: unknown): value is Record<string, unknown> & { $r
 
 export function isRGXJSONLiteralToken(value: unknown, contentCheck: boolean = true): value is t.RGXJSONLiteralToken {
     if (!hasRGXJSONFlag(value)) return false;
-    if (typeof value.source !== 'string' || 'class' in value) return false;
+    if (typeof value.source !== 'string' || 'class' in value || 'interpolation' in value) return false;
     if ('flags' in value && value.flags !== undefined && typeof value.flags !== 'string') return false;
     if (!contentCheck) return true;
 
@@ -158,7 +172,7 @@ export function assertRGXJSONLiteralToken(value: unknown, contentCheck: boolean 
 
 export function isRGXJSONClassToken(value: unknown, registryCheck: boolean = true): value is t.RGXJSONClassToken {
     if (!hasRGXJSONFlag(value)) return false;
-    if (typeof value.class !== 'string' || 'source' in value) return false;
+    if (typeof value.class !== 'string' || 'source' in value || 'interpolation' in value) return false;
     if ('args' in value && value.args !== undefined && !(Array.isArray(value.args) && isRGXJSONValue(value.args))) return false;
     if (!registryCheck) return true;
 
@@ -180,13 +194,25 @@ export function assertRGXJSONClassToken(value: unknown, registryCheck: boolean =
     }
 }
 
+// The interpolation doesn't have to be a valid regex on its own, so there is no content to check.
+export function isRGXJSONInterpolationToken(value: unknown): value is t.RGXJSONInterpolationToken {
+    if (!hasRGXJSONFlag(value)) return false;
+    return typeof value.interpolation === 'string' && !('source' in value) && !('class' in value);
+}
+
+export function assertRGXJSONInterpolationToken(value: unknown): asserts value is t.RGXJSONInterpolationToken {
+    if (!isRGXJSONInterpolationToken(value)) {
+        throw new e.RGXInvalidJSONTokenError("Invalid JSON interpolation token", { type: "custom", values: ["object with $rgx set to true and an interpolation string"] }, value);
+    }
+}
+
 export function isRGXJSONObjectToken(value: unknown, contentCheck: boolean = true): value is t.RGXJSONObjectToken {
-    return isRGXJSONLiteralToken(value, contentCheck) || isRGXJSONClassToken(value, contentCheck);
+    return isRGXJSONLiteralToken(value, contentCheck) || isRGXJSONClassToken(value, contentCheck) || isRGXJSONInterpolationToken(value);
 }
 
 export function assertRGXJSONObjectToken(value: unknown, contentCheck: boolean = true): asserts value is t.RGXJSONObjectToken {
     if (!isRGXJSONObjectToken(value, contentCheck)) {
-        throw new e.RGXInvalidJSONTokenError("Invalid JSON object token", { type: "custom", values: ["JSON literal token", "JSON class token"] }, value);
+        throw new e.RGXInvalidJSONTokenError("Invalid JSON object token", { type: "custom", values: ["JSON literal token", "JSON class token", "JSON interpolation token"] }, value);
     }
 }
 
@@ -207,6 +233,7 @@ export function rgxTokenTypeFlat(value: unknown, recognizeClass: boolean = true,
     if (isRGXNoOpToken(value)) return 'no-op';
     if (isRGXLiteralToken(value)) return 'literal';
     if (isRGXNativeToken(value)) return 'native';
+    if (isRGXInterpolationToken(value)) return 'interpolation';
     // We have to check class before convertible because class tokens are also convertible.
     if (recognizeClass && RGXClassToken.check(value)) return 'class';
     // JSON object tokens are checked before convertible tokens, since the flag signals explicit intent.
@@ -261,6 +288,8 @@ export function isRGXToken<
     if (typeMatches('literal') && isRGXLiteralToken(value)) return true;
     if (typeMatches('literal') && acceptJSON && isRGXJSONLiteralToken(value)) return true;
     if (typeMatches('native') && isRGXNativeToken(value)) return true;
+    if (typeMatches('interpolation') && isRGXInterpolationToken(value)) return true;
+    if (typeMatches('interpolation') && acceptJSON && isRGXJSONInterpolationToken(value)) return true;
 
     // We have to check class before convertible because class tokens are also convertible.
     if (typeMatches('class') && RGXClassToken.check(value)) return true;
@@ -274,9 +303,12 @@ export function isRGXToken<
 
     if (type === 'repeatable' && isRGXJSONObjectToken(value)) {
         if (!acceptJSON) return false;
-        // Converting a JSON token yields a literal or class token, so we can check that instead.
+        // Converting a JSON token yields a literal, class, or interpolation token, so we can check that instead.
         return isRGXToken(rgxTokenFromJSON(value), 'repeatable', true, false);
     }
+
+    // Interpolation tokens are source fragments, which can't be repeated as a unit.
+    if (type === 'repeatable' && isRGXInterpolationToken(value)) return false;
 
     // Non-covertible tokens are repeatable by default. Convertible tokens are only non-repeatable if they have the rgxIsRepeatable property set to false.
     if (type === 'repeatable' && !isRGXConvertibleToken(value, false)) return true;

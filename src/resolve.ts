@@ -18,10 +18,14 @@ export function escapeRegex(value: string) {
     return result;
 }
 
+export function rgxInterpolation(source: string): t.RGXInterpolationToken {
+    return { rgxInterpolation: source };
+}
+
 export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel = true, currentFlags = '' }: ResolveRGXTokenOptions = {}): t.ValidRegexString {
     assertValidRegexFlags(currentFlags);
 
-    // JSON tokens are converted to their runtime equivalents (literal or class tokens) before resolving.
+    // JSON tokens are converted to their runtime equivalents (literal, class, or interpolation tokens) before resolving.
     if (tg.isRGXJSONObjectToken(token, false)) token = rgxTokenFromJSON(token);
 
     // Read before resolving, since resolving a literal token replaces currentFlags with the literal's own flags.
@@ -43,17 +47,16 @@ export function resolveRGXToken(token: t.RGXToken, { groupWrap = true, topLevel 
 
         if (tg.isRGXNativeToken(token)) return escapeRegex(String(token));
 
-        if (tg.isRGXConvertibleToken(token)) {
-            // If it's an interpolation, we want to just return it as-is.
-            // It might have an unterminated group, but that's okay,
-            // since a future token might terminate it, and if it doesn't, that
-            // will be caught by one of the checks that the entire resolved string
-            // is a valid regex string.
-            if (token.rgxInterpolate) {
-                acceptParenErrors = true;
-                return String(token.toRgx());
-            }
+        // Interpolations are returned as-is. They might have an unterminated group,
+        // but that's okay, since a future token might terminate it, and if it doesn't, that
+        // will be caught by one of the checks that the entire resolved string
+        // is a valid regex string.
+        if (tg.isRGXInterpolationToken(token)) {
+            acceptParenErrors = true;
+            return token.rgxInterpolation;
+        }
 
+        if (tg.isRGXConvertibleToken(token)) {
             // The top-level group-wrapping preference propogates to a direct convertible token, but after that
             // the preference falls back to true.
             return resolveRGXToken(token.toRgx(), { groupWrap: topLevel ? groupWrap : true, topLevel: false, currentFlags });

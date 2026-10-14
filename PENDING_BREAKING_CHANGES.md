@@ -15,31 +15,6 @@ Each entry has a `##` heading naming the change, followed by these sections:
 
 ---
 
-## Make interpolation a separate token type instead of `rgxInterpolate`
-
-### Problem
-`rgxInterpolate` is the only way to insert raw, unescaped source that may have unbalanced parentheses: native strings are escaped and literals must be valid `RegExp`s. Tagged templates depend on it (`src/internal/taggedTemplateToArray.ts` pushes non-verbatim string parts as `{ rgxInterpolate: true, toRgx }`), and `resolveRGXToken` relaxes its parenthesis validation when one is resolved.
-
-As a flag on `RGXConvertibleToken`, though, it combines with properties that mean nothing for a source fragment. Group wrapping and singleton detection don't apply to half a group, and repeating one produces nonsense: `RGXRepeatToken` resolves `(foo` and `toSingletonRegexSource` turns it into `(?:(foo)`. Interpolation is a different kind of token, not a convertible token with an option.
-
-### Breaking change
-Replace the flag with a dedicated token type, for example a branded object `{ rgxInterpolation: string }` or a small class, with its own guard (`isRGXInterpolationToken` / `assertRGXInterpolationToken`) and an `'interpolation'` entry in `RGXTokenType`. `resolveRGXToken` handles it in its own branch, before convertible tokens. It is never repeatable (`isRGXToken(value, 'repeatable')` rejects it, so `RGXRepeatToken` throws), and it is not a convertible token.
-
-It serializes to a new JSON token type that stores the fragment as-is, for example `{ $rgx: true, interpolation: "(foo" }` (`RGXJSONInterpolationToken`, added to `RGXJSONObjectToken`). Unlike a JSON literal's `source`, the stored string doesn't have to be a valid `RegExp`. `rgxTokenFromJSON` converts it back to an interpolation token, which is then resolved the same way interpolation tokens are. The JSON guards must tell the three JSON object forms apart (`source`, `class` and `interpolation` are mutually exclusive). Resolving it to a JSON literal, which is what happens to convertible tokens today, would fail whenever the fragment is unbalanced.
-
-This breaks user code that creates interpolation tokens with `rgxInterpolate: true`, code that expects the string parts of a tagged template (for example, in a walker's token list) to be convertible tokens, and code that assumes every JSON object token is a literal or class token.
-
-### Current workaround
-None. `rgxInterpolate` remains a flag on `RGXConvertibleToken`.
-
-### Reverting the workaround
-- Remove `rgxInterpolate` from `RGXConvertibleToken`, `RGXClassToken`, and the check in `isRGXConvertibleToken`. Add the new type, guard and `RGXTokenType` entry, and handle it in `resolveRGXToken`, `isRGXToken`, `rgxTokenType`, `rgxTokenToJSON`, and `cloneRGXToken`.
-- Add `RGXJSONInterpolationToken` to `src/types.ts`, a guard for it in `src/typeGuards.ts` (and exclude the `interpolation` key from the JSON literal and class guards), and handle it in `rgxTokenToJSON` and `rgxTokenFromJSON`.
-- Make `rgxTaggedTemplateToArray` push the new token type.
-- Check the walker (`src/walker`), which receives tagged template parts, handles the new type.
-- Update the `RGXConvertibleToken` listings in the docs (`grep -rln rgxInterpolate docs`), the `rgxInterpolate` description in `docs/class/token/base.md`, the `resolveRGXToken` and `rgxConcat` sections of `docs/general.md`, `docs/type-guards.md`, and the JSON token types in `docs/json.md`, and document the new type (`DOCS_GUIDE.md` covers placement).
-- Update the tests that use `rgxInterpolate` (`grep -rln rgxInterpolate test`) and test the new guard.
-
 ## Detect `rgxIsRepeatable` automatically when it isn't set
 
 ### Problem

@@ -8,9 +8,10 @@ const tokenExpectationMap: Record<RGXTokenTypeFlat, string[]> = {
     'literal': ['RegExp', 'ExtRegExp'],
     'native': ['string', 'number', 'boolean', 'null', 'undefined'],
     'convertible': ['object with a toRgx method that returns a valid native/literal token or an array of valid native/literal tokens'],
+    'interpolation': ['object with an rgxInterpolation string and no toRgx method'],
     'array': ['array of native/literal/convertible tokens'],
     'class': ['instance of RGXClassToken'],
-    'json': ['JSON-serializable native token', 'object with $rgx set to true and either a regex source (with optional flags) or a registered class name (with optional args)', 'array of JSON tokens']
+    'json': ['JSON-serializable native token', 'object with $rgx set to true and either a regex source (with optional flags), a registered class name (with optional args), or an interpolation string', 'array of JSON tokens']
 } as const;
 
 export type ExpectedTokenType = {

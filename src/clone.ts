@@ -5,5 +5,6 @@ import { isRGXToken } from "./typeGuards";
 export function cloneRGXToken<T extends RGXToken>(token: T, depth: CloneDepth="max"): T {
     if (depth === 0) return token;
     if (isRGXToken(token, "no-op") || isRGXToken(token, "native")) return token;
+    if (isRGXToken(token, "interpolation", true, false)) return { rgxInterpolation: token.rgxInterpolation } as T;
     return extClone(token, depthDecrement(depth, 1));
 }
