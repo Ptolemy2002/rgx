@@ -78,12 +78,16 @@ export class RGXRepeatToken extends RGXClassToken {
             throw new RGXNotSupportedError("Repeating interpolation tokens", "Interpolation tokens are source fragments, which can't be repeated as a unit.");
         }
 
-        if (isRGXToken(value, "convertible") && !isRGXToken(value, "repeatable")) {
+        if (!isRGXToken(value, "repeatable")) {
             const reason = "The token was marked as non-repeatable, or was detected as consuming no characters.";
             if (isRGXToken(value, "class")) {
                 throw new RGXNotSupportedError(`Repeating ${value.constructor.name} tokens`, reason);
-            } else {
+            } else if (isRGXToken(value, "convertible")) {
                 throw new RGXNotSupportedError("Repeating non-repeatable convertible tokens", reason);
+            } else {
+                // Literal tokens and arrays have no preference, so they can only be detected.
+                const type = isRGXToken(value, "literal") ? "literal tokens" : "arrays";
+                throw new RGXNotSupportedError(`Repeating ${type} that consume no characters`, "The token was detected as consuming no characters.");
             }
         }
 

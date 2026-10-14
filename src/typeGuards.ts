@@ -305,8 +305,11 @@ export function isRGXToken<
     // Interpolation tokens are source fragments, which can't be repeated as a unit.
     if (type === 'repeatable' && isRGXInterpolationToken(value)) return false;
 
-    // Non-covertible tokens are repeatable by default. Convertible tokens trust their rgxIsRepeatable property when it is
+    // Other non-covertible tokens are repeatable. Convertible tokens trust their rgxIsRepeatable property when it is
     // set, and otherwise are only non-repeatable if they are detected as consuming no characters.
+    // Literal tokens and arrays have no preference to trust, so they are only non-repeatable if they are detected as
+    // consuming no characters. Native tokens are escaped, so they can't consist of assertions.
+    if (type === 'repeatable' && (isRGXLiteralToken(value) || isRGXArrayToken(value, true, acceptJSON))) return !isNonConsumingRGXToken(value);
     if (type === 'repeatable' && !isRGXConvertibleToken(value, false)) return true;
     if (type === 'repeatable' && isRGXConvertibleToken(value, true, acceptJSON)) return value.rgxIsRepeatable ?? !isNonConsumingRGXToken(value);
 

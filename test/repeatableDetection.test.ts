@@ -1,7 +1,8 @@
 import {
     isRGXToken, assertRGXToken, isRGXConvertibleToken, rgxConstant, rgxRepeat, rgxInterpolation,
-    RGXClassToken, RGXRepeatToken, RGXLookaheadToken, RGXInvalidTokenError, RGXNotSupportedError
+    RGXClassToken, RGXRepeatToken, RGXLookaheadToken, RGXInvalidTokenError, RGXNotSupportedError, RGXToken
 } from "src/index";
+import { expectError } from "./utils";
 
 class ZeroWidthClassToken extends RGXClassToken {
     toRgx() {
@@ -57,9 +58,26 @@ describe("rgxIsRepeatable detection", () => {
         expect(isRGXToken({ toRgx: () => /^/, rgxIsRepeatable: true }, "repeatable")).toBe(true);
     });
 
-    it("does not detect literal tokens, which are always repeatable", () => {
-        expect(isRGXToken(/^/, "repeatable")).toBe(true);
-        expect(() => new RGXRepeatToken(/^/)).not.toThrow();
+    it("detects literal tokens and arrays, which have no preference", () => {
+        for (const token of [/^/, /^$/m, /(?=a)/, { $rgx: true, source: "\\b" }, [/^/, /$/], [{ $rgx: true, source: "^" }]] as RGXToken[]) {
+            expect(isRGXToken(token, "repeatable")).toBe(false);
+            expect(() => new RGXRepeatToken(token)).toThrow(RGXNotSupportedError);
+        }
+
+        for (const token of [/a?/, /^a/, ["a", /^/], "^", null] as RGXToken[]) {
+            expect(isRGXToken(token, "repeatable")).toBe(true);
+            expect(() => new RGXRepeatToken(token)).not.toThrow();
+        }
+    });
+
+    it("reports the kind of token that was detected as consuming no characters", () => {
+        expectError(() => new RGXRepeatToken(/^/), RGXNotSupportedError, error => {
+            expect(error.message).toContain("Repeating literal tokens that consume no characters");
+        });
+
+        expectError(() => new RGXRepeatToken([/^/, /$/]), RGXNotSupportedError, error => {
+            expect(error.message).toContain("Repeating arrays that consume no characters");
+        });
     });
 
     it("detects the built-in zero-width tokens as non-repeatable", () => {
