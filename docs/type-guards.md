@@ -187,11 +187,11 @@ Asserts that the given value is a JSON literal token with the same logic as `isR
 ```typescript
 function isRGXJSONClassToken(value: unknown, registryCheck?: boolean): value is RGXJSONClassToken
 ```
-Checks if the given value is a JSON class token: a plain object with `$rgx` set to `true`, a string `class` property, no `source` property, and an optional `args` property that is an array of JSON values. When `registryCheck` is `true` (the default), additionally requires that `class` names a class registered in the JSON class registry (see [json.md](./json.md)) and that `args` (defaulting to `[]`) passes that class' argument validator.
+Checks if the given value is a JSON class token: a plain object with `$rgx` set to `true`, a string `class` property, no `source` property, and an optional `args` property that is an array of JSON values. When `registryCheck` is `true` (the default), additionally requires that `class` names a class registered in the JSON class registry (see [json.md](./json.md)) and that the class can be constructed from `args` (defaulting to `[]`). Since constructors validate their own args, the registered constructor is called, and an `RGXError` it throws makes the check fail. Any other error is rethrown.
 
 ### Parameters
   - `value` (`unknown`): The value to check.
-  - `registryCheck` (`boolean`, optional): Whether to validate the class name against the registry and run its argument validator. Defaults to `true`. When `false`, only the structure is checked, so an unregistered class name is accepted.
+  - `registryCheck` (`boolean`, optional): Whether to validate the class name against the registry and try constructing the class. Defaults to `true`. When `false`, only the structure is checked, so an unregistered class name is accepted.
 
 ## assertRGXJSONClassToken
 ```typescript

@@ -6,16 +6,14 @@ import { RGXTokenCollection } from "./collection";
 import { ExtRegExp, extractVanillaRegexFlags } from "./ExtRegExp";
 import { resolveRGXToken } from "./resolve";
 
-export type RGXJSONClassArgsValidator = (args: t.RGXJSONValue[]) => boolean | string;
+// Parses the args of a JSON class token into a typed tuple, or returns the reason they were rejected.
+export type RGXJSONClassArgsParser<A extends unknown[]> = (args: t.RGXJSONValue[]) => A | string;
+// Constructs a class token from the args of a JSON class token. It validates the args itself, throwing an RGXError
+// (usually RGXJSONClassArgsValidationFailedError) if they are invalid.
 export type RGXJSONClassConstructor = (args: t.RGXJSONValue[]) => RGXClassToken;
-export type RGXJSONClassRegistryEntry = {
-    validateArgs: RGXJSONClassArgsValidator;
-    construct: RGXJSONClassConstructor;
-};
 
 // The shape every RGXClassToken subclass is expected to have on its static side.
 export type RGXJSONClassTokenConstructor = {
-    validateJSONArgs: RGXJSONClassArgsValidator;
     fromJSON: (json: t.RGXJSONClassToken) => RGXClassToken;
 };
 
@@ -28,33 +26,7 @@ export type RGXTokenToJSONOptions = {
     resolveConvertible?: boolean;
 };
 
-// Each class stores the entry it was registered with alongside a guarded copy whose construct validates
-// its args first. Only the guarded copy is ever handed out, so callers outside this module cannot reach a
-// construct function that trusts its args. See PENDING_BREAKING_CHANGES.md for why this is a workaround.
-type RGXJSONClassRegistryRecord = {
-    raw: RGXJSONClassRegistryEntry;
-    guarded: RGXJSONClassRegistryEntry;
-};
-
-const rgxJSONClasses: Record<string, RGXJSONClassRegistryRecord> = {};
-
-// Maps args arrays that have already passed the validator of the class they are mapped to and are currently
-// being constructed. rgxJSONClassArgs uses this to skip validating them a second time.
-const validatedRGXJSONClassArgs = new WeakMap<t.RGXJSONValue[], string>();
-
-function constructValidatedRGXJSONClass(name: RGXJSONClassName, raw: RGXJSONClassRegistryEntry, args: t.RGXJSONValue[]): RGXClassToken {
-    validatedRGXJSONClassArgs.set(args, name);
-    try {
-        return raw.construct(args);
-    } finally {
-        validatedRGXJSONClassArgs.delete(args);
-    }
-}
-
-function getRGXJSONClassRecord(name: RGXJSONClassName): RGXJSONClassRegistryRecord {
-    assertHasRGXJSONClass(name);
-    return rgxJSONClasses[name]!;
-}
+const rgxJSONClasses: Record<string, RGXJSONClassConstructor> = {};
 
 // ------------------ Registry ------------------
 export function listRGXJSONClasses(): string[] {
@@ -77,49 +49,23 @@ export function assertNotHasRGXJSONClass(name: RGXJSONClassName) {
     }
 }
 
-export function registerRGXJSONClass(name: RGXJSONClassName, entry: RGXJSONClassRegistryEntry): RGXJSONClassRegistryEntry {
+export function registerRGXJSONClass(name: RGXJSONClassName, construct: RGXJSONClassConstructor) {
     assertNotHasRGXJSONClass(name);
-
-    // Copied so that later changes to the given entry cannot bypass the guard.
-    const raw: RGXJSONClassRegistryEntry = { validateArgs: entry.validateArgs, construct: entry.construct };
-    const guarded: RGXJSONClassRegistryEntry = Object.freeze({
-        validateArgs: raw.validateArgs,
-        construct: (args: t.RGXJSONValue[]) => {
-            assertValidRGXJSONClassArgs(name, args);
-            return constructValidatedRGXJSONClass(name, raw, args);
-        }
-    });
-
-    rgxJSONClasses[name] = { raw, guarded };
-    return guarded;
+    rgxJSONClasses[name] = construct;
 }
 
-export function registerRGXJSONClassToken(name: RGXJSONClassName, constructor: RGXJSONClassTokenConstructor): RGXJSONClassRegistryEntry {
-    return registerRGXJSONClass(name, {
-        validateArgs: args => constructor.validateJSONArgs(args),
-        construct: args => constructor.fromJSON(createRGXJSONClassToken(name, args))
-    });
+export function registerRGXJSONClassToken(name: RGXJSONClassName, constructor: RGXJSONClassTokenConstructor) {
+    registerRGXJSONClass(name, args => constructor.fromJSON(createRGXJSONClassToken(name, args)));
 }
 
-export function getRGXJSONClass(name: RGXJSONClassName): RGXJSONClassRegistryEntry {
-    return getRGXJSONClassRecord(name).guarded;
+export function getRGXJSONClass(name: RGXJSONClassName): RGXJSONClassConstructor {
+    assertHasRGXJSONClass(name);
+    return rgxJSONClasses[name]!;
 }
 
 export function unregisterRGXJSONClass(name: RGXJSONClassName) {
     assertHasRGXJSONClass(name);
     delete rgxJSONClasses[name];
-}
-
-export function validateRGXJSONClassArgs(name: RGXJSONClassName, args: t.RGXJSONValue[]): true | string {
-    const result = getRGXJSONClassRecord(name).raw.validateArgs(args);
-    if (result === true) return true;
-    if (result === false) return "Argument validation failed.";
-    return result;
-}
-
-export function assertValidRGXJSONClassArgs(name: RGXJSONClassName, args: t.RGXJSONValue[]) {
-    const result = validateRGXJSONClassArgs(name, args);
-    if (result !== true) throw new e.RGXJSONClassArgsValidationFailedError(name, args, result);
 }
 
 // ------------------ Helpers for class token implementations ------------------
@@ -140,18 +86,15 @@ export function assertRGXJSONClassTokenOf(json: unknown, name: RGXJSONClassName)
     }
 }
 
-// Extracts the args from a JSON class token after checking that it targets the given class and that
-// its args pass the given validator. Throws RGXJSONClassArgsValidationFailedError if validation fails.
-export function rgxJSONClassArgs(json: unknown, name: RGXJSONClassName, validate: RGXJSONClassArgsValidator): t.RGXJSONValue[] {
+// Parses the args of a JSON class token after checking that it targets the given class.
+// Throws RGXJSONClassArgsValidationFailedError if the parser rejects them.
+export function rgxJSONClassArgs<A extends unknown[]>(json: unknown, name: RGXJSONClassName, parse: RGXJSONClassArgsParser<A>): A {
     assertRGXJSONClassTokenOf(json, name);
     const args = json.args ?? [];
 
-    // The registry already validated these args against this class before constructing.
-    if (validatedRGXJSONClassArgs.get(args) === name) return args;
-
-    const result = validate(args);
-    if (result === true) return args;
-    throw new e.RGXJSONClassArgsValidationFailedError(name, args, result === false ? "Argument validation failed." : result);
+    const result = parse(args);
+    if (typeof result === "string") throw new e.RGXJSONClassArgsValidationFailedError(name, args, result);
+    return result;
 }
 
 // ------------------ Conversion ------------------
@@ -206,8 +149,8 @@ export function rgxTokenFromJSON(json: t.RGXJSONToken): t.RGXNonJSONToken {
     }
 
     if (tg.isRGXJSONClassToken(json, false)) {
-        // The guarded construct validates the args before constructing.
-        return getRGXJSONClass(json.class).construct(json.args ?? []);
+        // The constructor validates the args itself.
+        return getRGXJSONClass(json.class)(json.args ?? []);
     }
 
     if (Array.isArray(json)) return json.map(item => rgxTokenFromJSON(item));

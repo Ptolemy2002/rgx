@@ -35,8 +35,7 @@ A function `rgxClassWrapper` is provided with the same parameters as this class'
 ## Static Properties
 - `check(value: unknown): value is RGXClassWrapperToken`: A type guard that checks if the given value is an instance of `RGXClassWrapperToken`.
 - `assert(value: unknown): asserts value is RGXClassWrapperToken`: An assertion that checks if the given value is an instance of `RGXClassWrapperToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
-- `validateJSONArgs(args: RGXJSONValue[]): boolean | string`: Validates the JSON arguments `[token]`, where `token` must be a JSON token. Returns `true` when the arguments are valid, or `false`/a reason string when they are not.
-- `fromJSON(json: RGXJSONClassToken): RGXClassWrapperToken`: Constructs an `RGXClassWrapperToken` from a JSON class token, wrapping the result of `rgxTokenFromJSON(token)`. Throws `RGXInvalidJSONTokenError` if `json` is not a JSON class token for `"RGXClassWrapperToken"`, and `RGXJSONClassArgsValidationFailedError` if the arguments fail `validateJSONArgs`.
+- `fromJSON(json: RGXJSONClassToken): RGXClassWrapperToken`: Constructs an `RGXClassWrapperToken` from a JSON class token, wrapping the result of `rgxTokenFromJSON(token)`. Throws `RGXInvalidJSONTokenError` if `json` is not a JSON class token for `"RGXClassWrapperToken"`, and `RGXJSONClassArgsValidationFailedError` if the arguments are invalid. The JSON arguments are `[token]`, where `token` must be a JSON token. Nested JSON tokens only have their shape checked here, since converting them validates their contents (throwing the corresponding error).
 
 ## Constructor
 ```typescript

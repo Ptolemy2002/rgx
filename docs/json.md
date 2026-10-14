@@ -26,14 +26,9 @@ type RGXNonJSONToken = Exclude<RGXToken, RGXJSONObjectToken>;
 const RGX_JSON_FLAG = "$rgx";
 type RGXJSONFlag = typeof RGX_JSON_FLAG;
 
-type RGXJSONClassArgsValidator = (args: RGXJSONValue[]) => boolean | string;
+type RGXJSONClassArgsParser<A extends unknown[]> = (args: RGXJSONValue[]) => A | string;
 type RGXJSONClassConstructor = (args: RGXJSONValue[]) => RGXClassToken;
-type RGXJSONClassRegistryEntry = {
-    validateArgs: RGXJSONClassArgsValidator;
-    construct: RGXJSONClassConstructor;
-};
 type RGXJSONClassTokenConstructor = {
-    validateJSONArgs: RGXJSONClassArgsValidator;
     fromJSON: (json: RGXJSONClassToken) => RGXClassToken;
 };
 type RGXJSONBuiltinClassName =
@@ -54,9 +49,9 @@ A JSON token is a token that is guaranteed to survive `JSON.stringify` and `JSON
   - A **JSON class token** (`RGXJSONClassToken`) has a `class` name and an optional `args` array of JSON values, and describes the class token produced by giving `args` to the constructor registered under `class` in the JSON class registry (see below).
 - **Arrays of JSON tokens**, which behave like any other array token (a union).
 
-When a JSON object token is encountered by the resolver, by `toRGXClassToken`, by `RGXClassWrapperToken`, or by the type guards, it is converted with `rgxTokenFromJSON` on the fly. Invalid JSON object tokens (a `source` that does not compile, an unregistered `class`, or `args` rejected by the class' validator) throw the corresponding error at that point.
+When a JSON object token is encountered by the resolver, by `toRGXClassToken`, by `RGXClassWrapperToken`, or by the type guards, it is converted with `rgxTokenFromJSON` on the fly. Invalid JSON object tokens (a `source` that does not compile, an unregistered `class`, or `args` the class can't be constructed from) throw the corresponding error at that point.
 
-Every built-in `RGXClassToken` subclass implements `toJSON()`, which returns its JSON class token form, and the static methods `validateJSONArgs(args)` and `fromJSON(json)`, which validate and consume that form. Custom subclasses only need to do the same if they want lossless serialization through the JSON class registry. Otherwise, the base `toJSON()` falls back to resolving the token into a JSON literal token, just like a plain convertible token (see `rgxTokenToJSON` below), so they are still serializable. The base static methods throw `RGXNotImplementedError`, since they are only needed for registration. Because the method is named `toJSON`, calling `JSON.stringify` on a class token produces its JSON form automatically. See [base.md](./class/token/base.md) for the contract and the individual token class docs for each class' argument layout.
+Every built-in `RGXClassToken` subclass implements `toJSON()`, which returns its JSON class token form, and the static method `fromJSON(json)`, which validates and consumes that form. Custom subclasses only need to do the same if they want lossless serialization through the JSON class registry. Otherwise, the base `toJSON()` falls back to resolving the token into a JSON literal token, just like a plain convertible token (see `rgxTokenToJSON` below), so they are still serializable. The base static `fromJSON` throws `RGXNotImplementedError`, since it is only needed for registration. Because the method is named `toJSON`, calling `JSON.stringify` on a class token produces its JSON form automatically. See [base.md](./class/token/base.md) for the contract and the individual token class docs for each class' argument layout.
 
 ```typescript
 const token = rgxConstant("digit").repeat(1, 3).group({ name: "num" });
@@ -105,9 +100,9 @@ Converts any `RGXToken` into a JSON token. The conversion is by token type:
 ```typescript
 function rgxTokenFromJSON(json: RGXJSONToken): RGXNonJSONToken
 ```
-Converts a JSON token into its runtime equivalent. JSON native tokens are returned as-is, JSON literal tokens become `ExtRegExp` instances (constructed with their `source` and `flags`), JSON class tokens become the class token produced by the registered constructor for their `class` (after the class' argument validator accepts their `args`, defaulting to `[]`), and arrays are converted element-wise.
+Converts a JSON token into its runtime equivalent. JSON native tokens are returned as-is, JSON literal tokens become `ExtRegExp` instances (constructed with their `source` and `flags`), JSON class tokens become the class token produced by the registered constructor for their `class` (given their `args`, defaulting to `[]`), and arrays are converted element-wise.
 
-Throws `RGXInvalidJSONTokenError` if `json` is not a JSON token or a JSON literal token's content is invalid, `RGXInvalidJSONClassKeyError` if a JSON class token names an unregistered class, and `RGXJSONClassArgsValidationFailedError` if its `args` are rejected.
+Throws `RGXInvalidJSONTokenError` if `json` is not a JSON token or a JSON literal token's content is invalid, `RGXInvalidJSONClassKeyError` if a JSON class token names an unregistered class, and `RGXJSONClassArgsValidationFailedError` (or whatever error the constructor throws) if its `args` are rejected.
 
 ## Parameters
   - `json` (`RGXJSONToken`): The JSON token to convert.
@@ -142,7 +137,7 @@ A convenience wrapper that parses `json` with `JSON.parse`, asserts that the res
 - `RGXNonJSONToken`: The converted token.
 
 # JSON Class Registry
-JSON class tokens name their target class with a string, so a registry maps those names to an argument validator and a constructor. The built-in token classes are registered under their class names (listed in `RGXJSONBuiltinClassName`) by `rgxClassInit`, which runs when the main entry point is imported. Custom `RGXClassToken` subclasses can be registered by callers so that their JSON forms can be converted too. Registration is optional: unregistered subclasses that do not override `toJSON()` are still serialized, just lossily, as JSON literal tokens.
+JSON class tokens name their target class with a string, so a registry maps those names to constructors. A constructor receives the `args` of a JSON class token and validates them itself, so there is no way to construct a class from args it hasn't checked. The built-in token classes are registered under their class names (listed in `RGXJSONBuiltinClassName`) by `rgxClassInit`, which runs when the main entry point is imported. Custom `RGXClassToken` subclasses can be registered by callers so that their JSON forms can be converted too. Registration is optional: unregistered subclasses that do not override `toJSON()` are still serialized, just lossily, as JSON literal tokens.
 
 ```typescript
 class MyToken extends RGXClassToken {
@@ -150,14 +145,8 @@ class MyToken extends RGXClassToken {
     toRgx() { return this.value; }
     clone() { return new MyToken(this.value); }
 
-    static validateJSONArgs(args: RGXJSONValue[]): boolean | string {
-        if (args.length !== 1) return "Expected exactly 1 argument.";
-        if (typeof args[0] !== "string") return "Argument 0 (value) must be a string.";
-        return true;
-    }
-
     static fromJSON(json: RGXJSONClassToken): MyToken {
-        const [value] = rgxJSONClassArgs(json, "MyToken", MyToken.validateJSONArgs) as [string];
+        const [value] = rgxJSONClassArgs(json, "MyToken", parseMyTokenJSONArgs);
         return new MyToken(value);
     }
 
@@ -166,36 +155,37 @@ class MyToken extends RGXClassToken {
     }
 }
 
+// Returns the parsed args, or the reason they were rejected.
+function parseMyTokenJSONArgs(args: RGXJSONValue[]): [string] | string {
+    if (args.length !== 1) return "Expected exactly 1 argument.";
+    const [value] = args;
+    if (typeof value !== "string") return "Argument 0 (value) must be a string.";
+    return [value];
+}
+
 registerRGXJSONClassToken("MyToken", MyToken);
 rgxTokenFromJSON({ $rgx: true, class: "MyToken", args: ["abc"] }); // MyToken { value: "abc" }
 ```
 
 ## registerRGXJSONClass
 ```typescript
-function registerRGXJSONClass(name: RGXJSONClassName, entry: RGXJSONClassRegistryEntry): RGXJSONClassRegistryEntry
+function registerRGXJSONClass(name: RGXJSONClassName, construct: RGXJSONClassConstructor): void
 ```
-Registers a validator and constructor pair under `name`. Throws `RGXJSONClassConflictError` if `name` is already registered.
-
-The registry keeps its own copy of `entry`, so changing `entry` afterward has no effect. The registry never hands out the original `construct`. Instead, it returns a frozen guarded entry with the same `validateArgs` and a `construct` that first asserts that the args pass `validateArgs` (throwing `RGXJSONClassArgsValidationFailedError` otherwise) and only then calls the original `construct`. This keeps the guarantee below that `construct` only receives validated args, even when it is called through `getRGXJSONClass`.
-
-## Returns
-- `RGXJSONClassRegistryEntry`: The guarded entry. This is the same object `getRGXJSONClass(name)` returns, not `entry` itself.
+Registers a constructor under `name`. Throws `RGXJSONClassConflictError` if `name` is already registered.
 
 ## Parameters
   - `name` (`RGXJSONClassName`): The class name that JSON class tokens will use in their `class` property.
-  - `entry` (`RGXJSONClassRegistryEntry`): The registry entry.
-    - `validateArgs` (`RGXJSONClassArgsValidator`): Receives the `args` of a JSON class token (defaulting to `[]`) and returns `true` if they are acceptable, or `false`/a reason string if not.
-    - `construct` (`RGXJSONClassConstructor`): Receives the validated `args` and returns the class token. It is only ever called after `validateArgs` accepts the args, so it does not need to validate them again. Nested JSON tokens within `args` are not converted automatically; use `rgxTokenFromJSON` within `construct` as needed.
+  - `construct` (`RGXJSONClassConstructor`): Receives the `args` of a JSON class token (defaulting to `[]`) and returns the class token. It must validate the args itself and throw an `RGXError` if they are invalid, usually `RGXJSONClassArgsValidationFailedError` (`rgxJSONClassArgs` does this for you). `isRGXJSONClassToken` treats an `RGXError` thrown by the constructor as the args being invalid, and lets any other error propagate. Nested JSON tokens within `args` are not converted automatically; use `rgxTokenFromJSON` within `construct` as needed.
 
 ## registerRGXJSONClassToken
 ```typescript
-function registerRGXJSONClassToken(name: RGXJSONClassName, constructor: RGXJSONClassTokenConstructor): RGXJSONClassRegistryEntry
+function registerRGXJSONClassToken(name: RGXJSONClassName, constructor: RGXJSONClassTokenConstructor): void
 ```
-A convenience wrapper around `registerRGXJSONClass` for `RGXClassToken` subclasses that implement the static `validateJSONArgs` and `fromJSON` methods. The resulting entry validates with `constructor.validateJSONArgs(args)` and constructs with `constructor.fromJSON(createRGXJSONClassToken(name, args))`. Because the registry has already validated the args by the time `fromJSON` is called, a `fromJSON` that uses `rgxJSONClassArgs` skips validating them again (see `rgxJSONClassArgs`). Throws `RGXJSONClassConflictError` if `name` is already registered. Returns the guarded entry, as described in `registerRGXJSONClass`.
+A convenience wrapper around `registerRGXJSONClass` for `RGXClassToken` subclasses that implement the static `fromJSON` method. The registered constructor calls `constructor.fromJSON(createRGXJSONClassToken(name, args))`, so `fromJSON` is responsible for validating the args (typically with `rgxJSONClassArgs`). Throws `RGXJSONClassConflictError` if `name` is already registered.
 
 ## Parameters
   - `name` (`RGXJSONClassName`): The class name to register under. This must match the name the class uses in its `toJSON()` and `fromJSON()` implementations.
-  - `constructor` (`RGXJSONClassTokenConstructor`): The class (or any object with `validateJSONArgs` and `fromJSON`).
+  - `constructor` (`RGXJSONClassTokenConstructor`): The class (or any object with `fromJSON`).
 
 ## registerBuiltinRGXJSONClasses
 ```typescript
@@ -229,27 +219,15 @@ Throws `RGXJSONClassConflictError` if `name` is registered.
 
 ## getRGXJSONClass
 ```typescript
-function getRGXJSONClass(name: RGXJSONClassName): RGXJSONClassRegistryEntry
+function getRGXJSONClass(name: RGXJSONClassName): RGXJSONClassConstructor
 ```
-Returns the guarded entry registered under `name` (see `registerRGXJSONClass`). Its `construct` validates the args before constructing, so calling it with args that fail validation throws `RGXJSONClassArgsValidationFailedError` and never reaches the registered constructor. Throws `RGXInvalidJSONClassKeyError` if `name` is not registered.
+Returns the constructor registered under `name` (see `registerRGXJSONClass`). Throws `RGXInvalidJSONClassKeyError` if `name` is not registered.
 
 ## listRGXJSONClasses
 ```typescript
 function listRGXJSONClasses(): string[]
 ```
 Returns the names of all registered classes.
-
-## validateRGXJSONClassArgs
-```typescript
-function validateRGXJSONClassArgs(name: RGXJSONClassName, args: RGXJSONValue[]): true | string
-```
-Runs the validator registered under `name` on `args` and normalizes the result: `true` stays `true`, a reason string is returned as-is, and `false` becomes the string `"Argument validation failed."`. Throws `RGXInvalidJSONClassKeyError` if `name` is not registered.
-
-## assertValidRGXJSONClassArgs
-```typescript
-function assertValidRGXJSONClassArgs(name: RGXJSONClassName, args: RGXJSONValue[]): void
-```
-Throws `RGXJSONClassArgsValidationFailedError` (with the normalized reason from `validateRGXJSONClassArgs`) if the validator registered under `name` rejects `args`. Throws `RGXInvalidJSONClassKeyError` if `name` is not registered.
 
 # Helpers for Class Token Implementations
 These functions are intended for use inside `toJSON()` and `fromJSON()` implementations.
@@ -274,16 +252,14 @@ Asserts that `json` is structurally a JSON class token (`assertRGXJSONClassToken
 
 ## rgxJSONClassArgs
 ```typescript
-function rgxJSONClassArgs(json: unknown, name: RGXJSONClassName, validate: RGXJSONClassArgsValidator): RGXJSONValue[]
+function rgxJSONClassArgs<A extends unknown[]>(json: unknown, name: RGXJSONClassName, parse: RGXJSONClassArgsParser<A>): A
 ```
-The one-stop helper for `fromJSON` implementations. Asserts with `assertRGXJSONClassTokenOf(json, name)`, runs `validate` on `json.args` (defaulting to `[]`), and returns the args. Throws `RGXJSONClassArgsValidationFailedError` if `validate` returns `false` or a reason string.
-
-When the registry calls `fromJSON` (through `rgxTokenFromJSON` or a registry entry's `construct`), the registry has already validated the args against the class registered under `name`. In that case `validate` is skipped, so the args are validated only once. When `fromJSON` is called directly, `validate` always runs.
+The one-stop helper for `fromJSON` implementations. Asserts with `assertRGXJSONClassTokenOf(json, name)`, runs `parse` on `json.args` (defaulting to `[]`), and returns the parsed args. Throws `RGXJSONClassArgsValidationFailedError` (with the returned string as its `reason`) if `parse` returns a string.
 
 ## Parameters
   - `json` (`unknown`): The JSON class token.
   - `name` (`RGXJSONClassName`): The class name `json` must target.
-  - `validate` (`RGXJSONClassArgsValidator`): The validator to run, typically the class' own `validateJSONArgs`.
+  - `parse` (`RGXJSONClassArgsParser<A>`): Receives the args and returns them as a typed tuple (`A`), or a string explaining why they were rejected. Since a rejection is a string, `A` must be an array type, which also makes the two outcomes impossible to confuse. The parser only needs to check the shape of nested JSON tokens (for example, with `isRGXJSONToken(value, false)`), since converting them with `rgxTokenFromJSON` afterward validates their contents.
 
 ## Returns
-- `RGXJSONValue[]`: The validated arguments, ready to be converted (with `rgxTokenFromJSON` where they are tokens) and passed to the constructor.
+- `A`: The parsed arguments, ready to be converted (with `rgxTokenFromJSON` where they are tokens) and passed to the constructor.

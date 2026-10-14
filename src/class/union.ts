@@ -9,6 +9,13 @@ import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenTo
 import { isRGXJSONObjectToken, isRGXJSONToken } from "src/typeGuards";
 
 export type RGXUnionInsertionPosition = 'prefix' | 'suffix';
+function parseUnionJSONArgs(args: RGXJSONValue[]): [RGXJSONToken?] | string {
+    if (args.length > 1) return "Expected at most 1 argument (tokens).";
+    const [tokens] = args;
+    if (tokens !== undefined && !isRGXJSONToken(tokens, false)) return "Argument 0 (tokens) must be a JSON token.";
+    return [tokens];
+}
+
 export class RGXClassUnionToken extends RGXClassToken {
     tokens: RGXTokenCollection;
     
@@ -59,14 +66,8 @@ export class RGXClassUnionToken extends RGXClassToken {
         return new RGXClassUnionToken(this.tokens.clone(depthDecrement(depth, 1)));
     }
 
-    static validateJSONArgs(args: RGXJSONValue[]): boolean | string {
-        if (args.length > 1) return "Expected at most 1 argument (tokens).";
-        if (args.length === 1 && !isRGXJSONToken(args[0])) return "Argument 0 (tokens) must be a JSON token.";
-        return true;
-    }
-
     static fromJSON(json: RGXJSONClassToken): RGXClassUnionToken {
-        const [tokens] = rgxJSONClassArgs(json, "RGXClassUnionToken", RGXClassUnionToken.validateJSONArgs) as [RGXJSONToken?];
+        const [tokens] = rgxJSONClassArgs(json, "RGXClassUnionToken", parseUnionJSONArgs);
         return new RGXClassUnionToken(tokens === undefined ? [] : rgxTokenFromJSON(tokens));
     }
 

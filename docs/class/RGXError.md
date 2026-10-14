@@ -360,7 +360,7 @@ constructor(message: string, got: string)
 - `got` (`string`): The conflicting class name.
 
 ## RGXJSONClassArgsValidationFailedError
-A specific error class for JSON class tokens whose `args` are rejected by the class' argument validator. The error code is set to `JSON_CLASS_ARGS_VALIDATION_FAILED` on instantiation. The message includes the class name, the arguments, and the reason if one was given.
+A specific error class for JSON class tokens whose `args` are rejected when constructing the class (usually by the parser given to `rgxJSONClassArgs`). The error code is set to `JSON_CLASS_ARGS_VALIDATION_FAILED` on instantiation. The message includes the class name, the arguments, and the reason if one was given.
 
 ### Constructor
 ```typescript

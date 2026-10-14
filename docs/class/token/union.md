@@ -39,8 +39,7 @@ A function `rgxClassUnion` is provided with the same parameters as this class' c
 ## Static Properties
 - `check(value: unknown): value is RGXClassUnionToken`: A type guard that checks if the given value is an instance of `RGXClassUnionToken`.
 - `assert(value: unknown): asserts value is RGXClassUnionToken`: An assertion that checks if the given value is an instance of `RGXClassUnionToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
-- `validateJSONArgs(args: RGXJSONValue[]): boolean | string`: Validates the JSON arguments `[tokens?]`, where `tokens`, if present, must be a JSON token (typically an array of JSON tokens). Returns `true` when the arguments are valid, or `false`/a reason string when they are not.
-- `fromJSON(json: RGXJSONClassToken): RGXClassUnionToken`: Constructs an `RGXClassUnionToken` from a JSON class token, passing `rgxTokenFromJSON(tokens)` (or `[]` when omitted) to the constructor. Throws `RGXInvalidJSONTokenError` if `json` is not a JSON class token for `"RGXClassUnionToken"`, and `RGXJSONClassArgsValidationFailedError` if the arguments fail `validateJSONArgs`.
+- `fromJSON(json: RGXJSONClassToken): RGXClassUnionToken`: Constructs an `RGXClassUnionToken` from a JSON class token, passing `rgxTokenFromJSON(tokens)` (or `[]` when omitted) to the constructor. Throws `RGXInvalidJSONTokenError` if `json` is not a JSON class token for `"RGXClassUnionToken"`, and `RGXJSONClassArgsValidationFailedError` if the arguments are invalid. The JSON arguments are `[tokens?]`, where `tokens`, if present, must be a JSON token (typically an array of JSON tokens). Nested JSON tokens only have their shape checked here, since converting them validates their contents (throwing the corresponding error).
 
 ## Constructor
 ```typescript

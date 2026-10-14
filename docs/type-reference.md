@@ -162,14 +162,9 @@ type RGXTryWalkOptions = {
     revertCaptures?: boolean;
 };
 
-type RGXJSONClassArgsValidator = (args: RGXJSONValue[]) => boolean | string;
+type RGXJSONClassArgsParser<A extends unknown[]> = (args: RGXJSONValue[]) => A | string;
 type RGXJSONClassConstructor = (args: RGXJSONValue[]) => RGXClassToken;
-type RGXJSONClassRegistryEntry = {
-    validateArgs: RGXJSONClassArgsValidator;
-    construct: RGXJSONClassConstructor;
-};
 type RGXJSONClassTokenConstructor = {
-    validateJSONArgs: RGXJSONClassArgsValidator;
     fromJSON: (json: RGXJSONClassToken) => RGXClassToken;
 };
 type RGXJSONBuiltinClassName =

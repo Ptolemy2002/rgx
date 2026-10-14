@@ -5,3 +5,4 @@ export * from "./getProxy";
 export * from "./assureAcceptance";
 export * from "./localizableVanillaRegexFlagDiff";
 export * from "./scanRegexSource";
+export * from "./parseLookaroundJSONArgs";

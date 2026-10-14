@@ -1,7 +1,7 @@
 import {
     rgxTokenToJSON, rgxTokenFromJSON, rgxTokenToJSONString, rgxTokenFromJSONString,
     registerRGXJSONClass, registerRGXJSONClassToken, unregisterRGXJSONClass, hasRGXJSONClass, getRGXJSONClass,
-    listRGXJSONClasses, assertHasRGXJSONClass, assertNotHasRGXJSONClass, validateRGXJSONClassArgs, assertValidRGXJSONClassArgs,
+    listRGXJSONClasses, assertHasRGXJSONClass, assertNotHasRGXJSONClass,
     createRGXJSONClassToken, createRGXJSONLiteralToken, assertRGXJSONClassTokenOf, rgxJSONClassArgs,
     RGX_BUILTIN_JSON_CLASSES, registerBuiltinRGXJSONClasses,
     RGXClassToken, RGXClassWrapperToken, RGXClassUnionToken, RGXGroupToken, RGXRepeatToken,
@@ -29,14 +29,15 @@ class TestClassToken extends RGXClassToken {
         return new TestClassToken(this.value);
     }
 
-    static validateJSONArgs(args: RGXJSONValue[]): boolean | string {
+    static parseJSONArgs(args: RGXJSONValue[]): [string] | string {
         if (args.length !== 1) return "Expected exactly 1 argument.";
-        if (typeof args[0] !== "string") return false;
-        return true;
+        const [value] = args;
+        if (typeof value !== "string") return "Argument 0 must be a string.";
+        return [value];
     }
 
     static fromJSON(json: RGXJSONClassToken): TestClassToken {
-        const [value] = rgxJSONClassArgs(json, "TestClassToken", TestClassToken.validateJSONArgs) as [string];
+        const [value] = rgxJSONClassArgs(json, "TestClassToken", TestClassToken.parseJSONArgs);
         return new TestClassToken(value);
     }
 
@@ -73,6 +74,15 @@ class UnimplementedClassToken extends RGXClassToken {
     }
 }
 
+// Returns the reason a class' fromJSON rejected the given args.
+function fromJSONRejection(cls: { name: string, fromJSON: (json: RGXJSONClassToken) => unknown }, args: RGXJSONValue[]): string | null {
+    let reason: string | null = null;
+    expectError(() => cls.fromJSON(createRGXJSONClassToken(cls.name, args)), RGXJSONClassArgsValidationFailedError, error => {
+        reason = error.reason;
+    });
+    return reason;
+}
+
 function roundTrip(token: RGXToken) {
     const json = rgxTokenToJSON(token);
     // Must survive actual serialization.
@@ -103,15 +113,12 @@ describe("JSON class registry", () => {
         expect(() => unregisterRGXJSONClass("Nope")).toThrow(RGXInvalidJSONClassKeyError);
     });
 
-    it("registers and unregisters custom entries", () => {
-        const entry = registerRGXJSONClass("Custom", {
-            validateArgs: args => args.length === 1 && typeof args[0] === "string",
-            construct: args => new TestClassToken(args[0] as string)
-        });
+    it("registers and unregisters custom constructors", () => {
+        const construct = (args: RGXJSONValue[]) => new TestClassToken(args[0] as string);
+        registerRGXJSONClass("Custom", construct);
 
-        expect(getRGXJSONClass("Custom")).toBe(entry);
-        expect(Object.isFrozen(entry)).toBe(true);
-        expect(() => registerRGXJSONClass("Custom", entry)).toThrow(RGXJSONClassConflictError);
+        expect(getRGXJSONClass("Custom")).toBe(construct);
+        expect(() => registerRGXJSONClass("Custom", construct)).toThrow(RGXJSONClassConflictError);
 
         const token = rgxTokenFromJSON({ $rgx: true, class: "Custom", args: ["abc"] });
         expect(token).toBeInstanceOf(TestClassToken);
@@ -121,75 +128,31 @@ describe("JSON class registry", () => {
         expect(hasRGXJSONClass("Custom")).toBe(false);
     });
 
-    it("only exposes construct functions that validate their args", () => {
-        const construct = jest.fn((args: RGXJSONValue[]) => new TestClassToken(args[0] as string));
-        const given = { validateArgs: (args: RGXJSONValue[]) => args.length === 1 && typeof args[0] === "string", construct };
-        const entry = registerRGXJSONClass("Custom", given);
-
-        try {
-            expect(entry).not.toBe(given);
-            expect(entry.validateArgs).toBe(given.validateArgs);
-
-            expect(() => entry.construct([1])).toThrow(RGXJSONClassArgsValidationFailedError);
-            expect(() => getRGXJSONClass("Custom").construct([])).toThrow(RGXJSONClassArgsValidationFailedError);
-            expect(construct).not.toHaveBeenCalled();
-
-            expect((entry.construct(["abc"]) as TestClassToken).value).toBe("abc");
-            expect(construct).toHaveBeenCalledTimes(1);
-
-            // Changing the given entry after registration does not affect the registry.
-            given.validateArgs = () => true;
-            expect(() => entry.construct([1])).toThrow(RGXJSONClassArgsValidationFailedError);
-        } finally {
-            unregisterRGXJSONClass("Custom");
-        }
-    });
-
-    it("validates args only once when constructing through the registry", () => {
-        const validate = jest.spyOn(TestClassToken, "validateJSONArgs");
+    it("parses args once when constructing through the registry", () => {
+        const parse = jest.spyOn(TestClassToken, "parseJSONArgs");
         registerRGXJSONClassToken("TestClassToken", TestClassToken);
 
         try {
             rgxTokenFromJSON({ $rgx: true, class: "TestClassToken", args: ["a"] });
-            expect(validate).toHaveBeenCalledTimes(1);
+            expect(parse).toHaveBeenCalledTimes(1);
 
-            validate.mockClear();
-            getRGXJSONClass("TestClassToken").construct(["a"]);
-            expect(validate).toHaveBeenCalledTimes(1);
+            parse.mockClear();
+            expect((getRGXJSONClass("TestClassToken")(["a"]) as TestClassToken).value).toBe("a");
+            expect(parse).toHaveBeenCalledTimes(1);
 
-            // Calling fromJSON directly still validates.
-            validate.mockClear();
-            TestClassToken.fromJSON(createRGXJSONClassToken("TestClassToken", ["a"]));
-            expect(validate).toHaveBeenCalledTimes(1);
+            expect(() => getRGXJSONClass("TestClassToken")([1])).toThrow(RGXJSONClassArgsValidationFailedError);
             expect(() => TestClassToken.fromJSON(createRGXJSONClassToken("TestClassToken", [1]))).toThrow(RGXJSONClassArgsValidationFailedError);
         } finally {
             unregisterRGXJSONClass("TestClassToken");
-            validate.mockRestore();
+            parse.mockRestore();
         }
     });
 
-    it("validates built-in class args only once when converting from JSON", () => {
-        const validate = jest.spyOn(RGXSubpatternToken, "validateJSONArgs");
+    it("lets errors other than RGXErrors propagate from constructors", () => {
+        registerRGXJSONClass("Throwing", () => { throw new Error("boom"); });
 
         try {
-            rgxTokenFromJSON({ $rgx: true, class: "RGXSubpatternToken", args: [1] });
-            expect(validate).toHaveBeenCalledTimes(1);
-        } finally {
-            validate.mockRestore();
-        }
-    });
-
-    it("still validates args after a failed construction", () => {
-        const args: RGXJSONValue[] = ["a"];
-        registerRGXJSONClass("Throwing", {
-            validateArgs: () => true,
-            construct: () => { throw new Error("boom"); }
-        });
-
-        try {
-            expect(() => getRGXJSONClass("Throwing").construct(args)).toThrow("boom");
-            // The args are no longer treated as validated once construction ends.
-            expect(() => rgxJSONClassArgs(createRGXJSONClassToken("Throwing", args), "Throwing", () => false)).toThrow(RGXJSONClassArgsValidationFailedError);
+            expect(() => rgxTokenFromJSON({ $rgx: true, class: "Throwing" })).toThrow("boom");
         } finally {
             unregisterRGXJSONClass("Throwing");
         }
@@ -200,24 +163,6 @@ describe("JSON class registry", () => {
         const token = rgxTokenFromJSON({ $rgx: true, class: "TestClassToken", args: ["hello"] });
         expect(token).toBeInstanceOf(TestClassToken);
         expect((token as TestClassToken).value).toBe("hello");
-        unregisterRGXJSONClass("TestClassToken");
-    });
-
-    it("validates args through the registry", () => {
-        registerRGXJSONClassToken("TestClassToken", TestClassToken);
-
-        expect(validateRGXJSONClassArgs("TestClassToken", ["a"])).toBe(true);
-        expect(validateRGXJSONClassArgs("TestClassToken", [])).toBe("Expected exactly 1 argument.");
-        // false results get a default message
-        expect(validateRGXJSONClassArgs("TestClassToken", [1])).toBe("Argument validation failed.");
-
-        expect(() => assertValidRGXJSONClassArgs("TestClassToken", ["a"])).not.toThrow();
-        expectError(() => assertValidRGXJSONClassArgs("TestClassToken", [1]), RGXJSONClassArgsValidationFailedError, error => {
-            expect(error.className).toBe("TestClassToken");
-            expect(error.args).toEqual([1]);
-            expect(error.reason).toBe("Argument validation failed.");
-        });
-
         unregisterRGXJSONClass("TestClassToken");
     });
 });
@@ -239,7 +184,6 @@ describe("RGXClassToken JSON defaults", () => {
     });
 
     it("throws RGXNotImplementedError for the default static methods", () => {
-        expect(() => UnimplementedClassToken.validateJSONArgs([])).toThrow(RGXNotImplementedError);
         expect(() => UnimplementedClassToken.fromJSON({ $rgx: true, class: "UnimplementedClassToken" })).toThrow(RGXNotImplementedError);
     });
 });
@@ -266,15 +210,13 @@ describe("JSON class token helpers", () => {
         expect(() => assertRGXJSONClassTokenOf({ class: "X" }, "X")).toThrow(RGXInvalidJSONTokenError);
     });
 
-    it("extracts validated args", () => {
-        expect(rgxJSONClassArgs({ $rgx: true, class: "X", args: ["a"] }, "X", () => true)).toEqual(["a"]);
-        expect(rgxJSONClassArgs({ $rgx: true, class: "X" }, "X", () => true)).toEqual([]);
+    it("extracts parsed args", () => {
+        expect(rgxJSONClassArgs({ $rgx: true, class: "X", args: ["a"] }, "X", args => args)).toEqual(["a"]);
+        expect(rgxJSONClassArgs({ $rgx: true, class: "X" }, "X", args => args)).toEqual([]);
+        expect(rgxJSONClassArgs({ $rgx: true, class: "X", args: ["a"] }, "X", () => [1, 2])).toEqual([1, 2]);
         expectError(() => rgxJSONClassArgs({ $rgx: true, class: "X", args: [1] }, "X", () => "bad"), RGXJSONClassArgsValidationFailedError, error => {
             expect(error.reason).toBe("bad");
             expect(error.toString()).toBe('RGXJSONClassArgsValidationFailedError: JSON class argument validation failed; Class: "X"; Args: [1]; Reason: bad');
-        });
-        expectError(() => rgxJSONClassArgs({ $rgx: true, class: "X", args: [1] }, "X", () => false), RGXJSONClassArgsValidationFailedError, error => {
-            expect(error.reason).toBe("Argument validation failed.");
         });
     });
 });
@@ -437,8 +379,8 @@ describe("built-in class token round trips", () => {
         expect(result).toBeInstanceOf(RGXClassWrapperToken);
         expect(result.resolve()).toBe(token.resolve());
 
-        expect(RGXClassWrapperToken.validateJSONArgs([])).toMatch(/exactly 1/);
-        expect(RGXClassWrapperToken.validateJSONArgs([{ nope: 1 }])).toMatch(/JSON token/);
+        expect(fromJSONRejection(RGXClassWrapperToken, [])).toMatch(/exactly 1/);
+        expect(fromJSONRejection(RGXClassWrapperToken, [{ nope: 1 }])).toMatch(/JSON token/);
         expect(() => RGXClassWrapperToken.fromJSON({ $rgx: true, class: "RGXClassWrapperToken", args: [] })).toThrow(RGXJSONClassArgsValidationFailedError);
     });
 
@@ -454,8 +396,8 @@ describe("built-in class token round trips", () => {
         expect(result.resolve()).toBe(token.resolve());
 
         expect(RGXClassUnionToken.fromJSON({ $rgx: true, class: "RGXClassUnionToken" }).tokens.length).toBe(0);
-        expect(RGXClassUnionToken.validateJSONArgs([[], []])).toMatch(/at most 1/);
-        expect(RGXClassUnionToken.validateJSONArgs([{ nope: 1 }])).toMatch(/JSON token/);
+        expect(fromJSONRejection(RGXClassUnionToken, [[], []])).toMatch(/at most 1/);
+        expect(fromJSONRejection(RGXClassUnionToken, [{ nope: 1 }])).toMatch(/JSON token/);
     });
 
     it("RGXGroupToken", () => {
@@ -476,14 +418,14 @@ describe("built-in class token round trips", () => {
         expect(empty.capturing).toBe(true);
         expect(empty.tokens.length).toBe(0);
 
-        expect(RGXGroupToken.validateJSONArgs([{}, [], []])).toMatch(/at most 2/);
-        expect(RGXGroupToken.validateJSONArgs([1])).toMatch(/must be an object/);
-        expect(RGXGroupToken.validateJSONArgs([[]])).toMatch(/must be an object/);
-        expect(RGXGroupToken.validateJSONArgs([{ name: 1 }])).toMatch(/name/);
-        expect(RGXGroupToken.validateJSONArgs([{ capturing: "yes" }])).toMatch(/capturing/);
-        expect(RGXGroupToken.validateJSONArgs([{ flags: 1 }])).toMatch(/flags/);
-        expect(RGXGroupToken.validateJSONArgs([{}, { nope: 1 }])).toMatch(/tokens/);
-        expect(RGXGroupToken.validateJSONArgs([{ name: null }, "a"])).toBe(true);
+        expect(fromJSONRejection(RGXGroupToken, [{}, [], []])).toMatch(/at most 2/);
+        expect(fromJSONRejection(RGXGroupToken, [1])).toMatch(/must be an object/);
+        expect(fromJSONRejection(RGXGroupToken, [[]])).toMatch(/must be an object/);
+        expect(fromJSONRejection(RGXGroupToken, [{ name: 1 }])).toMatch(/name/);
+        expect(fromJSONRejection(RGXGroupToken, [{ capturing: "yes" }])).toMatch(/capturing/);
+        expect(fromJSONRejection(RGXGroupToken, [{ flags: 1 }])).toMatch(/flags/);
+        expect(fromJSONRejection(RGXGroupToken, [{}, { nope: 1 }])).toMatch(/tokens/);
+        expect(() => RGXGroupToken.fromJSON(createRGXJSONClassToken("RGXGroupToken", [{ name: null }, "a"]))).not.toThrow();
     });
 
     it("keeps a union-mode collection inside a concat-mode token as a union", () => {
@@ -523,11 +465,11 @@ describe("built-in class token round trips", () => {
         const minOnly = RGXRepeatToken.fromJSON({ $rgx: true, class: "RGXRepeatToken", args: ["a", 3] });
         expect(minOnly.max).toBe(3);
 
-        expect(RGXRepeatToken.validateJSONArgs([])).toMatch(/between 1 and 4/);
-        expect(RGXRepeatToken.validateJSONArgs([{ nope: 1 }])).toMatch(/token/);
-        expect(RGXRepeatToken.validateJSONArgs(["a", "1"])).toMatch(/min/);
-        expect(RGXRepeatToken.validateJSONArgs(["a", 1, "2"])).toMatch(/max/);
-        expect(RGXRepeatToken.validateJSONArgs(["a", 1, 2, "no"])).toMatch(/lazy/);
+        expect(fromJSONRejection(RGXRepeatToken, [])).toMatch(/between 1 and 4/);
+        expect(fromJSONRejection(RGXRepeatToken, [{ nope: 1 }])).toMatch(/token/);
+        expect(fromJSONRejection(RGXRepeatToken, ["a", "1"])).toMatch(/min/);
+        expect(fromJSONRejection(RGXRepeatToken, ["a", 1, "2"])).toMatch(/max/);
+        expect(fromJSONRejection(RGXRepeatToken, ["a", 1, 2, "no"])).toMatch(/lazy/);
     });
 
     it("RGXLookaheadToken and RGXLookbehindToken", () => {
@@ -544,9 +486,9 @@ describe("built-in class token round trips", () => {
             expect(empty.positive).toBe(true);
             expect(empty.tokens.length).toBe(0);
 
-            expect(Cls.validateJSONArgs([[], true, 1])).toMatch(/at most 2/);
-            expect(Cls.validateJSONArgs([{ nope: 1 }])).toMatch(/tokens/);
-            expect(Cls.validateJSONArgs([[], "yes"])).toMatch(/positive/);
+            expect(fromJSONRejection(Cls, [[], true, 1])).toMatch(/at most 2/);
+            expect(fromJSONRejection(Cls, [{ nope: 1 }])).toMatch(/tokens/);
+            expect(fromJSONRejection(Cls, [[], "yes"])).toMatch(/positive/);
         }
     });
 
@@ -566,11 +508,11 @@ describe("built-in class token round trips", () => {
         expect(minimal.exclusions.tokens.length).toBe(0);
         expect(minimal.terminal).toBe(null);
 
-        expect(RGXExclusionToken.validateJSONArgs(["ex"])).toMatch(/between 2 and 4/);
-        expect(RGXExclusionToken.validateJSONArgs([1, "a"])).toMatch(/exclusionId/);
-        expect(RGXExclusionToken.validateJSONArgs(["ex", { nope: 1 }])).toMatch(/token/);
-        expect(RGXExclusionToken.validateJSONArgs(["ex", "a", { nope: 1 }])).toMatch(/exclusions/);
-        expect(RGXExclusionToken.validateJSONArgs(["ex", "a", [], { nope: 1 }])).toMatch(/terminal/);
+        expect(fromJSONRejection(RGXExclusionToken, ["ex"])).toMatch(/between 2 and 4/);
+        expect(fromJSONRejection(RGXExclusionToken, [1, "a"])).toMatch(/exclusionId/);
+        expect(fromJSONRejection(RGXExclusionToken, ["ex", { nope: 1 }])).toMatch(/token/);
+        expect(fromJSONRejection(RGXExclusionToken, ["ex", "a", { nope: 1 }])).toMatch(/exclusions/);
+        expect(fromJSONRejection(RGXExclusionToken, ["ex", "a", [], { nope: 1 }])).toMatch(/terminal/);
     });
 
     it("RGXSubpatternToken", () => {
@@ -581,8 +523,8 @@ describe("built-in class token round trips", () => {
         const numbered = roundTrip(new RGXSubpatternToken(2)) as RGXSubpatternToken;
         expect(numbered.pattern).toBe(2);
 
-        expect(RGXSubpatternToken.validateJSONArgs([])).toMatch(/exactly 1/);
-        expect(RGXSubpatternToken.validateJSONArgs([true])).toMatch(/string or number/);
+        expect(fromJSONRejection(RGXSubpatternToken, [])).toMatch(/exactly 1/);
+        expect(fromJSONRejection(RGXSubpatternToken, [true])).toMatch(/string or number/);
     });
 
     it("rejects JSON for a different class", () => {
@@ -627,7 +569,7 @@ describe("JSON tokens in the rest of the library", () => {
     });
 
     it("checks insertion acceptance of JSON class tokens", () => {
-        registerRGXJSONClass("RejectingClassToken", { validateArgs: () => true, construct: () => new RejectingClassToken() });
+        registerRGXJSONClass("RejectingClassToken", () => new RejectingClassToken());
         try {
             expect(() => rgxa([{ $rgx: true, class: "RejectingClassToken" }])).toThrow(RGXInsertionRejectedError);
         } finally {

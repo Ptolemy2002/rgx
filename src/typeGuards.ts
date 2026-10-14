@@ -5,7 +5,7 @@ import { isConstructor } from "./internal";
 import { RGXClassToken } from "./class";
 import { ExtRegExp } from "./ExtRegExp";
 import { RGXTokenCollection } from "./collection";
-import { hasRGXJSONClass, rgxTokenFromJSON, validateRGXJSONClassArgs } from "./json";
+import { getRGXJSONClass, hasRGXJSONClass, rgxTokenFromJSON } from "./json";
 import { createRegex } from "./utils/createRegex";
 import { extractVanillaRegexFlags, isValidRegexFlags } from "./ExtRegExp";
 
@@ -164,12 +164,20 @@ export function isRGXJSONClassToken(value: unknown, registryCheck: boolean = tru
     if (!registryCheck) return true;
 
     if (!hasRGXJSONClass(value.class)) return false;
-    return validateRGXJSONClassArgs(value.class, (value.args as t.RGXJSONValue[] | undefined) ?? []) === true;
+
+    // Constructors validate their own args, so the args are valid exactly when constructing succeeds.
+    try {
+        getRGXJSONClass(value.class)((value.args as t.RGXJSONValue[] | undefined) ?? []);
+        return true;
+    } catch (err) {
+        if (err instanceof e.RGXError) return false;
+        throw err;
+    }
 }
 
 export function assertRGXJSONClassToken(value: unknown, registryCheck: boolean = true): asserts value is t.RGXJSONClassToken {
     if (!isRGXJSONClassToken(value, registryCheck)) {
-        throw new e.RGXInvalidJSONTokenError("Invalid JSON class token", { type: "custom", values: ["object with $rgx set to true, a registered class name, and optional args that pass the class' validator"] }, value);
+        throw new e.RGXInvalidJSONTokenError("Invalid JSON class token", { type: "custom", values: ["object with $rgx set to true, a registered class name, and optional args the class can be constructed from"] }, value);
     }
 }
 

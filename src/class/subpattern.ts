@@ -7,6 +7,13 @@ import { CloneDepth } from "@ptolemy2002/immutability-utils";
 import { createConstructFunction } from "src/internal";
 import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
 
+function parseSubpatternJSONArgs(args: RGXJSONValue[]): [string | number] | string {
+    if (args.length !== 1) return "Expected exactly 1 argument (pattern).";
+    const [pattern] = args;
+    if (typeof pattern !== "string" && typeof pattern !== "number") return "Argument 0 (pattern) must be a string or number.";
+    return [pattern];
+}
+
 export class RGXSubpatternToken extends RGXClassToken {
     _pattern: string | number;
 
@@ -45,14 +52,8 @@ export class RGXSubpatternToken extends RGXClassToken {
         return new RGXSubpatternToken(this.pattern);
     }
 
-    static validateJSONArgs(args: RGXJSONValue[]): boolean | string {
-        if (args.length !== 1) return "Expected exactly 1 argument (pattern).";
-        if (typeof args[0] !== "string" && typeof args[0] !== "number") return "Argument 0 (pattern) must be a string or number.";
-        return true;
-    }
-
     static fromJSON(json: RGXJSONClassToken): RGXSubpatternToken {
-        const [pattern] = rgxJSONClassArgs(json, "RGXSubpatternToken", RGXSubpatternToken.validateJSONArgs) as [string | number];
+        const [pattern] = rgxJSONClassArgs(json, "RGXSubpatternToken", parseSubpatternJSONArgs);
         return new RGXSubpatternToken(pattern);
     }
 

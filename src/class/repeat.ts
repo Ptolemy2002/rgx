@@ -10,6 +10,17 @@ import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunc
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
 
+function parseRepeatJSONArgs(args: RGXJSONValue[]): [RGXJSONToken, number?, (number | null)?, boolean?] | string {
+    if (args.length < 1 || args.length > 4) return "Expected between 1 and 4 arguments (token, min, max, lazy).";
+
+    const [token, min, max, lazy] = args;
+    if (!isRGXJSONToken(token, false)) return "Argument 0 (token) must be a JSON token.";
+    if (min !== undefined && typeof min !== "number") return "Argument 1 (min) must be a number, if present.";
+    if (max !== undefined && max !== null && typeof max !== "number") return "Argument 2 (max) must be a number or null, if present.";
+    if (lazy !== undefined && typeof lazy !== "boolean") return "Argument 3 (lazy) must be a boolean, if present.";
+    return [token, min, max, lazy];
+}
+
 export class RGXRepeatToken extends RGXClassToken {
     _token: RGXGroupedToken;
     _min: number;
@@ -110,19 +121,8 @@ export class RGXRepeatToken extends RGXClassToken {
         return new RGXRepeatToken(cloneRGXToken(this.token, depthDecrement(depth, 1)), this.min, this.max);
     }
 
-    static validateJSONArgs(args: RGXJSONValue[]): boolean | string {
-        if (args.length < 1 || args.length > 4) return "Expected between 1 and 4 arguments (token, min, max, lazy).";
-
-        const [token, min, max, lazy] = args;
-        if (!isRGXJSONToken(token)) return "Argument 0 (token) must be a JSON token.";
-        if (min !== undefined && typeof min !== "number") return "Argument 1 (min) must be a number, if present.";
-        if (max !== undefined && max !== null && typeof max !== "number") return "Argument 2 (max) must be a number or null, if present.";
-        if (lazy !== undefined && typeof lazy !== "boolean") return "Argument 3 (lazy) must be a boolean, if present.";
-        return true;
-    }
-
     static fromJSON(json: RGXJSONClassToken): RGXRepeatToken {
-        const [token, min, max, lazy] = rgxJSONClassArgs(json, "RGXRepeatToken", RGXRepeatToken.validateJSONArgs) as [RGXJSONToken, number?, (number | null)?, boolean?];
+        const [token, min, max, lazy] = rgxJSONClassArgs(json, "RGXRepeatToken", parseRepeatJSONArgs);
         const resolvedMin = min ?? 1;
         return new RGXRepeatToken(rgxTokenFromJSON(token), resolvedMin, max === undefined ? resolvedMin : max, lazy ?? false);
     }

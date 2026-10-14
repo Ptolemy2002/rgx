@@ -14,6 +14,21 @@ export type RGXGroupTokenArgs = {
     flags?: string;
 };
 
+function parseGroupJSONArgs(args: RGXJSONValue[]): [RGXGroupTokenArgs?, RGXJSONToken?] | string {
+    if (args.length > 2) return "Expected at most 2 arguments (args, tokens).";
+
+    const [groupArgs, tokens] = args;
+    if (groupArgs !== undefined) {
+        if (typeof groupArgs !== "object" || groupArgs === null || Array.isArray(groupArgs)) return "Argument 0 (args) must be an object.";
+        if (groupArgs.name !== undefined && groupArgs.name !== null && typeof groupArgs.name !== "string") return "Argument 0 (args) must have a string or null name, if present.";
+        if (groupArgs.capturing !== undefined && typeof groupArgs.capturing !== "boolean") return "Argument 0 (args) must have a boolean capturing property, if present.";
+        if (groupArgs.flags !== undefined && typeof groupArgs.flags !== "string") return "Argument 0 (args) must have a string flags property, if present.";
+    }
+
+    if (tokens !== undefined && !isRGXJSONToken(tokens, false)) return "Argument 1 (tokens) must be a JSON token.";
+    return [groupArgs as RGXGroupTokenArgs | undefined, tokens];
+}
+
 export class RGXGroupToken extends RGXClassToken {
     tokens: RGXTokenCollection;
     _name: string | null = null;
@@ -97,23 +112,8 @@ export class RGXGroupToken extends RGXClassToken {
         return new RGXGroupToken({ name: this.name, capturing: this._capturing, flags: this.flags }, this.tokens.clone(depthDecrement(depth, 1)));
     }
 
-    static validateJSONArgs(args: RGXJSONValue[]): boolean | string {
-        if (args.length > 2) return "Expected at most 2 arguments (args, tokens).";
-
-        const [groupArgs, tokens] = args;
-        if (groupArgs !== undefined) {
-            if (typeof groupArgs !== "object" || groupArgs === null || Array.isArray(groupArgs)) return "Argument 0 (args) must be an object.";
-            if (groupArgs.name !== undefined && groupArgs.name !== null && typeof groupArgs.name !== "string") return "Argument 0 (args) must have a string or null name, if present.";
-            if (groupArgs.capturing !== undefined && typeof groupArgs.capturing !== "boolean") return "Argument 0 (args) must have a boolean capturing property, if present.";
-            if (groupArgs.flags !== undefined && typeof groupArgs.flags !== "string") return "Argument 0 (args) must have a string flags property, if present.";
-        }
-
-        if (tokens !== undefined && !isRGXJSONToken(tokens)) return "Argument 1 (tokens) must be a JSON token.";
-        return true;
-    }
-
     static fromJSON(json: RGXJSONClassToken): RGXGroupToken {
-        const [groupArgs, tokens] = rgxJSONClassArgs(json, "RGXGroupToken", RGXGroupToken.validateJSONArgs) as [RGXGroupTokenArgs?, RGXJSONToken?];
+        const [groupArgs, tokens] = rgxJSONClassArgs(json, "RGXGroupToken", parseGroupJSONArgs);
         return new RGXGroupToken(groupArgs ?? {}, tokens === undefined ? [] : rgxTokenFromJSON(tokens));
     }
 

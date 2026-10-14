@@ -39,8 +39,7 @@ A function `rgxSubpattern` is provided with the same parameters as this class' c
 ## Static Properties
 - `check(value: unknown): value is RGXSubpatternToken`: A type guard that checks if the given value is an instance of `RGXSubpatternToken`.
 - `assert(value: unknown): asserts value is RGXSubpatternToken`: An assertion that checks if the given value is an instance of `RGXSubpatternToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
-- `validateJSONArgs(args: RGXJSONValue[]): boolean | string`: Validates the JSON arguments `[pattern]`, where `pattern` must be a string or number. Returns `true` when the arguments are valid, or `false`/a reason string when they are not.
-- `fromJSON(json: RGXJSONClassToken): RGXSubpatternToken`: Constructs an `RGXSubpatternToken` from a JSON class token, passing `pattern` to the constructor. Throws `RGXInvalidJSONTokenError` if `json` is not a JSON class token for `"RGXSubpatternToken"`, and `RGXJSONClassArgsValidationFailedError` if the arguments fail `validateJSONArgs`.
+- `fromJSON(json: RGXJSONClassToken): RGXSubpatternToken`: Constructs an `RGXSubpatternToken` from a JSON class token, passing `pattern` to the constructor. Throws `RGXInvalidJSONTokenError` if `json` is not a JSON class token for `"RGXSubpatternToken"`, and `RGXJSONClassArgsValidationFailedError` if the arguments are invalid. The JSON arguments are `[pattern]`, where `pattern` must be a string or number. Nested JSON tokens only have their shape checked here, since converting them validates their contents (throwing the corresponding error).
 
 ## Constructor
 ```typescript

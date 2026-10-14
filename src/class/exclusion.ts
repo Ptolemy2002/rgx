@@ -10,6 +10,17 @@ import { cloneRGXToken } from "src/clone";
 import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
 import { createConstructFunction } from "src/internal";
 
+function parseExclusionJSONArgs(args: RGXJSONValue[]): [string, RGXJSONToken, RGXJSONToken?, RGXJSONToken?] | string {
+    if (args.length < 2 || args.length > 4) return "Expected between 2 and 4 arguments (exclusionId, token, exclusions, terminal).";
+
+    const [exclusionId, token, exclusions, terminal] = args;
+    if (typeof exclusionId !== "string") return "Argument 0 (exclusionId) must be a string.";
+    if (!isRGXJSONToken(token, false)) return "Argument 1 (token) must be a JSON token.";
+    if (exclusions !== undefined && !isRGXJSONToken(exclusions, false)) return "Argument 2 (exclusions) must be a JSON token, if present.";
+    if (terminal !== undefined && !isRGXJSONToken(terminal, false)) return "Argument 3 (terminal) must be a JSON token, if present.";
+    return [exclusionId, token, exclusions, terminal];
+}
+
 export class RGXExclusionToken extends RGXClassToken {
     _exclusionId: string;
     token: RGXToken;
@@ -68,19 +79,8 @@ export class RGXExclusionToken extends RGXClassToken {
         );
     }
 
-    static validateJSONArgs(args: RGXJSONValue[]): boolean | string {
-        if (args.length < 2 || args.length > 4) return "Expected between 2 and 4 arguments (exclusionId, token, exclusions, terminal).";
-
-        const [exclusionId, token, exclusions, terminal] = args;
-        if (typeof exclusionId !== "string") return "Argument 0 (exclusionId) must be a string.";
-        if (!isRGXJSONToken(token)) return "Argument 1 (token) must be a JSON token.";
-        if (exclusions !== undefined && !isRGXJSONToken(exclusions)) return "Argument 2 (exclusions) must be a JSON token, if present.";
-        if (terminal !== undefined && !isRGXJSONToken(terminal)) return "Argument 3 (terminal) must be a JSON token, if present.";
-        return true;
-    }
-
     static fromJSON(json: RGXJSONClassToken): RGXExclusionToken {
-        const [exclusionId, token, exclusions, terminal] = rgxJSONClassArgs(json, "RGXExclusionToken", RGXExclusionToken.validateJSONArgs) as [string, RGXJSONToken, RGXJSONToken?, RGXJSONToken?];
+        const [exclusionId, token, exclusions, terminal] = rgxJSONClassArgs(json, "RGXExclusionToken", parseExclusionJSONArgs);
         return new RGXExclusionToken(
             exclusionId,
             rgxTokenFromJSON(token),

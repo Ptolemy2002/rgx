@@ -5,7 +5,7 @@ import {
     isRGXToken, assertRGXToken, isRGXArrayToken, isRGXConvertibleToken, isRGXGroupedToken, assertRGXGroupedToken,
     rgxTokenType, rgxTokenTypeFlat, rgxTokenTypeGuardInputToFlat,
     RGXInvalidJSONTokenError, RGXInvalidTokenError, RGXSubpatternToken, RGXLookaheadToken, RGXGroupToken,
-    registerFlagTransformer, unregisterFlagTransformer
+    registerFlagTransformer, unregisterFlagTransformer, registerRGXJSONClass, unregisterRGXJSONClass
 } from "src/index";
 
 const literalJSON = { $rgx: true as const, source: "abc", flags: "i" };
@@ -115,6 +115,22 @@ describe("isRGXJSONClassToken", () => {
         expect(isRGXJSONClassToken(badArgs)).toBe(false);
         expect(isRGXJSONClassToken(unregistered, false)).toBe(true);
         expect(isRGXJSONClassToken(badArgs, false)).toBe(true);
+    });
+
+    it("rejects args the class can't be constructed from", () => {
+        // The args have the right shape, but the nested token is invalid, and so is the exclusion id.
+        expect(isRGXJSONClassToken({ $rgx: true, class: "RGXGroupToken", args: [{}, { $rgx: true, class: "Nope" }] })).toBe(false);
+        expect(isRGXJSONClassToken({ $rgx: true, class: "RGXExclusionToken", args: ["not valid", "a"] })).toBe(false);
+    });
+
+    it("rethrows errors that aren't RGXErrors from the constructor", () => {
+        registerRGXJSONClass("Throwing", () => { throw new Error("boom"); });
+
+        try {
+            expect(() => isRGXJSONClassToken({ $rgx: true, class: "Throwing" })).toThrow("boom");
+        } finally {
+            unregisterRGXJSONClass("Throwing");
+        }
     });
 });
 

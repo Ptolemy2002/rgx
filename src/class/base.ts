@@ -1,4 +1,4 @@
-import { RGX_JSON_FLAG, RGXConvertibleToken, RGXJSONClassToken, RGXJSONObjectToken, RGXJSONValue, RGXToken, ValidRegexFlags, ValidRegexString } from "src/types";
+import { RGX_JSON_FLAG, RGXConvertibleToken, RGXJSONClassToken, RGXJSONObjectToken, RGXToken, ValidRegexFlags, ValidRegexString } from "src/types";
 import { RGXTokenCollectionInput } from "src/collection";
 import { RGXInvalidTokenError, RGXNotImplementedError } from "src/errors";
 import { resolveRGXToken, ResolveRGXTokenOptions } from "src/resolve";
@@ -22,10 +22,6 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
     // JSON literal token, the same way plain convertible tokens are handled by rgxTokenToJSON. This is lossy.
     toJSON(): RGXJSONObjectToken {
         return { [RGX_JSON_FLAG]: true, source: resolveRGXToken(this, { groupWrap: false }) };
-    }
-
-    static validateJSONArgs(args: RGXJSONValue[]): boolean | string {
-        throw new RGXNotImplementedError('RGXClassToken.validateJSONArgs(args)', 'subclasses must override this static method in order to be registered in the JSON class registry.');
     }
 
     static fromJSON(json: RGXJSONClassToken): RGXClassToken {

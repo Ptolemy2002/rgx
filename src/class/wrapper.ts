@@ -7,6 +7,13 @@ import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 
+function parseWrapperJSONArgs(args: RGXJSONValue[]): [RGXJSONToken] | string {
+    if (args.length !== 1) return "Expected exactly 1 argument (token).";
+    const [token] = args;
+    if (!isRGXJSONToken(token, false)) return "Argument 0 (token) must be a JSON token.";
+    return [token];
+}
+
 export class RGXClassWrapperToken extends RGXClassToken {
     token: RGXToken;
 
@@ -43,14 +50,8 @@ export class RGXClassWrapperToken extends RGXClassToken {
         return new RGXClassWrapperToken(cloneRGXToken(this.token, depthDecrement(depth, 1)));
     }
 
-    static validateJSONArgs(args: RGXJSONValue[]): boolean | string {
-        if (args.length !== 1) return "Expected exactly 1 argument (token).";
-        if (!isRGXJSONToken(args[0])) return "Argument 0 (token) must be a JSON token.";
-        return true;
-    }
-
     static fromJSON(json: RGXJSONClassToken): RGXClassWrapperToken {
-        const [token] = rgxJSONClassArgs(json, "RGXClassWrapperToken", RGXClassWrapperToken.validateJSONArgs) as [RGXJSONToken];
+        const [token] = rgxJSONClassArgs(json, "RGXClassWrapperToken", parseWrapperJSONArgs);
         return new RGXClassWrapperToken(rgxTokenFromJSON(token));
     }
 
