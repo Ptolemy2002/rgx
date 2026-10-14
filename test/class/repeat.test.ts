@@ -329,13 +329,14 @@ describe("RGXRepeatToken", () => {
         });
 
         it("preserves properties", () => {
-            const token = new RGXRepeatToken("a", 2, 5);
+            const token = new RGXRepeatToken("a", 2, 5, true);
             const clone = token.clone();
 
             expect(clone).not.toBe(token);
             expect(clone.token).toEqual(token.token);
             expect(clone.min).toBe(token.min);
             expect(clone.max).toBe(token.max);
+            expect(clone.lazy).toBe(true);
         });
     });
 });

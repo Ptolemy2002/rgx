@@ -115,7 +115,7 @@ export class RGXRepeatToken extends RGXClassToken {
 
     clone(depth: CloneDepth="max") {
         if (depth === 0) return this;
-        return new RGXRepeatToken(cloneRGXToken(this.token, depthDecrement(depth, 1)), this.min, this.max);
+        return new RGXRepeatToken(cloneRGXToken(this.token, depthDecrement(depth, 1)), this.min, this.max, this.lazy);
     }
 
     static fromJSON(json: RGXJSONClassToken): RGXRepeatToken {
