@@ -24,42 +24,17 @@ function flagsString(flags: LocalizableFlags): string {
 // ASCII characters that aren't letters are the only ones the i flag can't affect.
 const caseless = /^[\x00-\x40\x5b-\x60\x7b-\x7f]$/;
 
-// The localizable flags that can change what a leaf matches. Erring toward including a flag is harmless, since a
-// leaf only ever carries flags that are in effect where it was.
-function relevantFlags(node: AST.Node): string {
-    switch (node.type) {
-        case "Character":
-            return caseless.test(String.fromCodePoint(node.value)) ? "" : "i";
-        case "CharacterClass":
-        case "ExpressionCharacterClass":
-            return "i";
-        case "CharacterSet":
-            if (node.kind === "any") return "s";
-            if (node.kind === "digit" || node.kind === "space") return "";
-            return "i";
-        case "Assertion":
-            // Lookarounds are converted to tokens rather than leaves.
-            return node.kind === "word" ? "i" : "m";
-        /* istanbul ignore next */
-        default:
-            return "ims";
-    }
+// A leaf is a part of the pattern that has no matching class token, kept as a literal token. It carries the
+// localizable flags in effect where it was, so it matches the same wherever it ends up, and placing it where those
+// flags are in effect adds nothing to the pattern.
+function leaf(raw: string, flags: LocalizableFlags, context: ParseContext): RegExp {
+    return createRegex(raw, context.unicodeFlag + flagsString(flags));
 }
 
-// A leaf is a part of the pattern that has no matching class token, kept as a literal token. It carries the flags in
-// effect where it was that can change what it matches, so it matches the same wherever it ends up.
-function leaf(raw: string, relevant: string, flags: LocalizableFlags, context: ParseContext): RegExp {
-    const leafFlags = relevant.split("").filter(flag => flags.has(flag)).join("");
-    return createRegex(raw, context.unicodeFlag + leafFlags);
-}
-
-// Strings are escaped with escapeRegex when resolved, which escapes "-". That is only valid outside of a character
-// class without the u or v flag.
-function canBeString(characters: AST.Character[], flags: LocalizableFlags, context: ParseContext): boolean {
-    return characters.every(character => {
-        if (flags.has("i") && relevantFlags(character) !== "") return false;
-        return context.unicodeFlag === "" || character.value !== 0x2d;
-    });
+// Strings inherit the flags of wherever they are placed, so characters the i flag affects can only be strings when it
+// is off.
+function canBeString(characters: AST.Character[], flags: LocalizableFlags): boolean {
+    return !flags.has("i") || characters.every(character => caseless.test(String.fromCodePoint(character.value)));
 }
 
 // Escapes a character by its value, so it reads the same wherever it is placed. Its raw text might not: without the u
@@ -73,8 +48,8 @@ function escapeCharacter(value: number, context: ParseContext): string {
 }
 
 function convertCharacters(characters: AST.Character[], flags: LocalizableFlags, context: ParseContext): t.RGXToken {
-    if (canBeString(characters, flags, context)) return characters.map(character => String.fromCodePoint(character.value)).join("");
-    return leaf(characters.map(character => escapeCharacter(character.value, context)).join(""), "i", flags, context);
+    if (canBeString(characters, flags)) return characters.map(character => String.fromCodePoint(character.value)).join("");
+    return leaf(characters.map(character => escapeCharacter(character.value, context)).join(""), flags, context);
 }
 
 // A sequence of tokens as one token: nothing for an empty sequence, the token itself for one, or a concatenation.
@@ -173,9 +148,9 @@ function convertElement(element: Exclude<AST.Element, AST.Character>, flags: Loc
                 return new Lookaround(convertAlternatives(element.alternatives, flags, context), !element.negate);
             }
 
-            return leaf(element.raw, relevantFlags(element), flags, context);
+            return leaf(element.raw, flags, context);
         default:
-            return leaf(element.raw, relevantFlags(element), flags, context);
+            return leaf(element.raw, flags, context);
     }
 }
 

@@ -11,7 +11,7 @@ type ValidRegexString = Branded<string, [ValidRegexBrandSymbol]>;
 ```typescript
 function escapeRegex(value: string): ValidRegexString
 ```
-Escapes special regex characters in the given string and brands the result as a `ValidRegexString`.
+Escapes special regex characters in the given string and brands the result as a `ValidRegexString`. `-` is written as `\x2d` rather than `\-`, so the result is valid with any flags (the `u` and `v` flags reject `\-` outside of a character class) and still can't form a range when placed inside a character class.
 
 ## Parameters
   - `value` (`string`): The string to escape.

@@ -9,3 +9,4 @@ export * from "./analyzeRegexSource";
 export * from "./parseLookaroundJSONArgs";
 export * from "./nonConsumingToken";
 export * from "./insertionContext";
+export * from "./regexPiece";

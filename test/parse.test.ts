@@ -148,17 +148,19 @@ describe("rgxParse", () => {
             expect(result.token).toBe("a");
         });
 
-        it("gives literal tokens the flags in effect that affect them", () => {
+        it("gives literal tokens the localizable flags in effect", () => {
             const flagsOf = (regex: RegExp) => ((rgxParse(regex) as RGXGroupToken).tokens.at(0) as RegExp).flags;
-            expect(flagsOf(/[a-z]/ims)).toBe("i");
-            expect(flagsOf(/\w/ims)).toBe("i");
-            expect(flagsOf(/\p{L}/imsu)).toBe("iu");
-            expect(flagsOf(new RegExp("[\\p{L}--[a-z]]", "imsv"))).toBe("iv");
-            expect(flagsOf(/\b/ims)).toBe("i");
-            expect(flagsOf(/./ims)).toBe("s");
-            expect(flagsOf(/^/ims)).toBe("m");
-            expect(flagsOf(/\d/ims)).toBe("");
-            expect(flagsOf(/\s/ims)).toBe("");
+            expect(flagsOf(/\d/ms)).toBe("ms");
+            expect(flagsOf(/\p{L}/iu)).toBe("iu");
+            expect(flagsOf(new RegExp("[\\p{L}--[a-z]]", "gmv"))).toBe("mv");
+
+            // Inside a flag-modifier group, the flags in effect are the group's.
+            const group = (rgxParse(/(?-i:\d)/im) as RGXGroupToken).tokens.at(0) as RGXGroupToken;
+            expect((group.tokens.at(0) as RegExp).flags).toBe("m");
+        });
+
+        it("adds nothing for literal tokens when used with the same flags", () => {
+            expect(rgxa([rgxParse(/[a-z]+\d$/im)], "im").source).toBe("(?im-s:[a-z]+\\d$)");
         });
 
         it("keeps characters affected by the i flag as literal tokens when it is in effect", () => {
@@ -180,11 +182,9 @@ describe("rgxParse", () => {
             expect(result.source).toBe("\\u0001a");
         });
 
-        it("keeps characters that can't be escaped as strings with the u or v flag as literal tokens", () => {
-            const result = rgxParse(/a-b/u) as RGXClassWrapperToken;
-            expect(result.token).toBeInstanceOf(RegExp);
-            expect((result.token as RegExp).source).toBe("a\\u{2d}b");
-            expect(rgxParse(/a-b/).resolve()).toBe("a\\-b");
+        it("keeps \"-\" in strings with the u or v flag", () => {
+            expect((rgxParse(/a-b/u) as RGXClassWrapperToken).token).toBe("a-b");
+            expect(rgxa([rgxParse(new RegExp("a-b", "v"))], "v").test("a-b")).toBe(true);
         });
 
         it("matches the same as the original when used with the same flags", () => {

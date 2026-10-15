@@ -57,8 +57,8 @@ export class RGXClassUnionToken extends RGXClassToken {
         return this.cleanTokens();
     }
 
-    toRgx() {
-        return this.tokens.toRgx();
+    toRgx(currentFlags: string = '') {
+        return this.tokens.toRgx(currentFlags);
     }
 
     clone(depth: CloneDepth="max") {

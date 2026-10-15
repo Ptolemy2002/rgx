@@ -16,7 +16,7 @@ type RGXInsertionContext = {
     readonly container: RGXToken | null;          // the token whose contents this level is, or null at the top level
 };
 type RGXConvertibleToken = {
-    toRgx: () => RGXToken,
+    toRgx: (currentFlags?: string) => RGXToken,   // currentFlags: the flags in effect where the token is placed
     rgxAcceptInsertion?: (context: RGXInsertionContext) => string | boolean,
     readonly rgxIsRepeatable?: boolean
 };
@@ -60,7 +60,7 @@ constructor(tokens: RGXTokenCollectionInput = [])
 - `add(token: RGXToken, pos?: RGXUnionInsertionPosition) => this`: Adds a token to the union. The `pos` parameter controls where the token is inserted: `'prefix'` inserts at the beginning, `'suffix'` (default) appends to the end. Returns `this` for chaining.
 - `concat(pos?: RGXUnionInsertionPosition, ...others: RGXTokenCollectionInput[]) => this`: Concatenates additional tokens into the union. The `pos` parameter controls insertion position: `'suffix'` (default) appends to the end, `'prefix'` prepends to the beginning. Returns `this` for chaining.
 - `cleanTokens() => this`: Expands any nested union tokens and removes duplicates from the internal token collection. Returns `this` for chaining. Called automatically during construction and after `add` or `concat`.
-- `toRgx() => RegExp`: Resolves the union by calling `toRgx()` on the internal `RGXTokenCollection`, returning a `RegExp`.
+- `toRgx(currentFlags?: string) => RegExp`: Resolves the union by calling `toRgx(currentFlags)` on the internal `RGXTokenCollection`, returning a `RegExp`. `currentFlags` (`string`, optional, defaults to `''`) is the flags in effect where the token is placed, including those set by enclosing flag-modifier groups; the tokens inside are resolved with it, and the returned `RegExp` carries its localizable and unicode flags, so resolving the result in that context leaves those flags alone.
 - `clone(depth: CloneDepth = "max") => ThisType<this>`: Creates a clone of this instance to a specified depth: `0` for no clone, `1` for a shallow clone of the top-level token, any other number for that many levels down, and `"max"` (the default) for a full deep clone.
 - `toJSON() => RGXJSONClassToken`: Returns a JSON class token with `class` set to `"RGXClassUnionToken"` and `args` set to `[tokens]`, where `tokens` is the array of this union's tokens converted with `rgxTokenToJSON`. The result is accepted by `fromJSON` and by `rgxTokenFromJSON` (see [../../json.md](../../json.md)). Nested tokens are converted with `rgxTokenToJSON`, so plain convertible tokens inside this token are resolved into JSON literal tokens.
 

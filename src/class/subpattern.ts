@@ -4,8 +4,8 @@ import { createRGXJSONClassToken, rgxJSONClassArgs } from "src/json";
 import { assertValidIdentifier } from "src/typeGuards";
 import { assertInRange } from "src/errors";
 import { CloneDepth } from "@ptolemy2002/immutability-utils";
-import { createConstructFunction } from "src/internal";
-import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
+import { createConstructFunction, createRegexPiece } from "src/internal";
+import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 
 function parseSubpatternJSONArgs(args: RGXJSONValue[]): [string | number] | string {
     if (args.length !== 1) return "Expected exactly 1 argument (pattern).";
@@ -39,11 +39,11 @@ export class RGXSubpatternToken extends RGXClassToken {
         this.pattern = pattern;
     }
 
-    toRgx() {
+    toRgx(currentFlags: string = '') {
         if (typeof this.pattern === "string") {
-            return createRegex(`\\k<${this.pattern}>`);
+            return createRegexPiece(`\\k<${this.pattern}>`, currentFlags);
         } else {
-            return createRegex(`\\${this.pattern}`);
+            return createRegexPiece(`\\${this.pattern}`, currentFlags);
         }
     }
 

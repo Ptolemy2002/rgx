@@ -16,7 +16,7 @@ type RGXInsertionContext = {
     readonly container: RGXToken | null;          // the token whose contents this level is, or null at the top level
 };
 type RGXConvertibleToken = {
-    toRgx: () => RGXToken,
+    toRgx: (currentFlags?: string) => RGXToken,   // currentFlags: the flags in effect where the token is placed
     rgxAcceptInsertion?: (context: RGXInsertionContext) => string | boolean,
     readonly rgxIsRepeatable?: boolean
 };
@@ -64,6 +64,6 @@ constructor(exclusionId: string, token: RGXToken, exclusions: RGXTokenCollection
 - `terminal` (`RGXToken`): The zero-width terminal anchor, or `null` if none was provided.
 
 ## Methods
-- `toRgx() => RegExp`: Builds the exclusion pattern as a `RegExp`. The resulting source has the form `(?=(?<exclusionId>token terminal))(?!exclusions terminal)\k<exclusionId>`, where `terminal` resolves to an empty string when `null`.
+- `toRgx(currentFlags?: string) => RegExp`: Builds the exclusion pattern as a `RegExp`. The resulting source has the form `(?=(?<exclusionId>token terminal))(?!exclusions terminal)\k<exclusionId>`, where `terminal` resolves to an empty string when `null`. `currentFlags` (`string`, optional, defaults to `''`) is the flags in effect where the token is placed, including those set by enclosing flag-modifier groups; `token`, `exclusions` and `terminal` are resolved with it, and the returned `RegExp` carries its localizable and unicode flags, so resolving the result in that context leaves those flags alone.
 - `clone(depth: CloneDepth = "max") => ThisType<this>`: Creates a clone of this instance to a specified depth: `0` for no clone (returns `this`), `1` for a shallow clone of the top-level token, any other number for that many levels down, and `"max"` (the default) for a full deep clone.
 - `toJSON() => RGXJSONClassToken`: Returns a JSON class token with `class` set to `"RGXExclusionToken"` and `args` set to `[exclusionId, rgxTokenToJSON(token), exclusions, rgxTokenToJSON(terminal)]`, where `exclusions` is the array of the exclusion union's tokens converted with `rgxTokenToJSON`. The result is accepted by `fromJSON` and by `rgxTokenFromJSON` (see [../../json.md](../../json.md)). Nested tokens are converted with `rgxTokenToJSON`, so plain convertible tokens inside this token are resolved into JSON literal tokens.

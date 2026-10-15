@@ -16,7 +16,7 @@ type RGXInsertionContext = {
     readonly container: RGXToken | null;          // the token whose contents this level is, or null at the top level
 };
 type RGXConvertibleToken = {
-    toRgx: () => RGXToken,
+    toRgx: (currentFlags?: string) => RGXToken,   // currentFlags: the flags in effect where the token is placed
     rgxAcceptInsertion?: (context: RGXInsertionContext) => string | boolean,
     readonly rgxIsRepeatable?: boolean
 };

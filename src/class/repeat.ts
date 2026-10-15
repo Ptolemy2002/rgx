@@ -4,8 +4,8 @@ import { RGXClassToken } from "./base";
 import { isRGXConvertibleToken, isRGXJSONObjectToken, isRGXJSONToken, isRGXToken } from "src/typeGuards";
 import { assertInRange, RGXNotSupportedError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
-import { createConstructFunction, isNonConsumingRGXToken, toSingletonRegexSource } from "src/internal";
-import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
+import { createConstructFunction, createRegexPiece, isNonConsumingRGXToken, scanOptionsFromFlags, toSingletonRegexSource } from "src/internal";
+import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
 
@@ -124,14 +124,14 @@ export class RGXRepeatToken extends RGXClassToken {
         else return result;
     }
 
-    toRgx(): RGXToken {
+    toRgx(currentFlags: string = ''): RGXToken {
         // No-op if we're repeating zero times.
         if (this.min === 0 && this.max === 0) return null;
         
         // The quantifier must apply to the whole token, so normalize it to a singleton before adding it. This adds a
         // group when the token isn't a singleton, and removes groups that only wrap one.
-        const resolvedSource = toSingletonRegexSource(resolveRGXToken(this.token));
-        return createRegex(`${resolvedSource}${this.repeaterSuffix}`);
+        const resolvedSource = toSingletonRegexSource(resolveRGXToken(this.token, { currentFlags }), scanOptionsFromFlags(currentFlags));
+        return createRegexPiece(`${resolvedSource}${this.repeaterSuffix}`, currentFlags);
     }
 
     clone(depth: CloneDepth="max") {

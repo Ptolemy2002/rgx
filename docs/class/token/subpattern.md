@@ -16,7 +16,7 @@ type RGXInsertionContext = {
     readonly container: RGXToken | null;          // the token whose contents this level is, or null at the top level
 };
 type RGXConvertibleToken = {
-    toRgx: () => RGXToken,
+    toRgx: (currentFlags?: string) => RGXToken,   // currentFlags: the flags in effect where the token is placed
     rgxAcceptInsertion?: (context: RGXInsertionContext) => string | boolean,
     readonly rgxIsRepeatable?: boolean
 };
@@ -57,6 +57,6 @@ constructor(pattern: string | number)
 - `pattern` (`string | number`): The backreference pattern. Setting this validates the value: strings must be valid identifiers, numbers must be positive integers (>= 1). Non-integer numbers are floored.
 
 ## Methods
-- `toRgx() => RegExp`: Resolves the backreference to a `RegExp`. Named patterns produce `/\k<name>/` and numbered patterns produce `/\N/`.
+- `toRgx(currentFlags?: string) => RegExp`: Resolves the backreference to a `RegExp`. Named patterns produce `/\k<name>/` and numbered patterns produce `/\N/`. `currentFlags` (`string`, optional, defaults to `''`) is the flags in effect where the token is placed. The returned `RegExp` carries its localizable flags, so resolving the result in that context leaves those flags alone.
 - `clone(depth: CloneDepth = "max") => RGXSubpatternToken`: Creates a clone of this token. When `depth` is `0`, returns `this`; otherwise, returns a new `RGXSubpatternToken` with the same pattern.
 - `toJSON() => RGXJSONClassToken`: Returns a JSON class token with `class` set to `"RGXSubpatternToken"` and `args` set to `[pattern]`. The result is accepted by `fromJSON` and by `rgxTokenFromJSON` (see [../../json.md](../../json.md)). Nested tokens are converted with `rgxTokenToJSON`, so plain convertible tokens inside this token are resolved into JSON literal tokens.

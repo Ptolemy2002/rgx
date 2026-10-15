@@ -1,7 +1,7 @@
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 import { RGXClassToken } from "./base";
-import { createConstructFunction, localizableVanillaRegexFlagDiff, withRGXInsertionFlags } from "src/internal";
-import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
+import { createConstructFunction, createRegexPiece, localizableVanillaRegexFlagDiff, withRGXInsertionFlags } from "src/internal";
+import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { assertValidIdentifier, assertValidRegexLocalizableFlags } from "src/typeGuards";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { RGXJSONClassToken, RGXJSONToken, RGXJSONValue, ValidRegexFlags } from "src/types";
@@ -76,11 +76,14 @@ export class RGXGroupToken extends RGXClassToken {
         else this.tokens = new RGXTokenCollection(tokens, 'concat');
     }
 
-    toRgx() {
-        // The collection token doesn't group itself, so this is safe. Modifier flags apply to the tokens inside.
+    toRgx(currentFlags: string = '') {
+        // Modifier flags replace the localizable flags in effect for the tokens inside.
+        const innerFlags = (flags: string) => this.flags.length > 0 ? flags.replace(/[ims]/g, '') + this.flags : flags;
+
+        // The collection token doesn't group itself, so this is safe.
         let result: string = withRGXInsertionFlags(
-            flags => this.flags.length > 0 ? (flags.replace(/[ims]/g, '') + this.flags) as ValidRegexFlags : flags,
-            () => this.tokens.toRgx().source
+            flags => innerFlags(flags) as ValidRegexFlags,
+            () => this.tokens.toRgx(innerFlags(currentFlags)).source
         );
 
         const hasFlags = this.flags.length > 0;
@@ -98,7 +101,7 @@ export class RGXGroupToken extends RGXClassToken {
 
         if ((this.name !== null || this.capturing) && hasFlags) result = `(?${this.flags}${flagsNotPresent}:${result})`;
 
-        return createRegex(result);
+        return createRegexPiece(result, currentFlags);
     }
 
     clone(depth: CloneDepth="max") {

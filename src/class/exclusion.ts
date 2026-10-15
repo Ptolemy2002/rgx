@@ -7,8 +7,8 @@ import { resolveRGXToken } from "src/resolve";
 import { assertValidIdentifier, isRGXJSONToken } from "src/typeGuards";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
-import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
-import { createConstructFunction } from "src/internal";
+import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
+import { createConstructFunction, createRegexPiece } from "src/internal";
 
 function parseExclusionJSONArgs(args: RGXJSONValue[]): [string, RGXJSONToken, RGXJSONToken?, RGXJSONToken?] | string {
     if (args.length < 2 || args.length > 4) return "Expected between 2 and 4 arguments (exclusionId, token, exclusions, terminal).";
@@ -49,11 +49,11 @@ export class RGXExclusionToken extends RGXClassToken {
         this.terminal = terminal;
     }
 
-    toRgx(): RGXToken {
-        const resolvedToken = resolveRGXToken(this.token);
-        const resolvedExclusions = this.exclusions.resolve();
+    toRgx(currentFlags: string = ''): RGXToken {
+        const resolvedToken = resolveRGXToken(this.token, { currentFlags });
+        const resolvedExclusions = this.exclusions.resolve({ currentFlags });
         // null and undefined are no-ops and will resolve to empty strings.
-        const resolvedTerminal = resolveRGXToken(this.terminal);
+        const resolvedTerminal = resolveRGXToken(this.terminal, { currentFlags });
 
         // Get a match to the pattern in a lookahead, use a negative lookahead to
         // exclude the exclusion group from the match, then actually consume what we
@@ -66,7 +66,7 @@ export class RGXExclusionToken extends RGXClassToken {
         // Because the terminal should be consuming no actual characters, it shuld be able to be repeated without issue, but we cannot actually validate
         // that the terminal is not consuming characters, so we will just document that the user not consume characters in the terminal.
 
-        return createRegex(source);
+        return createRegexPiece(source, currentFlags);
     }
 
     clone(depth: CloneDepth = "max") {

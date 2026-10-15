@@ -1,7 +1,7 @@
 import { RGXJSONClassToken, RGXToken } from "src/types";
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
-import { createConstructFunction, parseLookaroundJSONArgs } from "src/internal";
-import { createAssertRGXClassGuardFunction, createRegex, createRGXClassGuardFunction } from "src/utils";
+import { createConstructFunction, createRegexPiece, parseLookaroundJSONArgs } from "src/internal";
+import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { RGXLookaroundToken } from "./lookaround";
 import { RGXLookbehindToken } from "./lookbehind";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
@@ -18,11 +18,11 @@ export class RGXLookaheadToken extends RGXLookaroundToken {
         return new RGXLookbehindToken(this.tokens, this.positive);
     }
 
-    toRgx(): RGXToken {
-        let result: string = this.tokens.toRgx().source;
+    toRgx(currentFlags: string = ''): RGXToken {
+        let result: string = this.tokens.toRgx(currentFlags).source;
         if (this.positive) result = `(?=${result})`;
         else result = `(?!${result})`;
-        return createRegex(result);
+        return createRegexPiece(result, currentFlags);
     }
 
     clone(depth: CloneDepth="max") {

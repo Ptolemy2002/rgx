@@ -22,7 +22,7 @@ type RGXInsertionContext = {
     readonly container: RGXToken | null;          // the token whose contents this level is, or null at the top level
 };
 type RGXConvertibleToken = {
-    toRgx: () => RGXToken,
+    toRgx: (currentFlags?: string) => RGXToken,   // currentFlags: the flags in effect where the token is placed
     rgxAcceptInsertion?: (context: RGXInsertionContext) => string | boolean,
     readonly rgxIsRepeatable?: boolean
 };
@@ -59,7 +59,7 @@ Notably, certain methods will throw `RGXNotImplementedError` if `rgxClassInit` h
 - `fromJSON(json: RGXJSONClassToken): RGXClassToken`: Intended to be overridden by subclasses that will be registered in the JSON class registry, to construct an instance from a JSON class token. Implementations should use `rgxJSONClassArgs` (see [json.md](../../json.md)) to check the class name and parse the arguments. `fromJSON` is the only place the arguments are validated, both when it is called directly and when the registry calls it. The base implementation throws `RGXNotImplementedError`.
 
 ## Abstract Methods
-- `toRgx() => RGXToken`: Must be implemented by subclasses to return the token's regex representation as any valid RGX token (native, literal, convertible, or array of tokens).
+- `toRgx(currentFlags?: string) => RGXToken`: Must be implemented by subclasses to return the token's regex representation as any valid RGX token (native, literal, convertible, or array of tokens). `currentFlags` is the flags in effect where the token is placed, including those set by enclosing flag-modifier groups (`resolveRGXToken` passes its `currentFlags` option). Implementations may ignore it. Ones that resolve other tokens should pass it on as the `currentFlags` option of `resolveRGXToken`, and ones that return a `RegExp` meant to inherit the surrounding flags should give it the localizable flags in `currentFlags`, since a literal token's flags are otherwise treated as the flags it asks for (see `resolveRGXToken` in [general.md](../../general.md)).
 - `clone(depth: CloneDepth = "max") => ThisType<this>`: Must be implemented by subclasses to return a deep clone of the token instance. The `depth` parameter controls how deeply nested tokens are cloned: `0` for no clone, `1` for a shallow clone of the top-level token, any other number for that many levels down, and `"max"` (the default) for a full deep clone.
 
 ## Properties

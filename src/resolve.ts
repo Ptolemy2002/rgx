@@ -4,7 +4,7 @@ import { assertValidRegexFlags } from "./ExtRegExp";
 import * as tg from "./typeGuards";
 import * as t from "./types";
 import {
-    claimRGXInsertionPlacement, hasRegexParenErrors, isRGXInsertionCheckActive, localizableVanillaRegexFlagDiff,
+    assertValidRegexPiece, claimRGXInsertionPlacement, hasRegexParenErrors, isRGXInsertionCheckActive, localizableVanillaRegexFlagDiff,
     placeRGXToken, removeRedundantRegexGroups, scanOptionsFromFlags
 } from "./internal";
 import { rgxTokenFromJSON } from "./json";
@@ -16,7 +16,9 @@ export type ResolveRGXTokenOptions = {
 };
 
 export function escapeRegex(value: string) {
-    const result = value.replaceAll(/[\-\^\$.*+?^${}()|[\]\\]/g, '\\$&');
+    // "-" is written as "\x2d" rather than "\-", since "\-" is only valid inside a character class with the u or v flag,
+    // and the result must not form a range inside a character class either.
+    const result = value.replaceAll(/[\^\$.*+?${}()|[\]\\]/g, '\\$&').replaceAll('-', '\\x2d');
     tg.assertValidRegexString(result);
     return result;
 }
@@ -39,7 +41,6 @@ export function resolveRGXToken(token: t.RGXToken, options: ResolveRGXTokenOptio
     // JSON tokens are converted to their runtime equivalents (literal, class, or interpolation tokens) before resolving.
     if (tg.isRGXJSONObjectToken(token, false)) token = rgxTokenFromJSON(token);
 
-    // Read before resolving, since resolving a literal token replaces currentFlags with the literal's own flags.
     const scanOptions = scanOptionsFromFlags(currentFlags);
     let acceptParenErrors = false;
     const innerResolve = (): string => {
@@ -47,7 +48,6 @@ export function resolveRGXToken(token: t.RGXToken, options: ResolveRGXTokenOptio
 
         if (tg.isRGXLiteralToken(token)) {
             const localizableFlagDiff = localizableVanillaRegexFlagDiff(currentFlags, token.flags);
-            currentFlags = token.flags;
             if (!localizableFlagDiff) {
                 if (groupWrap) return '(?:' + token.source + ')';
                 else return token.source;
@@ -70,7 +70,7 @@ export function resolveRGXToken(token: t.RGXToken, options: ResolveRGXTokenOptio
         if (tg.isRGXConvertibleToken(token)) {
             // The top-level group-wrapping preference propogates to a direct convertible token, but after that
             // the preference falls back to true.
-            const result = token.toRgx();
+            const result = token.toRgx(currentFlags);
             const resultOptions = { groupWrap: topLevel ? groupWrap : true, topLevel: false, currentFlags };
 
             // A single token returned by toRgx() (such as the token an RGXClassWrapperToken wraps) is placed inside
@@ -104,7 +104,7 @@ export function resolveRGXToken(token: t.RGXToken, options: ResolveRGXTokenOptio
 
     let result = innerResolve();
 
-    if (!(acceptParenErrors && hasRegexParenErrors(result, scanOptions))) tg.assertValidRegexString(result);
+    if (!(acceptParenErrors && hasRegexParenErrors(result, scanOptions))) assertValidRegexPiece(result, currentFlags);
 
     // Nested resolutions are part of this one, so only remove redundant groups once, at the top level.
     if (topLevel) result = removeRedundantRegexGroups(result, scanOptions);

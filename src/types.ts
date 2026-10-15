@@ -22,7 +22,8 @@ export type RGXInsertionContext = {
 };
 
 export type RGXConvertibleToken = {
-    toRgx: () => RGXToken,
+    // currentFlags are the flags in effect where the token is placed, including the flags of enclosing modifier groups.
+    toRgx: (currentFlags?: string) => RGXToken,
     rgxAcceptInsertion?: (context: RGXInsertionContext) => string | boolean,
     readonly rgxIsRepeatable?: boolean
 };

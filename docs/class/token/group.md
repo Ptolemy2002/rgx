@@ -16,7 +16,7 @@ type RGXInsertionContext = {
     readonly container: RGXToken | null;          // the token whose contents this level is, or null at the top level
 };
 type RGXConvertibleToken = {
-    toRgx: () => RGXToken,
+    toRgx: (currentFlags?: string) => RGXToken,   // currentFlags: the flags in effect where the token is placed
     rgxAcceptInsertion?: (context: RGXInsertionContext) => string | boolean,
     readonly rgxIsRepeatable?: boolean
 };
@@ -70,6 +70,6 @@ constructor(args?: RGXGroupTokenArgs, tokens?: RGXTokenCollectionInput)
 These properties only have a getter.
 
 ## Methods
-- `toRgx() => RegExp`: Resolves the group by concatenating the internal tokens and wrapping the result in the appropriate group syntax: `(?<name>...)` for named groups, `(?:...)` for non-capturing groups without flags, or `(...)` for capturing groups without flags. When `flags` is non-empty, a flag-modifying wrapper is applied: non-capturing groups use `(?flags-notflags:...)` directly, while named and capturing groups are wrapped as `(?flags-notflags:(...))`. The flag diff string is computed against the full `"ims"` set — flags not present in `flags` appear after the dash.
+- `toRgx(currentFlags?: string) => RegExp`: Resolves the group by concatenating the internal tokens and wrapping the result in the appropriate group syntax: `(?<name>...)` for named groups, `(?:...)` for non-capturing groups without flags, or `(...)` for capturing groups without flags. When `flags` is non-empty, a flag-modifying wrapper is applied: non-capturing groups use `(?flags-notflags:...)` directly, while named and capturing groups are wrapped as `(?flags-notflags:(...))`. The flag diff string is computed against the full `"ims"` set — flags not present in `flags` appear after the dash. `currentFlags` (`string`, optional, defaults to `''`) is the flags in effect where the group is placed. The internal tokens are resolved with it, with its localizable flags replaced by `flags` when `flags` is non-empty, and the returned `RegExp` carries the localizable and unicode flags of `currentFlags`, so resolving the result in that context leaves those flags alone.
 - `clone(depth: CloneDepth = "max") => ThisType<this>`: Creates a clone of this instance to a specified depth: `0` for no clone, `1` for a shallow clone of the top-level token, any other number for that many levels down, and `"max"` (the default) for a full deep clone.
 - `toJSON() => RGXJSONClassToken`: Returns a JSON class token with `class` set to `"RGXGroupToken"` and `args` set to `[{ name, capturing, flags }, tokens]`, where `capturing` is the raw capturing preference (not forced to `true` by a name) and `tokens` is the array of this group's tokens converted with `rgxTokenToJSON`. The result is accepted by `fromJSON` and by `rgxTokenFromJSON` (see [../../json.md](../../json.md)). Nested tokens are converted with `rgxTokenToJSON`, so plain convertible tokens inside this token are resolved into JSON literal tokens.

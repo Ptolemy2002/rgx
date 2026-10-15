@@ -3,8 +3,8 @@ import { resolveRGXToken, ResolveRGXTokenOptions } from "./resolve";
 import { rgxConcat } from "./concat";
 import { CloneDepth, immutableMut, extClone, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { Collection } from "@ptolemy2002/ts-utils";
-import { createConstructFunction } from "./internal";
-import { createRGXClassGuardFunction, createAssertRGXClassGuardFunction, createRegex } from "src/utils";
+import { createConstructFunction, createRegexPiece } from "./internal";
+import { createRGXClassGuardFunction, createAssertRGXClassGuardFunction } from "src/utils";
 
 export type RGXTokenCollectionMode = 'union' | 'concat';
 export type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
@@ -32,17 +32,17 @@ export class RGXTokenCollection implements Collection<RGXToken>, RGXConvertibleT
         return resolveRGXToken(this, options);
     }
 
-    toRgx(): RegExp {
+    toRgx(currentFlags: string = ''): RegExp {
         let pattern: ValidRegexString;
         if (this.mode === 'union') {
             // The RegExp will already be wrapped with resolveRGXToken,
             // so we don't need to wrap it again here.
-            pattern = resolveRGXToken(this.tokens, {groupWrap: false});
+            pattern = resolveRGXToken(this.tokens, {groupWrap: false, currentFlags});
         } else {
-            pattern = rgxConcat(this.tokens);
+            pattern = rgxConcat(this.tokens, true, currentFlags);
         }
 
-        return createRegex(pattern);
+        return createRegexPiece(pattern, currentFlags);
     }
 
     getTokens(): RGXToken[] {

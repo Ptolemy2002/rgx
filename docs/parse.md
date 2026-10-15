@@ -27,14 +27,14 @@ Constructs with a matching token class become instances of that class:
 | `\1`, `\k<name>` | `RGXSubpatternToken` |
 
 The rest becomes simpler tokens:
-- Runs of plain characters become strings, such as `"abc"`. Characters that a string can't represent where they are become a literal token instead: characters affected by the `i` flag while it is in effect (letters, and anything outside ASCII), and `-` with the `u` or `v` flag (since strings escape it as `\-`, which those flags reject outside of a character class). The characters in these literal tokens are written by value (such as `\u0001`), so they read the same wherever the token is placed.
+- Runs of plain characters become strings, such as `"abc"`. Strings take on the flags of wherever they are placed, so while the `i` flag is in effect, a run containing characters it affects (letters, and anything outside ASCII) becomes a literal token with the `i` flag instead. The characters in these literal tokens are written by value (such as `\u0001`), so they read the same wherever the token is placed.
 - Everything else, such as character classes, escapes like `\d` and `\p{L}`, `.`, `^`, `$` and `\b`, becomes a literal token (a `RegExp`) with the same source.
 - Non-capturing groups without flags are only syntax, so they don't become tokens of their own. Their contents become the tokens described here, nested the same way (for example, `(?:ab)+` becomes an `RGXRepeatToken` of `"ab"`, and `(?:a|b)` becomes an `RGXClassUnionToken`).
 - A sequence of several tokens (inside a group, an alternative, or at the top level) becomes an `RGXTokenCollection` in `concat` mode.
 
 The result is always a class token: the top level is converted with `toRGXClassToken` (see [to.md](./class/token/to.md)), so a sequence becomes a non-capturing `RGXGroupToken` and a lone string or literal token becomes an `RGXClassWrapperToken`.
 
-Literal tokens carry the flags that are in effect where they were and can change what they match (`i` for characters, character classes and `\w`-like escapes, `m` for `^` and `$`, `s` for `.`), plus `u` or `v` if the pattern had one. When the pattern has any of the `i`, `m` or `s` flags, the whole result is also wrapped in a non-capturing `RGXGroupToken` that sets them, so it keeps matching the same when placed into a pattern with different localizable flags. Otherwise, it inherits them from where it is placed, like any other token.
+Literal tokens carry the localizable flags (`i`, `m`, `s`) in effect where they were, including those set by enclosing flag-modifier groups, plus `u` or `v` if the pattern had one. So they match the same wherever they are placed, and placing them where those flags are in effect adds nothing to the pattern. When the pattern has any of the `i`, `m` or `s` flags, the whole result is also wrapped in a non-capturing `RGXGroupToken` that sets them, so it keeps matching the same when placed into a pattern with different localizable flags. Otherwise, it inherits them from where it is placed, like any other token.
 
 A few constructs can't be represented by class tokens yet, and are kept as interpolation tokens (see [general.md](./general.md)) around the converted contents:
 - A flag-modifier group that turns off every localizable flag in effect (such as `(?-i:a)` in a pattern with only the `i` flag), since an `RGXGroupToken` with empty `flags` sets no flags instead. If no localizable flags were in effect, the group changes nothing and is dropped.
@@ -56,5 +56,5 @@ const token = rgxParse(/(?<year>\d{4})-(?<month>\d{2})/) as RGXGroupToken;
 // A non-capturing RGXGroupToken containing the two named groups and "-".
 const year = token.tokens.at(0) as RGXGroupToken;
 year.name = "y";
-rgxa([token]); // /(?<y>\d{4})\-(?<month>\d{2})/
+rgxa([token]); // /(?<y>\d{4})\x2d(?<month>\d{2})/
 ```

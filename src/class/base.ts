@@ -14,7 +14,8 @@ import type { RGXLookbehindToken } from "./lookbehind";
 import type { RGXExclusionToken } from "./exclusion";
 
 export abstract class RGXClassToken implements RGXConvertibleToken {
-    abstract toRgx(): RGXToken
+    // currentFlags are the flags in effect where the token is placed, including the flags of enclosing modifier groups.
+    abstract toRgx(currentFlags?: string): RGXToken
     abstract clone(depth?: CloneDepth): ThisType<this>;
 
     // Subclasses that want lossless JSON serialization (i.e. to be part of the JSON class registry) should override

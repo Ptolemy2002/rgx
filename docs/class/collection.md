@@ -16,7 +16,7 @@ type RGXInsertionContext = {
     readonly container: RGXToken | null;          // the token whose contents this level is, or null at the top level
 };
 type RGXConvertibleToken = {
-    toRgx: () => RGXToken,
+    toRgx: (currentFlags?: string) => RGXToken,   // currentFlags: the flags in effect where the token is placed
     rgxAcceptInsertion?: (context: RGXInsertionContext) => string | boolean,
     readonly rgxIsRepeatable?: boolean
 };
@@ -62,7 +62,7 @@ constructor(tokens: RGXTokenCollectionInput = [], mode: RGXTokenCollectionMode =
 - `tokens` (`RGXToken[]`): The array of RGX tokens managed by the collection. In almost all cases, use `getTokens()` instead of accessing this property directly, as it will be copied to prevent external mutation.
 - `mode` (`RGXTokenCollectionMode`): The mode of the collection, either 'union' or 'concat'. This determines how the tokens in the collection will be resolved when `toRgx()` is called.
 - `resolve(options?: ResolveRGXTokenOptions) => ValidRegexString`: A convenience method that resolves this collection by calling `resolveRGXToken(this, options)`, returning the resolved regex string representation. `options` defaults to `{}`.
-- `toRgx() => RegExp`: A method that resolves the collection to a `RegExp` object based on the collection mode. In 'union' mode, the tokens are resolved as alternatives (using the `|` operator), while in 'concat' mode, the tokens are resolved as concatenated together. No flags are applied to the resulting `RegExp`. Since this method returns a `RegExp` (which is `RGXLiteralToken`), `RGXTokenCollection` instances satisfy the `RGXConvertibleToken` interface and can be used directly as tokens in `rgx`, `rgxa`, and other token-accepting functions.
+- `toRgx(currentFlags?: string) => RegExp`: A method that resolves the collection to a `RegExp` object based on the collection mode. In 'union' mode, the tokens are resolved as alternatives (using the `|` operator), while in 'concat' mode, the tokens are resolved as concatenated together. `currentFlags` (`string`, optional, defaults to `''`) is the flags in effect where the token is placed, including those set by enclosing flag-modifier groups; the tokens inside are resolved with it, and the returned `RegExp` carries its localizable and unicode flags, so resolving the result in that context leaves those flags alone. Since this method returns a `RegExp` (which is `RGXLiteralToken`), `RGXTokenCollection` instances satisfy the `RGXConvertibleToken` interface and can be used directly as tokens in `rgx`, `rgxa`, and other token-accepting functions.
 - `getTokens() => RGXToken[]`: A method that returns a copy of the array of RGX tokens managed by the collection. This is used to prevent external mutation of the internal `tokens` array.
 - `toArray() => RGXToken[]`: An alias for `getTokens()`, provided for convenience.
 - `clone(depth: CloneDepth = "max") => RGXTokenCollection`: A method that creates and returns a deep clone of the RGXTokenCollection instance. This is useful for creating a new collection with the same tokens and mode without affecting the original collection. The `depth` parameter controls how deeply nested collections are cloned: `0` for no clone, `1` for a shallow clone of the top-level collection, any other number for that many levels down, and `"max"` (the default) for a full deep clone.
