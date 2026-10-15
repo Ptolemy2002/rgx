@@ -1,6 +1,8 @@
 # RGX
 A library for easy construction and validation of regular expressions in TypeScript. You can use `rgx` to concatenate various types of tokens into a valid regular expression string, with type safety and validation. You can also use a combination of `RGXWalker`, `RGXPart`, and plain tokens to create powerful matchers that can validate partial matches and transform captured values with custom logic.
 
+You can also go the other way: `rgxParse` converts an existing regular expression into tokens, so patterns written as plain regexes can be changed with the same API.
+
 All public components are exported at the main module entry point.
 
 **Note**: This library is tested with nearly 100% coverage, but any override of `RGXClassToken.clone()` does not have the depth parameter fully tested, as that is ultimately part of `@ptolemy2002/immutability-utils`, which is tested, and setting up tests for that functionality is exceedingly complex.
@@ -13,6 +15,7 @@ Because there is so much to document, it has been broken up into multiple files.
 - [ExtRegExp](./docs/ExtRegExp.md) - The `ExtRegExp` class, which extends the built-in `RegExp` class with the ability to create custom flags that transform the source string of the regular expression before it is compiled.
 - [constants](./docs/constants.md) - Constants provided by the library, such as predefined character classes and tokens.
 - [json](./docs/json.md) - JSON tokens, a JSON-serializable form of any token, along with the functions that convert tokens to and from that form and the registry of class names that JSON class tokens can target.
+- [parse](./docs/parse.md) - The `rgxParse` function, which converts an existing regular expression into the equivalent tree of tokens, so it can be inspected and changed with the class token API.
 - `util` - A directory containing documentation for various utility functions provided by the library.
   - [clone](./docs/util/clone.md) - The `cloneRGXToken` function, which creates a clone of a given RGX token to a specified depth.
   - [escapeRegex](./docs/util/escapeRegex.md) - The `escapeRegex` function, which escapes special regex characters in a given string and assures you that the result is valid Regex.

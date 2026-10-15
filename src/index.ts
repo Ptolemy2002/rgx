@@ -68,3 +68,4 @@ export * from "./clone";
 export * from "./constants";
 export * from "./walker";
 export * from "./lexer";
+export * from "./parse";
