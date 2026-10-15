@@ -4,6 +4,10 @@ This guide covers the breaking changes in the major versions of RGX released sin
 
 If you're upgrading across several major versions, apply the sections in order, oldest first.
 
+## What counts as breaking
+
+A change is breaking if it changes what a pattern matches, or changes the public API (names, signatures, types, or documented behavior other than exact output). Changes to the exact regex source the library outputs are not breaking on their own, as long as the pattern matches the same strings with the same captures. For example, a minor or patch release may remove a redundant group, shorten a flag modifier, or reorder equivalent syntax. Don't compare resolved sources as strings to check whether two patterns are equivalent, and don't depend on the exact text of a resolved pattern. Test what it matches instead.
+
 | Version | Main changes |
 | --- | --- |
 | [14.0.0](#1400) | `rgxIsGroup`, `rgxGroupWrap` and `rgxInterpolate` removed, repeatability detected automatically, new `rgxAcceptInsertion` signature, single-step JSON class construction |
