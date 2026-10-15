@@ -18,6 +18,10 @@ When writing tests, aim for 100% coverage generally, but I am intentionally not 
 
 `./PENDING_BREAKING_CHANGES.md` is a running list of breaking changes that are being deferred until a major release, along with the non-breaking workarounds currently in place for them. If you implement such a workaround, add an entry there. If you are making a major release, implement the pending changes and revert their workarounds as described there.
 
+`./MIGRATION.md` contains instructions for migrating between major versions of the library. If it is confirmed that a major release is necessary, update it accordingly.
+
+Never make releases yourself, as the user has a specific workflow for this that requires 2FA. Also, never bump the package version number manually. If you need to view previous versions, each release has its own dedicated git commit with the version number as the text, so you can look through the git history to find them.
+
 ## Git workflow
 
 The user is currently the sole contributor, so pull requests aren't needed. Commit on a branch, then merge it into `main` directly and push `main` once the user approves the change.
