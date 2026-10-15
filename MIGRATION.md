@@ -1,0 +1,354 @@
+# Migration Guide
+
+This guide covers the breaking changes in the major versions of RGX released since March 2026. Some major versions aren't listed because their changes are small or explain themselves. Each section lists what changed and how to update your code.
+
+If you're upgrading across several major versions, apply the sections in order, oldest first.
+
+| Version | Main changes |
+| --- | --- |
+| [14.0.0](#1400) | `rgxIsGroup`, `rgxGroupWrap` and `rgxInterpolate` removed, repeatability detected automatically, new `rgxAcceptInsertion` signature, single-step JSON class construction |
+| [13.0.0](#1300) | `resolveRGXToken` takes an options object, `rgxConstant` always returns a class token, word bounds match at the edges of the string |
+| [12.0.0](#1200) | `rgx` takes an options object |
+| [11.0.0](#1100) | Part callbacks take a context object, `walk()` returns the reduced value, flag transformers return a source and flags |
+| [9.0.0](#900) | `share` generic added to walkers and parts |
+| [8.0.0](#800) | Walkers and parts are no longer tokens |
+| [7.0.0](#700) | `namedCaptures` stores arrays |
+
+Version 10.0.0 isn't covered. It made validation stricter (invalid flags and invalid resolved patterns now throw `RGXError`s) and added interpolation, which 14.0.0 then reworked.
+
+---
+
+# 14.0.0
+
+Most of these changes remove token properties that you used to set by hand, because the library can now work out the same information from the token's resolved source. If you only build patterns from the built-in tokens and classes, you probably won't need to change much. If you write custom convertible tokens, class tokens, or JSON class registrations, read the whole section.
+
+## `rgxIsGroup` is removed
+
+`rgxIsGroup` claimed that a token's output was a single unit a quantifier could apply to as a whole. It was trusted without being checked, so a wrong value could produce a wrong pattern. The library now resolves the token and checks the source itself.
+
+Removed:
+
+- The `rgxIsGroup` property on `RGXConvertibleToken`, `RGXClassToken` and its subclasses.
+- The `RGXGroupedToken` and `RGXGroupedConvertibleToken` types.
+- `isRGXGroupedToken` and `assertRGXGroupedToken`.
+
+To update:
+
+- Delete `rgxIsGroup` from your custom tokens. It no longer has any effect.
+- Replace `isRGXGroupedToken(token)` with `isRGXSingletonToken(token)` (and the assert version with `assertRGXSingletonToken`). The new guard resolves the token and checks whether the result is a single character, escape, character class, or group. Its signature is `(value, acceptJSON = true)`, so it no longer takes `contentCheck`.
+- `RGXRepeatToken` now stores the token you give it as-is. `repeatToken.token` is typed `RGXToken` instead of `RGXGroupedToken`, and it's no longer wrapped in a non-capturing `RGXGroupToken`. That also applies to the token in the `toJSON()` args. If you read `repeatToken.token` and expected an `RGXGroupToken`, use the token directly.
+
+```ts
+// Before
+const token = { rgxIsGroup: true, toRgx: () => /[a-z]/ };
+if (isRGXGroupedToken(token)) { /* ... */ }
+
+// After
+const token = { toRgx: () => /[a-z]/ };
+if (isRGXSingletonToken(token)) { /* ... */ }
+```
+
+## `rgxGroupWrap` is removed
+
+Convertible tokens are now always resolved as if `rgxGroupWrap` were unset, so their output is wrapped in a non-capturing group when needed. Groups that turn out to be unnecessary are removed from the final pattern, so the size benefit of `rgxGroupWrap: false` is no longer needed.
+
+To update:
+
+- Delete `rgxGroupWrap` from your custom tokens.
+- If you relied on `rgxGroupWrap: false` to let an alternation leak into the surrounding pattern (for example, a token returning `/a|b/` next to `c` producing `a|bc`), use an interpolation token instead (see the next section).
+- The `groupWrap` option of `resolveRGXToken` and `rgxConcat` still exists, but it now only affects the top level. If you compare intermediate resolver output exactly, some of it can now contain extra groups, such as `(?:\d)`. Final patterns from `rgx` and `rgxa` don't keep them.
+- JSON literal tokens created by `rgxTokenToJSON` and the default `RGXClassToken.toJSON()` now have redundant groups removed from their `source`. If you compare serialized output exactly, update the expected values.
+
+## Interpolation is its own token type
+
+Interpolation used to be a flag on convertible tokens (`rgxInterpolate: true`). It's now a separate token type, `RGXInterpolationToken`, which is a plain object holding the raw source fragment:
+
+```ts
+type RGXInterpolationToken = { readonly rgxInterpolation: string };
+```
+
+Removed: the `rgxInterpolate` property on `RGXConvertibleToken` and `RGXClassToken`.
+
+To update:
+
+```ts
+// Before
+rgxa([{ rgxInterpolate: true, toRgx: () => "(?<word>" }, /\w+/, { rgxInterpolate: true, toRgx: () => ")" }]);
+
+// After
+rgxa([rgxInterpolation("(?<word>"), /\w+/, rgxInterpolation(")")]);
+// or write the objects directly: { rgxInterpolation: "(?<word>" }
+```
+
+Other effects:
+
+- Interpolation tokens aren't convertible tokens. They have no `toRgx` method, and `isRGXConvertibleToken` returns `false` for them. Use `isRGXInterpolationToken` / `assertRGXInterpolationToken`.
+- `RGXTokenType` has a new `'interpolation'` member, and `rgxTokenTypeFlat` returns `'interpolation'` for these tokens. If you `switch` over token types, add a case for it.
+- In tagged templates with `verbatim: false`, the literal string parts are now interpolation tokens instead of convertible tokens. If you inspect the token list (for example, a walker's `tokens`), check for the new type.
+- Interpolation tokens are never repeatable. Passing one to `RGXRepeatToken` throws `RGXNotSupportedError`.
+- They serialize to a new JSON form, `{ $rgx: true, interpolation: "..." }` (`RGXJSONInterpolationToken`), which stores the fragment as-is. `RGXJSONObjectToken` now includes this type, so code that assumed every JSON object token has either `source` or `class` needs to handle `interpolation` too. Use `isRGXJSONInterpolationToken` to check for it.
+
+## `rgxIsRepeatable` is detected when it isn't set
+
+Previously, a token without `rgxIsRepeatable` was always treated as repeatable. Now, a missing value means "detect": the token is repeatable unless its resolved source consumes no characters, meaning it's made entirely of assertions such as `^`, `$`, `\b`, `\B` and lookarounds. This applies to convertible tokens, literal tokens (`RegExp`s) and arrays.
+
+- If `rgxIsRepeatable` is set to `true` or `false`, it's still trusted.
+- If it's explicitly `true` on a token that consumes no characters, repeating the token is allowed, but a warning is printed with `console.warn` (once per token).
+- `RGXClassToken.rgxIsRepeatable` now returns `undefined` by default instead of `true`. Its type is `boolean | undefined`.
+- `RGXRepeatableConvertibleToken` is now `RGXConvertibleToken & { readonly rgxIsRepeatable?: true }`.
+
+To update:
+
+- Code that repeats a zero-width token, such as `rgxRepeat(/\b/)` or a custom anchor token, now throws `RGXNotSupportedError`. Remove the repeat (it never had any effect), or set `rgxIsRepeatable: true` on the token if you really want it.
+- If you read `token.rgxIsRepeatable` and expected a `boolean` on every class token, handle `undefined`, or use `isRGXToken(token, "repeatable")` to get the final answer.
+- You can remove `rgxIsRepeatable: false` from custom zero-width tokens, since detection now gives the same result. Keep it on tokens that consume characters but still shouldn't be repeated.
+
+## `rgxAcceptInsertion` receives a context object
+
+The hook used to receive `(tokens, flags)`, and it was only called for tokens at the top level of `rgx`/`rgxa`/`rgxConcat`. Tokens nested in groups, lookarounds, repeats and collections were checked inconsistently, and usually with empty flags. Now every placement is checked exactly once at any depth, and the hook receives an `RGXInsertionContext`:
+
+```ts
+type RGXInsertionContext = {
+    readonly flags: ValidRegexFlags;              // effective here, including enclosing modifier groups
+    readonly siblings: readonly RGXToken[];       // what `tokens` used to be
+    readonly index: number;                       // this token's position in `siblings`
+    readonly parent: RGXInsertionContext | null;  // the enclosing level, or null at the top level
+    readonly container: RGXToken | null;          // the token whose contents this level is
+};
+```
+
+To update:
+
+```ts
+// Before
+rgxAcceptInsertion(tokens, flags) {
+    return flags.includes("i") || "Requires the i flag";
+}
+
+// After
+rgxAcceptInsertion({ flags }) {
+    return flags.includes("i") || "Requires the i flag";
+}
+```
+
+Other effects:
+
+- Patterns that built fine before can now throw `RGXInsertionRejectedError`, because nested tokens are checked with their real flags. For example, a token inside `RGXGroupToken` with `flags: "i"` now sees the `i` flag, and a token inside a plain group no longer sees an empty flag string when the pattern has flags.
+- The hook only runs while a pattern is being built (`rgx`, `rgxa`, `rgxw`, `rgxwa`). Calling `resolveRGXToken` on its own, `toJSON()`, and the type guards don't run it. `isRGXConvertibleToken` only checks that the hook is callable, and no longer calls it to check its return value.
+- `RGXInsertionRejectedError` has a new `context` property and a third constructor parameter for it. Its message now includes the path to the rejected token (for example, `index 1 > 0`) and its containers.
+
+## JSON class construction is a single step
+
+Validating JSON class args and constructing the class used to be two separate functions. They're now one function that validates its own args and throws if they're invalid.
+
+Removed:
+
+- `RGXJSONClassRegistryEntry` and `RGXJSONClassArgsValidator`.
+- `validateRGXJSONClassArgs` and `assertValidRGXJSONClassArgs`.
+- The static `validateJSONArgs` method on `RGXClassToken` and the `RGXJSONClassTokenConstructor` type.
+- `validateLookaroundJSONArgs`.
+
+Changed:
+
+- `registerRGXJSONClass(name, construct)` takes the constructor function directly and returns nothing.
+- `registerRGXJSONClassToken(name, constructor)` only needs a static `fromJSON` on the class.
+- `getRGXJSONClass(name)` returns the constructor function, which you call directly.
+- `rgxJSONClassArgs(json, name, parse)` takes a parser instead of a validator. The parser returns the typed args, or a string explaining why they were rejected. `rgxJSONClassArgs` returns the parser's result, so you no longer need a type assertion. The parser type is `RGXJSONClassArgsParser<A>`.
+- `isRGXJSONClassToken` (with `registryCheck`) now tries to construct the class and returns `false` if that throws an `RGXError`.
+
+To update a custom registration:
+
+```ts
+// Before
+registerRGXJSONClass("MyToken", {
+    validateArgs: args => args.length === 1 && typeof args[0] === "string",
+    construct: args => new MyToken(args[0] as string)
+});
+
+// After
+registerRGXJSONClass("MyToken", args => {
+    if (args.length !== 1 || typeof args[0] !== "string") {
+        throw new RGXJSONClassArgsValidationFailedError("MyToken", args, "Expected one string argument.");
+    }
+    return new MyToken(args[0]);
+});
+```
+
+To update a custom class token:
+
+```ts
+// Before
+class MyToken extends RGXClassToken {
+    static validateJSONArgs(args: RGXJSONValue[]) {
+        return args.length === 1 && typeof args[0] === "string";
+    }
+
+    static fromJSON(json: RGXJSONClassToken) {
+        const [name] = rgxJSONClassArgs(json, "MyToken", MyToken.validateJSONArgs) as [string];
+        return new MyToken(name);
+    }
+}
+
+// After
+function parseMyTokenArgs(args: RGXJSONValue[]): [string] | string {
+    if (args.length !== 1 || typeof args[0] !== "string") return "Expected one string argument.";
+    return [args[0]];
+}
+
+class MyToken extends RGXClassToken {
+    static fromJSON(json: RGXJSONClassToken) {
+        const [name] = rgxJSONClassArgs(json, "MyToken", parseMyTokenArgs);
+        return new MyToken(name);
+    }
+}
+```
+
+Replace calls like `getRGXJSONClass(name).construct(args)` with `getRGXJSONClass(name)(args)`. Replace `validateRGXJSONClassArgs(name, args)` by constructing the class and catching the error, or use `isRGXJSONClassToken`.
+
+---
+
+# 13.0.0
+
+## `resolveRGXToken` takes an options object
+
+```ts
+// Before
+resolveRGXToken(token, false, true, "i");
+
+// After
+resolveRGXToken(token, { groupWrap: false, topLevel: true, currentFlags: "i" });
+```
+
+All options are optional and keep their previous defaults. `rgxConcat` is unchanged.
+
+## `rgxConstant` always returns a class token
+
+`rgxConstant(name)` now returns an `RGXClassToken`. Constants that were defined as plain convertible tokens are wrapped in an `RGXClassWrapperToken`, so you can call class methods such as `.repeat()` and `.or()` on any constant. If you relied on a constant being the plain object it was defined as, unwrap it with `.token`.
+
+## `word-bound-start` and `word-bound-end` match at the edges of the string
+
+These constants used to require a non-word character on the outer side, so they failed to match a word at the very start or end of the string. They now also match there. If you relied on the old behavior to skip words at the edges, add an explicit lookaround.
+
+---
+
+# 12.0.0
+
+## `rgx` takes an options object
+
+```ts
+// Before
+rgx("i", false, false)`...`;
+
+// After
+rgx("i", { multiline: false, verbatim: false })`...`;
+```
+
+This matches `rgxw`, which already took an options object.
+
+Version 12.1.0 also changed tagged templates to read their string parts raw (`strings.raw`), so backslash sequences in the template text reach the pattern exactly as written instead of being processed by JavaScript first. If you wrote doubled backslashes in template text to work around this, check that those patterns still match what you expect.
+
+---
+
+# 11.0.0
+
+## Part callbacks receive a context object
+
+`RGXPart` callbacks used to receive the walker's `share`, the part and the walker as separate parameters. They now receive a single `RGXPartContext` with `part` and `walker`. Read `share` from `context.walker.share`.
+
+```ts
+// Before (9.x and 10.x)
+rgxPart(token, {
+    validate: (capture, share, part, walker) => capture.value.length > 0,
+    afterCapture: (capture, share, part, walker) => { share.count++; }
+});
+
+// After
+rgxPart(token, {
+    validate: (capture, { part, walker }) => capture.value.length > 0,
+    afterCapture: (capture, { walker }) => { walker.share.count++; }
+});
+```
+
+This applies to `validate`, `beforeCapture`, `afterCapture`, `afterFailure` and `afterValidationFailure`. The `part.validate(capture, context)` method changed the same way.
+
+## `walk()` returns the reduced value
+
+`RGXWalker.walk()` now returns `walker.reduced` instead of the walker. If you chained calls after `walk()`, call them on the walker separately.
+
+```ts
+// Before
+const result = walker.walk().reduced;
+
+// After
+const result = walker.walk();
+```
+
+## Flag transformers return a source and flags
+
+A `RegExpFlagTransformer` now has the type `(exp: RegExp) => [string, string]`. It returns the new source and vanilla flags instead of a new `RegExp`, and the library builds the regex itself, so it can report invalid output as an `RGXError`.
+
+```ts
+// Before
+const transformer = (exp: RegExp) => new RegExp(exp.source.replaceAll("a", "[aA]"), exp.flags);
+
+// After
+const transformer = (exp: RegExp): [string, string] => [exp.source.replaceAll("a", "[aA]"), exp.flags];
+```
+
+Flag transformers can only be applied to direct `RegExp` instances. Passing a subclass (such as `ExtRegExp`) to `applyFlagTransformers` throws `RGXNotDirectRegExpError`.
+
+Patterns built internally by the library now go through `createRegex`, so an invalid pattern throws `RGXInvalidRegexStringError` instead of a plain `SyntaxError`. If you caught `SyntaxError` around RGX calls, catch `RGXInvalidRegexStringError` instead.
+
+---
+
+# 9.0.0
+
+## Walkers and parts have a `share` generic
+
+Walkers gained a `share` value, a piece of mutable state shared between parts that isn't part of the reduced result. To support it, a new generic `S` was added **before** `T` on the part types:
+
+- `RGXPart<R, T>` is now `RGXPart<R, S, T>`, and the same applies to `rgxPart`, `RGXPartOptions` and `RGXTokenOrPart`.
+- `RGXWalker<R>` is now `RGXWalker<R, S>`, and the same applies to `rgxWalker`, `RGXWalkerOptions`, `rgxw`, `rgxwa` and `RGXWOptions`.
+- `RGXLexer<Data>` is now `RGXLexer<Data, Share>`. The `share` option of a lexeme definition is a function that creates the initial value, so each walker gets its own.
+
+If you passed `T` explicitly, insert the share type before it:
+
+```ts
+// Before
+rgxPart<MyReduced, number>(token, { /* ... */ });
+
+// After
+rgxPart<MyReduced, unknown, number>(token, { /* ... */ });
+```
+
+This version also changed the part callback parameters, but 11.0.0 replaced them again. See [11.0.0](#1100) for the current form.
+
+---
+
+# 8.0.0
+
+## Walkers and parts are no longer tokens
+
+`RGXWalker` and `RGXPart` used to be convertible tokens, which let a walker accept tokens that didn't fit its reduced value. They're now plain classes.
+
+- You can't pass a walker or a part to `rgx`, `rgxa` or any other function that expects a token. To use the pattern a part matches, pass `part.token` instead.
+- `walker.tokens` is now a plain array of `RGXTokenOrPart` instead of an `RGXTokenCollection`, and the `RGXWalker` constructor takes an array. Use array methods (`walker.tokens[i]`) instead of collection methods (`walker.tokens.at(i)`).
+
+---
+
+# 7.0.0
+
+## `namedCaptures` stores arrays
+
+`walker.namedCaptures` now maps each part ID to an array of every capture made with that ID, in order, instead of only the most recent one.
+
+```ts
+// Before
+const capture = walker.namedCaptures["word"];
+
+// After
+const captures = walker.namedCaptures["word"];
+const capture = captures?.at(-1); // the most recent one
+```
+
+Captures also have a new `ownerId` property with the ID of the part that made them, or `null`.
