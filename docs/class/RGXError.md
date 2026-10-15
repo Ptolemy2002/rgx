@@ -118,28 +118,31 @@ constructor(message: string, got: string, cause: SyntaxError)
 ### Type Guards
 #### isValidRegexString
 ```typescript
-function isValidRegexString(value: string): value is ValidRegexString
+function isValidRegexString(value: string, flags?: string): value is ValidRegexString
 ```
-Checks if the given string is a valid regular expression by attempting to create a new `RegExp` object with it. If it succeeds, the string is branded as a `ValidRegexString`.
+Checks if the given string is a valid regular expression by attempting to create a new `RegExp` object with it and the given flags. If it succeeds, the string is branded as a `ValidRegexString`. The flags matter because they change which syntax is valid: for example, `[\p{L}--[a-z]]` is only valid with the `v` flag, and `\-` is only valid without the `u` and `v` flags. Any custom flags are left out of the check. Throws `RGXInvalidRegexFlagsError` if `flags` is not a valid set of regex flags.
 - `value` (`string`): The string to check.
+- `flags` (`string`, optional): The flags to check the string with. Defaults to `''`.
 
 **Returns:** `boolean` - `true` if the string is a valid regular expression, otherwise `false`.
 
 #### assertValidRegexString
 ```typescript
-function assertValidRegexString(value: string): asserts value is ValidRegexString
+function assertValidRegexString(value: string, flags?: string): asserts value is ValidRegexString
 ```
-Asserts that the given string is a valid regular expression by attempting to create a new `RegExp` object with it. If it succeeds, the string is branded as a `ValidRegexString`. If it fails, an `RGXInvalidRegexStringError` will be thrown. Note that failure is only detected with a `SyntaxError`. Other errors are rethrown as-is.
+Asserts that the given string is a valid regular expression with the given flags (see `isValidRegexString`) by attempting to create a new `RegExp` object with it. If it succeeds, the string is branded as a `ValidRegexString`. If it fails, an `RGXInvalidRegexStringError` will be thrown. Note that failure is only detected with a `SyntaxError`. Other errors are rethrown as-is.
 - `value` (`string`): The string to assert.
+- `flags` (`string`, optional): The flags to check the string with. Defaults to `''`.
 
 **Returns:** `void` - If the string is a valid regular expression, the function returns without error. If the string is invalid, an `RGXInvalidRegexStringError` is thrown with the provided message and the invalid string.
 
 #### castValidRegexString
 ```typescript
-function castValidRegexString(value: string): ValidRegexString
+function castValidRegexString(value: string, flags?: string): ValidRegexString
 ```
-Asserts that the given string is a valid regular expression (via `assertValidRegexString`) and returns it branded as a `ValidRegexString`. Throws `RGXInvalidRegexStringError` if the string is invalid.
+Asserts that the given string is a valid regular expression with the given flags (via `assertValidRegexString`) and returns it branded as a `ValidRegexString`. Throws `RGXInvalidRegexStringError` if the string is invalid.
 - `value` (`string`): The string to cast.
+- `flags` (`string`, optional): The flags to check the string with. Defaults to `''`.
 
 **Returns:** `ValidRegexString` - The input string, branded as a `ValidRegexString`.
 

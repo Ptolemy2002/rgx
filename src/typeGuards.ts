@@ -8,7 +8,7 @@ import { ExtRegExp } from "./ExtRegExp";
 import { RGXTokenCollection } from "./collection";
 import { getRGXJSONClass, hasRGXJSONClass, rgxTokenFromJSON } from "./json";
 import { createRegex } from "./utils/createRegex";
-import { extractVanillaRegexFlags, isValidRegexFlags } from "./ExtRegExp";
+import { assertValidRegexFlags, extractVanillaRegexFlags, isValidRegexFlags } from "./ExtRegExp";
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
@@ -361,9 +361,13 @@ export function assertRGXSingletonToken(value: unknown, acceptJSON: boolean = tr
     }
 }
 
-export function isValidRegexString(value: string): value is t.ValidRegexString {
+// The flags change which syntax is valid (the u and v flags in particular), so the string is checked with them. Any
+// custom flags are left out, since the string is checked before they would transform it.
+export function isValidRegexString(value: string, flags: string = ''): value is t.ValidRegexString {
+    assertValidRegexFlags(flags);
+
     try {
-        new RegExp(value);
+        new RegExp(value, extractVanillaRegexFlags(flags));
         return true;
     } catch (e) {
         if (e instanceof SyntaxError) {
@@ -377,10 +381,10 @@ export function isValidRegexString(value: string): value is t.ValidRegexString {
     }
 }
 
-export function assertValidRegexString(value: string): asserts value is t.ValidRegexString {
-    if (!isValidRegexString(value)) {
+export function assertValidRegexString(value: string, flags: string = ''): asserts value is t.ValidRegexString {
+    if (!isValidRegexString(value, flags)) {
         try {
-            new RegExp(value);
+            new RegExp(value, extractVanillaRegexFlags(flags));
         } catch (err) {
             if (err instanceof SyntaxError) {
                 throw new e.RGXInvalidRegexStringError("Invalid regex string", value, err);
@@ -394,8 +398,8 @@ export function assertValidRegexString(value: string): asserts value is t.ValidR
     }
 }
 
-export function castValidRegexString(value: string): t.ValidRegexString {
-    assertValidRegexString(value);
+export function castValidRegexString(value: string, flags: string = ''): t.ValidRegexString {
+    assertValidRegexString(value, flags);
     return value;
 }
 

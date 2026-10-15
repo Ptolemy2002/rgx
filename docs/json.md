@@ -250,7 +250,7 @@ Returns `{ $rgx: true, class: name, args }`. `args` defaults to `[]`. No validat
 ```typescript
 function createRGXJSONLiteralToken(source: string, flags?: string): RGXJSONLiteralToken
 ```
-Returns `{ $rgx: true, source }` when `flags` is empty (the default), otherwise `{ $rgx: true, source, flags }`. Throws `RGXInvalidRegexStringError` if `source` is not a valid regex string.
+Returns `{ $rgx: true, source }` when `flags` is empty (the default), otherwise `{ $rgx: true, source, flags }`. Throws `RGXInvalidRegexStringError` if `source` is not a valid regex string with `flags` (which change what syntax is valid, such as with the `u` and `v` flags), or `RGXInvalidRegexFlagsError` if `flags` is invalid.
 
 ## createRGXJSONInterpolationToken
 ```typescript

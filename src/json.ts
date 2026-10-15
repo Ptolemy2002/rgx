@@ -76,7 +76,7 @@ export function createRGXJSONClassToken(name: RGXJSONClassName, args: t.RGXJSONV
 }
 
 export function createRGXJSONLiteralToken(source: string, flags: string = ''): t.RGXJSONLiteralToken {
-    tg.assertValidRegexString(source);
+    tg.assertValidRegexString(source, flags);
     if (flags === '') return { [t.RGX_JSON_FLAG]: true, source };
     return { [t.RGX_JSON_FLAG]: true, source, flags };
 }

@@ -210,6 +210,9 @@ describe("JSON class token helpers", () => {
         expect(createRGXJSONLiteralToken("abc")).toEqual({ $rgx: true, source: "abc" });
         expect(createRGXJSONLiteralToken("abc", "i")).toEqual({ $rgx: true, source: "abc", flags: "i" });
         expect(() => createRGXJSONLiteralToken("[")).toThrow(RGXInvalidRegexStringError);
+        // Only valid with the v flag.
+        expect(createRGXJSONLiteralToken("[\\p{L}--[a-z]]", "v")).toEqual({ $rgx: true, source: "[\\p{L}--[a-z]]", flags: "v" });
+        expect(() => createRGXJSONLiteralToken("\\-", "u")).toThrow(RGXInvalidRegexStringError);
     });
 
     it("asserts that a class token is for a given class", () => {

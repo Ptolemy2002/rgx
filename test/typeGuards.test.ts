@@ -19,7 +19,8 @@ import {
     RGXInvalidRegexStringError,
     assertValidVanillaRegexFlags,
     isValidVanillaRegexFlags,
-    RGXInvalidVanillaRegexFlagsError
+    RGXInvalidVanillaRegexFlagsError,
+    RGXInvalidRegexFlagsError
 } from 'src/index';
 
 class TestClassToken1 extends RGXClassToken {
@@ -982,6 +983,42 @@ describe('Type Guards', () => {
                 assertValidRegexString,
                 castValidRegexString
             );
+        });
+
+        it('checks the string with the given flags', () => {
+            // Only valid with the v flag.
+            guardTests(
+                ['[\\p{L}--[a-z]]'],
+                true,
+                RGXInvalidRegexStringError,
+                value => isValidRegexString(value, 'v'),
+                value => assertValidRegexString(value, 'v'),
+                value => castValidRegexString(value, 'v')
+            );
+
+            guardTests(
+                ['[\\p{L}--[a-z]]'],
+                false,
+                RGXInvalidRegexStringError,
+                isValidRegexString,
+                assertValidRegexString,
+                castValidRegexString
+            );
+
+            // Only valid without the u flag.
+            guardTests(
+                ['\\-'],
+                false,
+                RGXInvalidRegexStringError,
+                value => isValidRegexString(value, 'iu'),
+                value => assertValidRegexString(value, 'iu'),
+                value => castValidRegexString(value, 'iu')
+            );
+        });
+
+        it('throws on invalid flags', () => {
+            expect(() => isValidRegexString('foo', 'z')).toThrow(RGXInvalidRegexFlagsError);
+            expect(() => assertValidRegexString('foo', 'z')).toThrow(RGXInvalidRegexFlagsError);
         });
     });
 
