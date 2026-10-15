@@ -258,9 +258,17 @@ describe("RGXRepeatToken", () => {
             expect(instance.repeaterSuffix).toBe('{2,5}?');
         });
 
-        it("does not append '?' to the suffix when lazy is true but the range is [0,1]", () => {
+        it("appends '?' to the suffix when lazy is true and the range is [0,1]", () => {
             const instance = new RGXRepeatToken(null, 0, 1, true);
-            expect(instance.repeaterSuffix).toBe('?');
+            expect(instance.repeaterSuffix).toBe('??');
+        });
+
+        it("makes optional tokens lazy when lazy is true", () => {
+            const lazy = new RGXRepeatToken("a", 0, 1, true).toRgx() as RegExp;
+            expect(lazy.source).toBe("a??");
+            // A lazy optional prefers to match nothing, unlike a greedy one.
+            expect(new RegExp(lazy.source).exec("a")![0]).toBe("");
+            expect(new RegExp((new RGXRepeatToken("a", 0, 1).toRgx() as RegExp).source).exec("a")![0]).toBe("a");
         });
 
         it("does not append '?' to the suffix when lazy is true but the range is [1,1]", () => {

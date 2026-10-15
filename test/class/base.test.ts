@@ -374,15 +374,16 @@ describe("RGXClassToken", () => {
             expect(result).toBe(lookaheadToken);
         });
 
-        it("simply negates if a lookbehind token", () => {
-            const lookbehindToken = testToken1.asLookbehind();
-            const negateSpy = jest.spyOn(lookbehindToken, "negate");
-            const result = lookbehindToken.asLookahead();
-            
-            expect(result.tokens.toArray()).toEqual(lookbehindToken.tokens.toArray());
-            expect(negateSpy).toHaveBeenCalledTimes(1);
+        it("reverses a lookbehind token into a lookahead token with the same positivity", () => {
+            for (const positive of [true, false]) {
+                const lookbehindToken = testToken1.asLookbehind(positive);
+                const result = lookbehindToken.asLookahead();
 
-            jest.restoreAllMocks();
+                expect(result).toBeInstanceOf(RGXLookaheadToken);
+                expect(result.tokens.toArray()).toEqual(lookbehindToken.tokens.toArray());
+                expect(result.positive).toBe(positive);
+                expect((result.toRgx() as RegExp).source).toBe(positive ? "(?=test)" : "(?!test)");
+            }
         });
     });
 
@@ -413,15 +414,16 @@ describe("RGXClassToken", () => {
             expect(result).toBe(lookbehindToken);
         });
 
-        it("simply negates if a lookahead token", () => {
-            const lookaheadToken = testToken1.asLookahead();
-            const negateSpy = jest.spyOn(lookaheadToken, "negate");
-            const result = lookaheadToken.asLookbehind();
-            
-            expect(result.tokens.toArray()).toEqual(lookaheadToken.tokens.toArray());
-            expect(negateSpy).toHaveBeenCalledTimes(1);
+        it("reverses a lookahead token into a lookbehind token with the same positivity", () => {
+            for (const positive of [true, false]) {
+                const lookaheadToken = testToken1.asLookahead(positive);
+                const result = lookaheadToken.asLookbehind();
 
-            jest.restoreAllMocks();
+                expect(result).toBeInstanceOf(RGXLookbehindToken);
+                expect(result.tokens.toArray()).toEqual(lookaheadToken.tokens.toArray());
+                expect(result.positive).toBe(positive);
+                expect((result.toRgx() as RegExp).source).toBe(positive ? "(?<=test)" : "(?<!test)");
+            }
         });
     });
 

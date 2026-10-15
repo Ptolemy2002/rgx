@@ -120,7 +120,7 @@ export class RGXRepeatToken extends RGXClassToken {
             return `{${this.min},${this.max}}`;
         })();
 
-        if (this.lazy && result.length > 0 && result !== "?") return result + '?';
+        if (this.lazy && result.length > 0) return result + '?';
         else return result;
     }
 

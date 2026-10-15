@@ -14,3 +14,13 @@ Each entry has a `##` heading naming the change, followed by these sections:
 - **Reverting the workaround**: What to remove or simplify once the breaking change is made.
 
 ---
+
+## Give `RGXGroupToken` flags the same model as literal token flags
+
+**Problem**: `RGXGroupToken.flags` only lists the localizable flags (`i`, `m`, `s`) to turn on, and `''` means "no modifier". A non-empty value always outputs a modifier group computed against the full `"ims"` set (`(?i-ms:...)`), so it also turns off whatever it doesn't list. The resolver handles literal tokens differently: it computes the modifier from the flags in effect where the token is inserted (`localizableVanillaRegexFlagDiff(currentFlags, token.flags)`), so it only outputs what actually changes. Because of this, a group can't represent "turn off every localizable flag". For example, `(?-i:x)` inside an `/i` pattern ends with none of `i`, `m` or `s` in effect, and `flags: ''` already means "inherit". The only way to express it today is a literal token. This blocks lossless conversion from regex source to group tokens.
+
+**Breaking change**: Make `flags` the set of localizable flags in effect inside the group, using the same system as literal tokens, with `null` (the new default) meaning "inherit the surrounding flags". Then `''` means "turn off `i`, `m` and `s`". `toRgx()` computes the modifier with `localizableVanillaRegexFlagDiff` against the insertion flags (available through the insertion context, as `withRGXInsertionFlags` already uses them), so it only outputs a modifier when something changes. This breaks code that passes or reads `flags: ''` to mean "no modifier", and JSON group tokens serialized with `flags: ""`. Matching is unchanged for groups that set flags. They may output a shorter modifier (for example, `(?i:...)` instead of `(?i-ms:...)` when `m` and `s` are already off).
+
+**Current workaround**: None. Groups that need to turn off every localizable flag can't be represented; use a literal token with no localizable flags instead (for example, `/x/` inserted into an `/i` pattern resolves to `(?-i:x)`).
+
+**Reverting the workaround**: Nothing to revert. Update `RGXGroupTokenArgs`, the `flags` setter and `parseGroupJSONArgs` in `src/class/group.ts` to accept `null`, update `docs/class/token/group.md` and the type reference, and add the change to `MIGRATION.md`.

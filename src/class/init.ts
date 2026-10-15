@@ -76,13 +76,13 @@ export function rgxClassInit() {
 
     RGXClassToken.prototype.asLookahead = function (this: RGXClassToken, positive: boolean = true): RGXLookaheadToken {
         if (RGXLookaheadToken.check(this)) return this;
-        if (RGXLookbehindToken.check(this)) return this.negate();
+        if (RGXLookbehindToken.check(this)) return this.reverse();
         return new RGXLookaheadToken([this], positive);
     }
 
     RGXClassToken.prototype.asLookbehind = function (this: RGXClassToken, positive: boolean = true): RGXLookbehindToken {
         if (RGXLookbehindToken.check(this)) return this;
-        if (RGXLookaheadToken.check(this)) return this.negate();
+        if (RGXLookaheadToken.check(this)) return this.reverse();
         return new RGXLookbehindToken([this], positive);
     }
 
