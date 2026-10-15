@@ -1,7 +1,7 @@
 import { RGXError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
 import { RGXToken } from "src/types";
-import { isNonConsumingRegexSource } from "./scanRegexSource";
+import { isNonConsumingRegexSource } from "./analyzeRegexSource";
 import { withoutRGXInsertionChecks } from "./insertionContext";
 
 // Whether the token is detected as consuming no characters wherever it matches (see isNonConsumingRegexSource).

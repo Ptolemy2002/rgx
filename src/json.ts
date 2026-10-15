@@ -5,7 +5,7 @@ import { RGXClassToken, toRGXClassToken } from "./class";
 import { RGXTokenCollection } from "./collection";
 import { ExtRegExp, extractVanillaRegexFlags } from "./ExtRegExp";
 import { resolveRGXToken, rgxInterpolation } from "./resolve";
-import { removeRedundantRegexGroups } from "./internal/scanRegexSource";
+import { removeRedundantRegexGroups } from "./internal/analyzeRegexSource";
 import { withoutRGXInsertionChecks } from "./internal/insertionContext";
 
 // Parses the args of a JSON class token into a typed tuple, or returns the reason they were rejected.

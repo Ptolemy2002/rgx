@@ -2,7 +2,7 @@ import { RGXConvertibleToken, RGXInsertionContext, RGXJSONClassToken, RGXJSONObj
 import { RGXTokenCollectionInput } from "src/collection";
 import { RGXInvalidTokenError, RGXNotImplementedError } from "src/errors";
 import { createRGXJSONLiteralToken } from "src/json";
-import { removeRedundantRegexGroups } from "src/internal/scanRegexSource";
+import { removeRedundantRegexGroups } from "src/internal/analyzeRegexSource";
 import { withoutRGXInsertionChecks } from "src/internal/insertionContext";
 import { resolveRGXToken, ResolveRGXTokenOptions } from "src/resolve";
 import { CloneDepth } from "@ptolemy2002/immutability-utils";
