@@ -213,6 +213,29 @@ describe("rgxParse", () => {
             expect(element).toBeInstanceOf(RGXLookaheadToken);
             expect(close).toEqual({ rgxInterpolation: ")*" });
         });
+
+        it("drops quantifiers that require at least one repetition", () => {
+            expect(rgxParse(/(?=a)+/)).toBeInstanceOf(RGXLookaheadToken);
+            expect(rgxParse(/(?!a){2,3}?/)).toBeInstanceOf(RGXLookaheadToken);
+            expect(rgxParse(/(?:(?<=a))+/u)).toBeInstanceOf(RGXLookbehindToken);
+
+            // Capture groups are kept.
+            const group = rgxParse(/((?=a)){2}/) as RGXGroupToken;
+            expect(group).toBeInstanceOf(RGXGroupToken);
+            expect(group.capturing).toBe(true);
+        });
+
+        it("keeps quantifiers that allow no repetitions, since their capture groups still count", () => {
+            const result = rgxParse(/(?=(a)){0,2}/) as RGXGroupToken;
+            expect(result.tokens.toArray()[2]).toEqual({ rgxInterpolation: "){0,2}" });
+        });
+
+        it("matches the same as the original", () => {
+            const texts = ["", "a", "b", "ab", "ba", "aab"];
+            for (const regex of [/(?=(a))+a/, /(?=(a)){3}\w/, /(?=(a))?\w/, /(?:(?<=(a)))+?b/u, /(?:(?<=(a)))*b/, /(?:(?=(a))|(?=(b))){2}\w\2/]) {
+                expectSameMatches(regex, texts);
+            }
+        });
     });
 
     describe("input", () => {

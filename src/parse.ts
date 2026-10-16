@@ -7,7 +7,7 @@ import { extractCustomRegexFlags } from "./ExtRegExp";
 import { assertValidVanillaRegexFlags } from "./typeGuards";
 import { createRegex } from "./utils/createRegex";
 import { rgxInterpolation } from "./resolve";
-import { parseRegexSource, scanOptionsFromFlags } from "./internal";
+import { isNonConsumingRegexNode, parseRegexSource, scanOptionsFromFlags } from "./internal";
 
 // The localizable flags in effect at some position, as a set of "i", "m", and "s".
 type LocalizableFlags = ReadonlySet<string>;
@@ -113,6 +113,12 @@ function convertQuantifier(quantifier: AST.Quantifier, flags: LocalizableFlags, 
     const element = quantifier.element.type === "Character"
         ? convertCharacters([quantifier.element], flags, context)
         : convertElement(quantifier.element, flags, context);
+
+    // An element made entirely of assertions consumes nothing, so repeating it at the same position can't change the
+    // result, and once the minimum is reached, the engine rejects any repetition that consumes nothing. So when at least
+    // one repetition is required, the quantifier changes nothing and is dropped. When none is required, the element
+    // never takes part in the match, but it is still kept below, since its capture groups still count.
+    if (quantifier.min >= 1 && isNonConsumingRegexNode(quantifier.element)) return element;
 
     try {
         return new RGXRepeatToken(element, quantifier.min, quantifier.max === Infinity ? null : quantifier.max, !quantifier.greedy);

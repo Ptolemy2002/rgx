@@ -31,19 +31,21 @@ export function parseRegexSource(source: string, { unicode = false, unicodeSets 
     return result;
 }
 
-// Whether the alternatives are made entirely of assertions, possibly inside other groups, with at least one assertion
-// somewhere. This errs toward false, since only elements that can never consume characters are recognized: something
-// that only might consume nothing, such as "a?", is not.
-function isNonConsumingAlternatives(alternatives: readonly AST.Alternative[]): boolean {
+// Whether the pattern or element is made entirely of assertions, possibly inside other groups, with at least one
+// assertion somewhere. This errs toward false, since only elements that can never consume characters are recognized:
+// something that only might consume nothing, such as "a?", is not.
+export function isNonConsumingRegexNode(node: AST.Pattern | AST.Element): boolean {
     let hasAssertion = false;
 
-    const check = (alternatives: readonly AST.Alternative[]): boolean => alternatives.every(alternative => alternative.elements.every(element => {
-        if (element.type === 'Assertion') return hasAssertion = true;
-        if (element.type === 'Group' || element.type === 'CapturingGroup') return check(element.alternatives);
+    const check = (node: AST.Pattern | AST.Element): boolean => {
+        if (node.type === 'Assertion') return hasAssertion = true;
+        if (node.type === 'Pattern' || node.type === 'Group' || node.type === 'CapturingGroup') {
+            return node.alternatives.every(alternative => alternative.elements.every(check));
+        }
         return false;
-    }));
+    };
 
-    return check(alternatives) && hasAssertion;
+    return check(node) && hasAssertion;
 }
 
 // Literal characters that are only literals because nothing around them gives them meaning, so text placed next to
@@ -65,7 +67,7 @@ function isSingletonAlternatives(alternatives: readonly AST.Alternative[]): bool
         // Groups that only contain assertions are as meaningless to quantify as the assertions themselves.
         case 'Group':
         case 'CapturingGroup':
-            return !isNonConsumingAlternatives(element.alternatives);
+            return !isNonConsumingRegexNode(element);
         case 'Character':
             if (unquantifiableCharacters.has(element.raw)) return false;
             return !contextDependentEscape.test(element.raw);
@@ -80,7 +82,7 @@ function isSingletonAlternatives(alternatives: readonly AST.Alternative[]): bool
 // ("^", "$", "\b", "\B", and lookarounds), possibly inside other groups or between alternation bars.
 export function isNonConsumingRegexSource(source: string, options: ScanRegexSourceOptions = {}): boolean {
     const ast = parseRegexSource(source, options);
-    return ast !== null && isNonConsumingAlternatives(ast.alternatives);
+    return ast !== null && isNonConsumingRegexNode(ast);
 }
 
 // Whether the source is a singleton: exactly one element that a quantifier can apply to as a whole, such as a single

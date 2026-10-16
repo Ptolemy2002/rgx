@@ -38,7 +38,7 @@ Literal tokens carry the localizable flags (`i`, `m`, `s`) in effect where they 
 
 A few constructs can't be represented by class tokens yet, and are kept as interpolation tokens (see [general.md](./general.md)) around the converted contents:
 - A flag-modifier group that turns off every localizable flag in effect (such as `(?-i:a)` in a pattern with only the `i` flag), since an `RGXGroupToken` with empty `flags` sets no flags instead. If no localizable flags were in effect, the group changes nothing and is dropped.
-- A quantifier on an assertion (such as `(?=a)*`, which is allowed without the `u` or `v` flag), since `RGXRepeatToken` refuses tokens that consume no characters. The assertion is wrapped in `(?:` and `)` followed by the quantifier.
+- A quantifier that allows no repetitions on an assertion, or on a group made entirely of assertions (such as `(?=a)*` or `(?:(?<=a))?`), since `RGXRepeatToken` refuses tokens that consume no characters. The element is wrapped in `(?:` and `)` followed by the quantifier. It never takes part in the match, but it is kept, since capture groups inside it still count. A quantifier that requires at least one repetition (such as `(?=a)+` or `(?:(?<=a)){2}`) is dropped instead, and the element is converted on its own, since repeating something that consumes nothing at the same position changes nothing.
 
 Only the built-in classes in the table above are recognized. Patterns produced by other class tokens (such as `RGXExclusionToken`, constants, or your own classes) come back as the tokens they are made of, which match the same but don't have the original class's API. To store or send tokens without losing their classes, use their JSON form (see [json.md](./json.md)) instead of their resolved regex.
 
