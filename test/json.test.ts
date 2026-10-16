@@ -432,6 +432,10 @@ describe("built-in class token round trips", () => {
         expect(result).toBeInstanceOf(RGXGroupToken);
         expect(result.resolve()).toBe(token.resolve());
 
+        const aliased = new RGXGroupToken({ name: "foo", aliases: ["bar"] }, "a");
+        expect(aliased.toJSON().args?.[0]).toEqual({ name: "foo", capturing: true, flags: "", aliases: ["bar"] });
+        expect((roundTrip(aliased) as RGXGroupToken).allNames()).toEqual(["foo", "bar"]);
+
         const nonCapturing = roundTrip(new RGXGroupToken({ capturing: false }, "a")) as RGXGroupToken;
         expect(nonCapturing.capturing).toBe(false);
 
@@ -445,6 +449,8 @@ describe("built-in class token round trips", () => {
         expect(fromJSONRejection(RGXGroupToken, [{ name: 1 }])).toMatch(/name/);
         expect(fromJSONRejection(RGXGroupToken, [{ capturing: "yes" }])).toMatch(/capturing/);
         expect(fromJSONRejection(RGXGroupToken, [{ flags: 1 }])).toMatch(/flags/);
+        expect(fromJSONRejection(RGXGroupToken, [{ aliases: "a" }])).toMatch(/aliases/);
+        expect(fromJSONRejection(RGXGroupToken, [{ aliases: [1] }])).toMatch(/aliases/);
         expect(fromJSONRejection(RGXGroupToken, [{}, { nope: 1 }])).toMatch(/tokens/);
         expect(() => RGXGroupToken.fromJSON(createRGXJSONClassToken("RGXGroupToken", [{ name: null }, "a"]))).not.toThrow();
     });

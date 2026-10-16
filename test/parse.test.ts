@@ -23,6 +23,21 @@ describe("rgxParse", () => {
             expect(named.tokens.toArray()).toEqual(["ab"]);
         });
 
+        it("merges nested named groups into aliases only when asked to", () => {
+            expect((rgxParse(/(?<a>(?<b>x))/) as RGXGroupToken).allNames()).toEqual(["a"]);
+
+            const merged = rgxParse(/(?<a>(?:(?<b>(?<c>x))))/, undefined, { mergeAliases: true }) as RGXGroupToken;
+            expect(merged.allNames()).toEqual(["a", "b", "c"]);
+            expect(merged.tokens.toArray()).toEqual(["x"]);
+            expect(rgxa([merged]).source).toBe("(?<a>(?<b>(?<c>x)))");
+
+            // Anything else between them, or an unnamed group, keeps them apart.
+            for (const regex of [/(?<a>(?<b>x)y)/, /(?<a>(?<b>x)+)/, /(?<a>(x))/, /((?<b>x))/]) {
+                const result = rgxParse(regex, undefined, { mergeAliases: true }) as RGXGroupToken;
+                expect(result.aliases).toEqual([]);
+            }
+        });
+
         it("converts quantifiers into repeat tokens", () => {
             const cases: [RegExp, number, number | null, boolean][] = [
                 [/a*/, 0, null, false],

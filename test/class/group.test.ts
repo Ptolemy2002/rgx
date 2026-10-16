@@ -1,6 +1,6 @@
 import { RGXClassToken, RGXGroupToken, rgxGroup } from "src/class";
 import { RGXTokenCollection } from "src/collection";
-import { RGXInvalidRegexLocalizableFlagsError, RGXInvalidTokenError } from "src/errors";
+import { RGXInvalidIdentifierError, RGXInvalidRegexLocalizableFlagsError, RGXInvalidTokenError } from "src/errors";
 import { ConstructFunction } from "src/internal";
 
 class TestClassToken1 extends RGXClassToken {
@@ -76,6 +76,24 @@ function constructionTest(constructor: ConstructFunction<typeof RGXGroupToken>) 
         expect(instance.name).toBe("test");
         expect(instance.capturing).toBe(true);
         expect(instance.flags).toBe("i");
+    });
+
+    it("correctly initializes with a name and aliases", () => {
+        const instance = constructor({ name: "test", aliases: ["a", "b"] });
+        expect(instance.name).toBe("test");
+        expect(instance.aliases).toEqual(["a", "b"]);
+    });
+
+    it("uses the first alias as the name when there is no name", () => {
+        const instance = constructor({ aliases: ["a", "b"] });
+        expect(instance.name).toBe("a");
+        expect(instance.aliases).toEqual(["b"]);
+    });
+
+    it("drops aliases when capturing is false", () => {
+        const instance = constructor({ name: "test", aliases: ["a"], capturing: false });
+        expect(instance.name).toBeNull();
+        expect(instance.aliases).toEqual([]);
     });
 
     it("correctly initializes with a token array", () => {
@@ -171,6 +189,16 @@ describe("RGXGroupToken", () => {
             expect(instance.resolve()).toEqual("(?i-ms:(?<test>test))");
         });
 
+        it("resolves correctly with aliases, nested inside the name in order", () => {
+            const instance = new RGXGroupToken({ name: "test", aliases: ["a", "b"] }, [new TestClassToken1()]);
+            expect(instance.resolve()).toEqual("(?<test>(?<a>(?<b>test)))");
+        });
+
+        it("resolves correctly with aliases and flags, keeping the flags outermost", () => {
+            const instance = new RGXGroupToken({ name: "test", aliases: ["a"], flags: "i" }, [new TestClassToken1()]);
+            expect(instance.resolve()).toEqual("(?i-ms:(?<test>(?<a>test)))");
+        });
+
         it("resolves correctly with capturing false and flags", () => {
             const instance = new RGXGroupToken({ capturing: false, flags: "i" }, [new TestClassToken1()]);
             expect(instance.resolve()).toEqual("(?i-ms:test)");
@@ -190,6 +218,72 @@ describe("RGXGroupToken", () => {
             expect(() => { instance.name = "invalid-name"; }).toThrow();
             expect(() => { instance.name = "invalid name"; }).toThrow();
             expect(() => { instance.name = ""; }).toThrow();
+        });
+    });
+
+    describe("aliases", () => {
+        it("accepts unique valid identifiers", () => {
+            const instance = new RGXGroupToken({ name: "test" });
+            instance.aliases = ["a", "b"];
+            expect(instance.aliases).toEqual(["a", "b"]);
+            expect(instance.allNames()).toEqual(["test", "a", "b"]);
+        });
+
+        it("returns a copy that can't change the group", () => {
+            const instance = new RGXGroupToken({ name: "test", aliases: ["a"] });
+            instance.aliases.push("b");
+            expect(instance.aliases).toEqual(["a"]);
+        });
+
+        it("rejects invalid identifiers without changing anything", () => {
+            const instance = new RGXGroupToken({ name: "test", aliases: ["a"] });
+            expect(() => { instance.aliases = ["b", "123invalid"]; }).toThrow(RGXInvalidIdentifierError);
+            expect(instance.allNames()).toEqual(["test", "a"]);
+        });
+
+        it("rejects duplicates, including the name", () => {
+            const instance = new RGXGroupToken({ name: "test" });
+            expect(() => { instance.aliases = ["a", "a"]; }).toThrow(RGXInvalidIdentifierError);
+            expect(() => { instance.aliases = ["test"]; }).toThrow(RGXInvalidIdentifierError);
+            expect(() => new RGXGroupToken({ aliases: ["a", "a"] })).toThrow(RGXInvalidIdentifierError);
+            expect(instance.aliases).toEqual([]);
+        });
+
+        it("sets the name from the first alias when there is no name", () => {
+            const instance = new RGXGroupToken();
+            instance.aliases = ["a", "b"];
+            expect(instance.name).toBe("a");
+            expect(instance.aliases).toEqual(["b"]);
+        });
+
+        it("does nothing when set to an empty list without a name", () => {
+            const instance = new RGXGroupToken();
+            instance.aliases = [];
+            expect(instance.allNames()).toEqual([]);
+        });
+
+        it("adds aliases one at a time, starting with the name", () => {
+            const instance = new RGXGroupToken();
+            instance.addAlias("a");
+            instance.addAlias("b");
+            expect(instance.name).toBe("a");
+            expect(instance.aliases).toEqual(["b"]);
+            expect(() => instance.addAlias("a")).toThrow(RGXInvalidIdentifierError);
+        });
+
+        it("are cleared when the name is set to null", () => {
+            const instance = new RGXGroupToken({ name: "test", aliases: ["a"] });
+            instance.name = null;
+            expect(instance.aliases).toEqual([]);
+            expect(instance.allNames()).toEqual([]);
+        });
+
+        it("are kept when the name changes, but can't share it", () => {
+            const instance = new RGXGroupToken({ name: "test", aliases: ["a"] });
+            instance.name = "other";
+            expect(instance.allNames()).toEqual(["other", "a"]);
+            expect(() => { instance.name = "a"; }).toThrow(RGXInvalidIdentifierError);
+            expect(instance.name).toBe("other");
         });
     });
 
@@ -246,6 +340,8 @@ describe("RGXGroupToken", () => {
             const token = new TestClassToken1();
             const instance = new RGXGroupToken({ name: "test", capturing: false }, [token]);
             const clone = instance.clone();
+            const aliased = new RGXGroupToken({ name: "test", aliases: ["a"] }).clone();
+            expect(aliased.allNames()).toEqual(["test", "a"]);
 
             expect(clone).not.toBe(instance);
             expect(clone.name).toBe(instance.name);

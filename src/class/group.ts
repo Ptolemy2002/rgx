@@ -4,7 +4,8 @@ import { createConstructFunction, createRegexPiece, localizableVanillaRegexFlagD
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { assertValidIdentifier, assertValidRegexLocalizableFlags } from "src/typeGuards";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
-import { RGXJSONClassToken, RGXJSONToken, RGXJSONValue, ValidRegexFlags } from "src/types";
+import { RGXJSONClassToken, RGXJSONObject, RGXJSONToken, RGXJSONValue, ValidRegexFlags } from "src/types";
+import { RGXInvalidIdentifierError } from "src/errors";
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
 import { isRGXJSONToken } from "src/typeGuards";
 
@@ -12,6 +13,7 @@ export type RGXGroupTokenArgs = {
     name?: string | null;
     capturing?: boolean;
     flags?: string;
+    aliases?: string[];
 };
 
 function parseGroupJSONArgs(args: RGXJSONValue[]): [RGXGroupTokenArgs?, RGXJSONToken?] | string {
@@ -23,6 +25,7 @@ function parseGroupJSONArgs(args: RGXJSONValue[]): [RGXGroupTokenArgs?, RGXJSONT
         if (groupArgs.name !== undefined && groupArgs.name !== null && typeof groupArgs.name !== "string") return "Argument 0 (args) must have a string or null name, if present.";
         if (groupArgs.capturing !== undefined && typeof groupArgs.capturing !== "boolean") return "Argument 0 (args) must have a boolean capturing property, if present.";
         if (groupArgs.flags !== undefined && typeof groupArgs.flags !== "string") return "Argument 0 (args) must have a string flags property, if present.";
+        if (groupArgs.aliases !== undefined && (!Array.isArray(groupArgs.aliases) || groupArgs.aliases.some(alias => typeof alias !== "string"))) return "Argument 0 (args) must have an array of strings as its aliases property, if present.";
     }
 
     if (tokens !== undefined && !isRGXJSONToken(tokens, false)) return "Argument 1 (tokens) must be a JSON token.";
@@ -32,6 +35,7 @@ function parseGroupJSONArgs(args: RGXJSONValue[]): [RGXGroupTokenArgs?, RGXJSONT
 export class RGXGroupToken extends RGXClassToken {
     tokens: RGXTokenCollection;
     _name: string | null = null;
+    _aliases: string[] = [];
     _flags: string = '';
     _capturing: boolean = true;
 
@@ -43,8 +47,36 @@ export class RGXGroupToken extends RGXClassToken {
     }
 
     set name(value: string | null) {
-        if (value !== null) assertValidIdentifier(value);
+        if (value === null) {
+            // Aliases are extra names for the group, so they can't outlive its name.
+            this._aliases = [];
+        } else {
+            assertValidIdentifier(value);
+            if (this._aliases.includes(value)) throw new RGXInvalidIdentifierError("Group name is already one of the group's aliases", value);
+        }
+
         this._name = value;
+    }
+
+    get aliases(): string[] {
+        // A copy, so the list can't be changed without validation.
+        return [...this._aliases];
+    }
+
+    set aliases(value: string[]) {
+        // Without a name, the first alias becomes the name instead.
+        const [name, ...aliases] = this._name === null ? value : [this._name, ...value];
+        if (name === undefined) return;
+
+        const seen = new Set<string>();
+        for (const alias of [name, ...aliases]) {
+            assertValidIdentifier(alias);
+            if (seen.has(alias)) throw new RGXInvalidIdentifierError("Duplicate group name", alias);
+            seen.add(alias);
+        }
+
+        this._name = name;
+        this._aliases = aliases;
     }
 
     get capturing() {
@@ -57,6 +89,16 @@ export class RGXGroupToken extends RGXClassToken {
         this._capturing = value;
     }
 
+    // The name followed by the aliases, in the order they wrap the group's contents (outermost first). Empty when the
+    // group has no name.
+    allNames(): string[] {
+        return this._name === null ? [] : [this._name, ...this._aliases];
+    }
+
+    addAlias(alias: string) {
+        this.aliases = [...this._aliases, alias];
+    }
+
     get flags() {
         return this._flags;
     }
@@ -66,9 +108,10 @@ export class RGXGroupToken extends RGXClassToken {
         this._flags = value;
     }
 
-    constructor ({ name = null, capturing = true, flags = '' }: RGXGroupTokenArgs = {}, tokens: RGXTokenCollectionInput = []) {
+    constructor ({ name = null, capturing = true, flags = '', aliases = [] }: RGXGroupTokenArgs = {}, tokens: RGXTokenCollectionInput = []) {
         super();
         this.name = name;
+        this.aliases = aliases;
         this.capturing = capturing;
         this.flags = flags;
 
@@ -91,7 +134,8 @@ export class RGXGroupToken extends RGXClassToken {
         const flagsNotPresent = localizableVanillaRegexFlagDiff("ims", this.flags);
 
         if (this.name !== null) {
-            result = `(?<${this.name}>${result})`;
+            // Each alias is another named group, nested inside the name in order.
+            for (const name of this.allNames().reverse()) result = `(?<${name}>${result})`;
         } else if (!this.capturing) {
             if (!hasFlags) result = `(?:${result})`;
             else result = `(?${this.flags}${flagsNotPresent}:${result})`;
@@ -106,7 +150,7 @@ export class RGXGroupToken extends RGXClassToken {
 
     clone(depth: CloneDepth="max") {
         if (depth === 0) return this;
-        return new RGXGroupToken({ name: this.name, capturing: this._capturing, flags: this.flags }, this.tokens.clone(depthDecrement(depth, 1)));
+        return new RGXGroupToken({ name: this.name, capturing: this._capturing, flags: this.flags, aliases: this.aliases }, this.tokens.clone(depthDecrement(depth, 1)));
     }
 
     static fromJSON(json: RGXJSONClassToken): RGXGroupToken {
@@ -115,8 +159,12 @@ export class RGXGroupToken extends RGXClassToken {
     }
 
     toJSON(): RGXJSONClassToken {
+        const args: RGXJSONObject = { name: this.name, capturing: this._capturing, flags: this.flags };
+        // Only included when there are any, so JSON for groups without aliases is unchanged.
+        if (this._aliases.length > 0) args.aliases = this.aliases;
+
         return createRGXJSONClassToken("RGXGroupToken", [
-            { name: this.name, capturing: this._capturing, flags: this.flags },
+            args,
             rgxTokenToJSON(this.tokens.tokens)
         ]);
     }

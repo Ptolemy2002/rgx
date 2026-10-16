@@ -6,11 +6,14 @@ type RGXNoOpToken = null | undefined;
 type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 type RGXInterpolationToken = { readonly rgxInterpolation: string };
+type RGXParseOptions = {
+    mergeAliases?: boolean;
+};
 ```
 
 # rgxParse
 ```typescript
-function rgxParse(pattern: RegExp | string, flags?: string): RGXClassToken
+function rgxParse(pattern: RegExp | string, flags?: string, options?: RGXParseOptions): RGXClassToken
 ```
 Converts a regular expression into the equivalent tree of tokens, so a pattern written as a regex (by hand, or by a third party) can be inspected and changed with the class token API. Resolving the result with the same flags gives a pattern that matches the same strings, with the same captures, as the original.
 
@@ -30,6 +33,7 @@ The rest becomes simpler tokens:
 - Runs of plain characters become strings, such as `"abc"`. Strings take on the flags of wherever they are placed, so while the `i` flag is in effect, a run containing characters it affects (letters, and anything outside ASCII) becomes a literal token with the `i` flag instead. The characters in these literal tokens are written by value (such as `\u0001`), so they read the same wherever the token is placed.
 - Everything else, such as character classes, escapes like `\d` and `\p{L}`, `.`, `^`, `$` and `\b`, becomes a literal token (a `RegExp`) with the same source.
 - Non-capturing groups without flags are only syntax, so they don't become tokens of their own. Their contents become the tokens described here, nested the same way (for example, `(?:ab)+` becomes an `RGXRepeatToken` of `"ab"`, and `(?:a|b)` becomes an `RGXClassUnionToken`).
+- With the `mergeAliases` option, a named group whose only contents are another named group (ignoring non-capturing groups without flags between them) becomes a single `RGXGroupToken`, with the outer name as its `name` and the inner group's names as its `aliases` (see [group.md](./class/token/group.md)). This repeats for deeper nesting, so `(?<a>(?<b>(?<c>x)))` becomes one group with the name `a` and the aliases `b` and `c`, which resolves to the same pattern. Without the option, each named group is its own token.
 - A sequence of several tokens (inside a group, an alternative, or at the top level) becomes an `RGXTokenCollection` in `concat` mode.
 
 The result is always a class token: the top level is converted with `toRGXClassToken` (see [to.md](./class/token/to.md)), so a sequence becomes a non-capturing `RGXGroupToken` and a lone string or literal token becomes an `RGXClassWrapperToken`.
@@ -47,6 +51,9 @@ Throws `RGXInvalidRegexStringError` if `pattern` is not a valid regex with the g
 ## Parameters
   - `pattern` (`RegExp | string`): The regex to convert, or its source.
   - `flags` (`string`, optional): The flags the source is read with. They decide how some syntax is read (for example, `\p{L}` is a property escape with the `u` or `v` flag, and a `p` followed by `{L}` without them) and which localizable flags are in effect. Defaults to the flags of `pattern` when it is a `RegExp`, and `''` when it is a string.
+
+  - `options` (`RGXParseOptions`, optional): Options for the conversion. Defaults to `{}`.
+    - `mergeAliases` (`boolean`, optional): Whether to merge nested named groups into one `RGXGroupToken` with aliases, as described above. Defaults to `false`.
 
 ## Returns
 - `RGXClassToken`: The root of the token tree, as described above.

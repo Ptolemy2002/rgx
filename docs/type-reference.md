@@ -121,6 +121,11 @@ type RGXGroupTokenArgs = {
     name?: string | null;
     capturing?: boolean;
     flags?: string;
+    aliases?: string[];
+};
+
+type RGXParseOptions = {
+    mergeAliases?: boolean;
 };
 
 type RGXPartControl = "skip" | "stop" | "silent" | "stop-silent" | void;

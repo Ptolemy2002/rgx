@@ -12,9 +12,14 @@ import { isNonConsumingRegexNode, parseRegexSource, scanOptionsFromFlags } from 
 // The localizable flags in effect at some position, as a set of "i", "m", and "s".
 type LocalizableFlags = ReadonlySet<string>;
 
+export type RGXParseOptions = {
+    mergeAliases?: boolean;
+};
+
 type ParseContext = {
     // "u" or "v", whichever the pattern was parsed with, so leaves are compiled the same way.
     unicodeFlag: string;
+    mergeAliases: boolean;
 };
 
 function flagsString(flags: LocalizableFlags): string {
@@ -109,6 +114,19 @@ function convertGroup(group: AST.Group, flags: LocalizableFlags, context: ParseC
     return new RGXGroupToken({ capturing: false, flags: flagsString(groupFlags) }, contents);
 }
 
+function convertCapturingGroup(group: AST.CapturingGroup, flags: LocalizableFlags, context: ParseContext): RGXGroupToken {
+    const contents = convertAlternatives(group.alternatives, flags, context);
+    const [inner] = contents;
+
+    // A named group whose only contents are another named group becomes one group, with the inner group's names as
+    // aliases. Named groups converted here never set flags, so nothing else sits between the two.
+    if (context.mergeAliases && group.name !== null && contents.length === 1 && inner instanceof RGXGroupToken && inner.name !== null) {
+        return new RGXGroupToken({ name: group.name, aliases: inner.allNames() }, inner.tokens);
+    }
+
+    return new RGXGroupToken({ name: group.name, capturing: true }, contents);
+}
+
 function convertQuantifier(quantifier: AST.Quantifier, flags: LocalizableFlags, context: ParseContext): t.RGXToken {
     const element = quantifier.element.type === "Character"
         ? convertCharacters([quantifier.element], flags, context)
@@ -143,7 +161,7 @@ function convertElement(element: Exclude<AST.Element, AST.Character>, flags: Loc
         case "Group":
             return convertGroup(element, flags, context);
         case "CapturingGroup":
-            return new RGXGroupToken({ name: element.name, capturing: true }, convertAlternatives(element.alternatives, flags, context));
+            return convertCapturingGroup(element, flags, context);
         case "Quantifier":
             return convertQuantifier(element, flags, context);
         case "Backreference":
@@ -165,7 +183,8 @@ function convertElement(element: Exclude<AST.Element, AST.Character>, flags: Loc
 // RGXRepeatToken, RGXClassUnionToken, RGXLookaheadToken/RGXLookbehindToken, and RGXSubpatternToken instances, runs of
 // characters become strings, and everything else (such as character classes, escapes like "\d", "." and anchors)
 // becomes a literal token.
-export function rgxParse(pattern: RegExp | string, flags?: string): RGXClassToken {
+// With mergeAliases, nested named groups with nothing else between them become one RGXGroupToken with aliases.
+export function rgxParse(pattern: RegExp | string, flags?: string, { mergeAliases = false }: RGXParseOptions = {}): RGXClassToken {
     const source = typeof pattern === "string" ? pattern : pattern.source;
     flags ??= typeof pattern === "string" ? "" : pattern.flags;
 
@@ -185,7 +204,7 @@ export function rgxParse(pattern: RegExp | string, flags?: string): RGXClassToke
     /* istanbul ignore if */
     if (ast === null) throw new e.RGXNotSupportedError("Parsing this regex", "It uses syntax that isn't recognized yet.");
 
-    const context: ParseContext = { unicodeFlag: flags.includes("v") ? "v" : flags.includes("u") ? "u" : "" };
+    const context: ParseContext = { unicodeFlag: flags.includes("v") ? "v" : flags.includes("u") ? "u" : "", mergeAliases };
     const globalFlags: LocalizableFlags = new Set(flags.replaceAll(/[^ims]/g, ""));
     const tokens = convertAlternatives(ast.alternatives, globalFlags, context);
 
