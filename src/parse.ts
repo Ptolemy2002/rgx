@@ -13,6 +13,7 @@ import { isNonConsumingRegexNode, parseRegexSource, scanOptionsFromFlags } from 
 type LocalizableFlags = ReadonlySet<string>;
 
 export type RGXParseOptions = {
+    flags?: string;
     mergeAliases?: boolean;
 };
 
@@ -184,9 +185,16 @@ function convertElement(element: Exclude<AST.Element, AST.Character>, flags: Loc
 // characters become strings, and everything else (such as character classes, escapes like "\d", "." and anchors)
 // becomes a literal token.
 // With mergeAliases, nested named groups with nothing else between them become one RGXGroupToken with aliases.
-export function rgxParse(pattern: RegExp | string, flags?: string, { mergeAliases = false }: RGXParseOptions = {}): RGXClassToken {
+// The options can also be passed in place of the flags, with the flags among them.
+export function rgxParse(pattern: RegExp | string, flags?: string, options?: Omit<RGXParseOptions, "flags">): RGXClassToken;
+export function rgxParse(pattern: RegExp | string, options?: RGXParseOptions): RGXClassToken;
+export function rgxParse(pattern: RegExp | string, flagsOrOptions?: string | RGXParseOptions, options: RGXParseOptions = {}): RGXClassToken {
+    if (typeof flagsOrOptions === "object") options = flagsOrOptions;
+    else options = { ...options, flags: flagsOrOptions };
+
+    const { mergeAliases = false } = options;
     const source = typeof pattern === "string" ? pattern : pattern.source;
-    flags ??= typeof pattern === "string" ? "" : pattern.flags;
+    const flags = options.flags ?? (typeof pattern === "string" ? "" : pattern.flags);
 
     if (extractCustomRegexFlags(flags) !== "") {
         throw new e.RGXNotSupportedError(

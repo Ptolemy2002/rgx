@@ -24,3 +24,13 @@ Each entry has a `##` heading naming the change, followed by these sections:
 **Current workaround**: Groups that need to turn off every localizable flag can't be represented as group tokens; use a literal token with no localizable flags instead (for example, `/x/` inserted into an `/i` pattern resolves to `(?-i:x)`). `rgxParse` (`convertGroup` in `src/parse.ts`) converts such modifier groups into a concatenation of an interpolation token for the opening delimiter (such as `(?-i:`), the converted contents, and an interpolation token for `)`.
 
 **Reverting the workaround**: In `convertGroup` in `src/parse.ts`, remove the interpolation branch, so these groups become non-capturing `RGXGroupToken`s with `flags: ''`. Remove the test for it in `test/parse.test.ts` and the bullet about it in `docs/parse.md`. Then update `RGXGroupTokenArgs`, the `flags` setter and `parseGroupJSONArgs` in `src/class/group.ts` to accept `null`, update `docs/class/token/group.md` and the type reference, and add the change to `MIGRATION.md`.
+
+## Merge nested named groups into aliases in `rgxParse` by default
+
+**Problem**: `rgxParse` can convert a named group whose only contents are another named group (such as `(?<a>(?<b>x))`) into a single `RGXGroupToken` with aliases, which is a closer match to what the pattern means. Since this changes the shape of the token tree `rgxParse` returns for those patterns, it is opt-in through the `mergeAliases` option, so callers have to ask for the better behavior.
+
+**Breaking change**: Make `mergeAliases` default to `true`, so callers opt out with `mergeAliases: false` instead of opting in. The resolved pattern is the same either way, but code that walks the returned tree and expects one `RGXGroupToken` per named group (for example, reading the inner group through `tokens`) gets a single group with `aliases` instead.
+
+**Current workaround**: `mergeAliases` defaults to `false` (the `{ mergeAliases = false }` destructuring in `rgxParse` in `src/parse.ts`).
+
+**Reverting the workaround**: Change the default in `rgxParse` in `src/parse.ts` to `true`. Update the test in `test/parse.test.ts` that checks nested named groups stay separate without the option to pass `mergeAliases: false` instead, and pass `mergeAliases: false` in any other `test/parse.test.ts` tests that rely on nested named groups staying separate. Update the `mergeAliases` description and bullet in `docs/parse.md`, and add the change to `MIGRATION.md`.

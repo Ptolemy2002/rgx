@@ -7,13 +7,15 @@ type RGXLiteralToken = RegExp;
 type RGXNativeToken = string | number | boolean | RGXNoOpToken;
 type RGXInterpolationToken = { readonly rgxInterpolation: string };
 type RGXParseOptions = {
+    flags?: string;
     mergeAliases?: boolean;
 };
 ```
 
 # rgxParse
 ```typescript
-function rgxParse(pattern: RegExp | string, flags?: string, options?: RGXParseOptions): RGXClassToken
+function rgxParse(pattern: RegExp | string, flags?: string, options?: Omit<RGXParseOptions, "flags">): RGXClassToken
+function rgxParse(pattern: RegExp | string, options?: RGXParseOptions): RGXClassToken
 ```
 Converts a regular expression into the equivalent tree of tokens, so a pattern written as a regex (by hand, or by a third party) can be inspected and changed with the class token API. Resolving the result with the same flags gives a pattern that matches the same strings, with the same captures, as the original.
 
@@ -52,7 +54,8 @@ Throws `RGXInvalidRegexStringError` if `pattern` is not a valid regex with the g
   - `pattern` (`RegExp | string`): The regex to convert, or its source.
   - `flags` (`string`, optional): The flags the source is read with. They decide how some syntax is read (for example, `\p{L}` is a property escape with the `u` or `v` flag, and a `p` followed by `{L}` without them) and which localizable flags are in effect. Defaults to the flags of `pattern` when it is a `RegExp`, and `''` when it is a string.
 
-  - `options` (`RGXParseOptions`, optional): Options for the conversion. Defaults to `{}`.
+  - `options` (`RGXParseOptions`, optional): Options for the conversion. Defaults to `{}`. It can be passed in place of `flags`, in which case the flags are read from `options.flags` (with the same default as `flags`). When `flags` is passed as a string, it is used instead, and `options.flags` is not accepted.
+    - `flags` (`string`, optional): The same as the `flags` parameter, for when `options` is passed in its place.
     - `mergeAliases` (`boolean`, optional): Whether to merge nested named groups into one `RGXGroupToken` with aliases, as described above. Defaults to `false`.
 
 ## Returns

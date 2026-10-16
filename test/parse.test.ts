@@ -26,16 +26,27 @@ describe("rgxParse", () => {
         it("merges nested named groups into aliases only when asked to", () => {
             expect((rgxParse(/(?<a>(?<b>x))/) as RGXGroupToken).allNames()).toEqual(["a"]);
 
-            const merged = rgxParse(/(?<a>(?:(?<b>(?<c>x))))/, undefined, { mergeAliases: true }) as RGXGroupToken;
+            const merged = rgxParse(/(?<a>(?:(?<b>(?<c>x))))/, { mergeAliases: true }) as RGXGroupToken;
             expect(merged.allNames()).toEqual(["a", "b", "c"]);
             expect(merged.tokens.toArray()).toEqual(["x"]);
             expect(rgxa([merged]).source).toBe("(?<a>(?<b>(?<c>x)))");
 
             // Anything else between them, or an unnamed group, keeps them apart.
             for (const regex of [/(?<a>(?<b>x)y)/, /(?<a>(?<b>x)+)/, /(?<a>(x))/, /((?<b>x))/]) {
-                const result = rgxParse(regex, undefined, { mergeAliases: true }) as RGXGroupToken;
+                const result = rgxParse(regex, { mergeAliases: true }) as RGXGroupToken;
                 expect(result.aliases).toEqual([]);
             }
+
+            // The options can also follow the flags.
+            const withFlags = rgxParse("(?<a>(?<b>x))", "i", { mergeAliases: true }) as RGXGroupToken;
+            expect((withFlags.tokens.at(0) as RGXGroupToken).allNames()).toEqual(["a", "b"]);
+        });
+
+        it("accepts the options in place of the flags", () => {
+            const withFlags = rgxParse("a", { flags: "i" }) as RGXGroupToken;
+            expect(withFlags.flags).toBe("i");
+            expect(rgxParse(/a/i, {})).toBeInstanceOf(RGXGroupToken);
+            expect(rgxParse("a", {})).toBeInstanceOf(RGXClassWrapperToken);
         });
 
         it("converts quantifiers into repeat tokens", () => {

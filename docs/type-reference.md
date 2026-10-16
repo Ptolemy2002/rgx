@@ -125,6 +125,7 @@ type RGXGroupTokenArgs = {
 };
 
 type RGXParseOptions = {
+    flags?: string;
     mergeAliases?: boolean;
 };
 
