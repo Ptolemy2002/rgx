@@ -4,8 +4,7 @@ import {
     unregisterFlagTransformer, isFlagKeyAvailable, applyFlagTransformers,
     extractCustomRegexFlags, extractVanillaRegexFlags, isValidRegexFlags,
     assertValidRegexFlags, RegExpFlagTransformer,
-    RGXInvalidVanillaRegexFlagsError,
-    RGXNotDirectRegExpError
+    RGXInvalidVanillaRegexFlagsError
 } from "src/index";
 
 describe("ExtRegExp", () => {
@@ -129,10 +128,32 @@ describe("unregisterFlagTransformer", () => {
 });
 
 describe("applyFlagTransformers", () => {
-    it("rejects non-direct RegExp instances", () => {
+    it("converts RegExp subclass instances to plain RegExp instances", () => {
+        const customFlagTransformer: RegExpFlagTransformer = (exp: RegExp) => ["transformed" + exp.source, exp.flags];
+
+        registerFlagTransformer("x", customFlagTransformer);
+
         class CustomRegExp extends RegExp {}
-        const customRegex = new CustomRegExp("test");
-        expect(() => applyFlagTransformers(customRegex, "x")).toThrow(RGXNotDirectRegExpError);
+        const transformedRegex = applyFlagTransformers(new CustomRegExp("test", "g"), "x");
+        expect(Object.getPrototypeOf(transformedRegex)).toBe(RegExp.prototype);
+        expect(transformedRegex.source).toBe("transformedtest");
+        expect(transformedRegex.flags).toBe("g");
+
+        unregisterFlagTransformer("x");
+    });
+
+    it("treats the custom flags of an ExtRegExp as already applied", () => {
+        const customFlagTransformer: RegExpFlagTransformer = (exp: RegExp) => ["transformed" + exp.source, exp.flags];
+
+        registerFlagTransformer("x", customFlagTransformer);
+
+        const extRegex = new ExtRegExp("test", "gx");
+        const transformedRegex = applyFlagTransformers(extRegex, "x");
+        expect(Object.getPrototypeOf(transformedRegex)).toBe(RegExp.prototype);
+        expect(transformedRegex.source).toBe("transformedtest");
+        expect(transformedRegex.flags).toBe("g");
+
+        unregisterFlagTransformer("x");
     });
 
     it("applies registered transformers to a regex", () => {

@@ -34,3 +34,13 @@ Each entry has a `##` heading naming the change, followed by these sections:
 **Current workaround**: `mergeAliases` defaults to `false` (the `{ mergeAliases = false }` destructuring in `rgxParse` in `src/parse.ts`).
 
 **Reverting the workaround**: Change the default in `rgxParse` in `src/parse.ts` to `true`. Update the test in `test/parse.test.ts` that checks nested named groups stay separate without the option to pass `mergeAliases: false` instead, and pass `mergeAliases: false` in any other `test/parse.test.ts` tests that rely on nested named groups staying separate. Update the `mergeAliases` description and bullet in `docs/parse.md`, and add the change to `MIGRATION.md`.
+
+## Remove `RGXNotDirectRegExpError`
+
+**Problem**: `applyFlagTransformers` used to throw `RGXNotDirectRegExpError` for instances of `RegExp` subclasses (such as `ExtRegExp`), because their `flags` can include custom flags that are already applied to their source. It now converts them to plain `RegExp` instances instead, so nothing throws this error anymore, but it is still part of the public API.
+
+**Breaking change**: Remove `RGXNotDirectRegExpError` and the `NOT_DIRECT_REGEXP` error code. This breaks code that imports the class or checks for the code.
+
+**Current workaround**: `RGXNotDirectRegExpError` (`src/errors/notDirectRegexp.ts`) and `'NOT_DIRECT_REGEXP'` in `RGXErrorCode` (`src/errors/base.ts`) are kept, unused, and documented in `docs/class/RGXError.md` as no longer thrown.
+
+**Reverting the workaround**: Delete `src/errors/notDirectRegexp.ts` and its export from `src/errors/index.ts`, remove `'NOT_DIRECT_REGEXP'` from `RGXErrorCode` in `src/errors/base.ts`, remove the `RGXNotDirectRegExpError` tests and import from `test/errors.test.ts`, remove its section from `docs/class/RGXError.md` (and any `RGXErrorCode` listings in `docs`), and add the change to `MIGRATION.md`.

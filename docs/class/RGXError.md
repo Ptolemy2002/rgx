@@ -287,7 +287,7 @@ constructor(message: string, got: string)
 - `got` (`string`): The conflicting key string.
 
 ## RGXNotDirectRegExpError
-A specific error class for non-direct `RegExp` instances. This error is thrown by `applyFlagTransformers` when the provided `regex` argument is not a direct instance of `RegExp` (i.e., its prototype is not exactly `RegExp.prototype`), such as an `ExtRegExp`. The error code is set to `NOT_DIRECT_REGEXP` on instantiation.
+A specific error class for non-direct `RegExp` instances (i.e., instances whose prototype is not exactly `RegExp.prototype`, such as an `ExtRegExp`). The library no longer throws this error: `applyFlagTransformers` used to throw it for such instances, but now converts them to plain `RegExp` instances instead. It is still exported for compatibility and will be removed in the next major release. The error code is set to `NOT_DIRECT_REGEXP` on instantiation.
 
 ### Constructor
 ```typescript
