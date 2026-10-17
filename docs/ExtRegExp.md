@@ -148,20 +148,17 @@ Normalizes a string of regex flags (including both vanilla and custom registered
 Flag transformers predefined in this library.
 
 ## accentInsensitiveFlagTransformer
-A pre-built `RegExpFlagTransformer` that makes a regex pattern accent-insensitive. It replaces any accentable characters (a, e, i, o, u and their uppercase equivalents) in the regex source with alternation groups that match both the base character and its accented variants. For example, `é` becomes `(?:e|é|è|ë|ê)`. The following accent mappings are supported:
+A pre-built `RegExpFlagTransformer` that makes a regex pattern accent-insensitive. It parses the regex source and replaces any accentable characters (a, e, i, o, u, their uppercase equivalents, and the accented variants listed below) with a character class that matches the base character and all of its accented variants. For example, `é` becomes `[eéèëê]`. Since the replacement is a single character class, a quantifier after the character still applies to all of it (`ó+` becomes `[oóòöôõ]+`). The following accent mappings are supported:
 - `a` / `A`: á, à, ä, â, ã / Á, À, Ä, Â, Ã
 - `e` / `E`: é, è, ë, ê / É, È, Ë, Ê
 - `i` / `I`: í, ì, ï, î / Í, Ì, Ï, Î
 - `o` / `O`: ó, ò, ö, ô, õ / Ó, Ò, Ö, Ô, Õ
 - `u` / `U`: ú, ù, ü, û / Ú, Ù, Ü, Û
 
-Note that this transformer intentionally excludes replacing characters preceded by an odd number of backslashes, to allow for escaping. For example, in the pattern `\\a`, the `a` is preceded by two backslashes (an even number), so it will be replaced with `(a|á|à|ä|â|ã)`. In the pattern `\a`, the `a` is preceded by one backslash (an odd number), so it will not be replaced.
-
-Also, characters part of a localized flag diff inline modifier (e.g., `(?i:a)`) are not replaced, as that would introduce invalid syntax. This refers to the `i` here, not the `a`, since only `i` is a localizable flag.
-
-Finally, characters part of a character class are avoided for transformation, since that would introduce syntax errors again. For example, in the pattern `[a]`, the `a` is part of a character class and will not be replaced.
-
-These conditions (especially the last two) may cause some patterns that should be transformed to be skipped, but that is better than having the transformer produce invalid regex patterns.
+Only characters that are matched literally, and written as themselves, are replaced. The following are left as they are:
+- Characters that are part of other syntax, such as escapes (the `u` in `\u0025`), flag modifiers (the `i` in `(?i:a)`), group names (`(?<value>...)` and `\k<value>`) and property escapes (`\p{Script=Latin}`).
+- Escapes that produce an accentable character, such as `\x61` or `\u00e9`.
+- Characters inside character classes (such as the `a` in `[a-z]`), including nested classes and class strings with the `v` flag.
 
 ## beginningFlagTransformer
 A pre-built `RegExpFlagTransformer` that makes a regex pattern match only at the beginning of the string. It wraps the pattern in a non-capturing group and anchors it with `^`, so that the pattern must match from the start of the string. For example, the pattern `a|b` becomes `^(?:a|b)` (the non-capturing group ensures that the anchor applies to the entire alternation, not just the first branch).
