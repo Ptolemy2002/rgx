@@ -31,6 +31,24 @@ function accentableInSet(raw: string, unicodeFlag: string): number[] {
     return result;
 }
 
+// A character class for the lowercase letter and its precomposed variants that, case-insensitively, matches every
+// variant of both cases. Case folding misses a few uppercase variants (such as U+0130, and U+212B without the u flag),
+// so those are added. Cached, since it means testing each uppercase variant.
+const caselessClassCache = new Map<string, string>();
+function caselessVariantClass(lower: string, unicodeFlag: string): string {
+    const key = `${unicodeFlag}:${lower}`;
+    let result = caselessClassCache.get(key);
+    if (result === undefined) {
+        const lowerClass = accentVariantClass(lower);
+        const test = new RegExp(`^(?i:${lowerClass})$`, unicodeFlag);
+        const missed = accentVariantClass(lower.toUpperCase()).slice(1, -1);
+        const extra = [...missed].filter(character => !test.test(character)).join("");
+        result = `${lowerClass.slice(0, -1)}${extra}]`;
+        caselessClassCache.set(key, result);
+    }
+    return result;
+}
+
 // The set without its negation (\W becomes \w, \P{L} becomes \p{L}).
 function positiveSetRaw(node: AST.EscapeCharacterSet | AST.UnicodePropertyCharacterSet) {
     return node.negate ? `\\${node.raw[1]!.toLowerCase()}${node.raw.slice(2)}` : node.raw;
@@ -116,6 +134,15 @@ export const accentInsensitiveFlagTransformer: RegExpFlagTransformer = function 
     // Any number of combining marks after a letter, so decomposed text matches too.
     const marks = unicode ? "\\p{M}*" : "[\\u0300-\\u036f]*";
     const replacementFor = (letter: string) => accentVariantClass(letter) + marks;
+    // Both cases of a letter as one case-insensitive replacement. Each class gets its own group, since V8 only makes
+    // the first class in an alternation inside a modifier group case-insensitive without the u flag. With the v flag
+    // (and without i), V8 also makes classes after a modifier group case-insensitive, even outside it, so both cases
+    // are kept apart there.
+    const mergeCases = unicodeFlag !== "v" || flags.includes("i");
+    const caselessReplacementFor = (letter: string) => {
+        const lower = caselessVariantClass(letter.toLowerCase(), unicodeFlag);
+        return (flags.includes("i") ? lower : `(?i:${lower})`) + marks;
+    };
 
     const replacements: { start: number; end: number; replacement: string }[] = [];
     // The elements that were replaced, so combining marks written after them can be removed.
@@ -140,9 +167,22 @@ export const accentInsensitiveFlagTransformer: RegExpFlagTransformer = function 
     function replaceMatcher(node: ReplaceableNode, accentable: number[], rest: string | null, negate: boolean) {
         if (accentable.length === 0) return;
 
-        // One alternative per letter, in the order they are contained.
-        const letters = [...new Set(accentable.map(codePoint => accentBaseOf(codePoint)!))];
-        const alternatives = letters.map(replacementFor);
+        // One alternative per letter, in the order they are contained. Letters contained in both cases (as with \w)
+        // share one case-insensitive alternative, which is about half as long.
+        const letters = new Set(accentable.map(codePoint => accentBaseOf(codePoint)!));
+        const alternatives: string[] = [];
+        const done = new Set<string>();
+        for (const letter of letters) {
+            const lower = letter.toLowerCase();
+            const upper = letter.toUpperCase();
+            if (mergeCases && letters.has(lower) && letters.has(upper)) {
+                if (done.has(lower)) continue;
+                done.add(lower);
+                alternatives.push(caselessReplacementFor(letter));
+            } else {
+                alternatives.push(replacementFor(letter));
+            }
+        }
 
         if (negate) replace(node, `(?!${alternatives.join("|")})${node.raw}`);
         else replace(node, `(?:${[...alternatives, ...(rest === null ? [] : [rest])].join("|")})`, true);

@@ -103,7 +103,7 @@ To update:
 - Each accentable character becomes a class of every precomposed form of its letter, followed by any number of combining marks, so decomposed text (such as `e` followed by U+0301) matches too. For example, `ñ` now matches `ń` and `n` followed by U+0303.
 - Escapes that produce an accentable character, such as `\u00e9`, are replaced too.
 - Character classes containing accentable characters are split into alternatives, and negated ones become a negative lookahead followed by the class. For example, `[a-c]` now matches `ç`, and `[^a]` no longer matches `á`.
-- Character sets that match letters, such as `\w` and `\p{L}`, inside or outside classes, also match those letters' accented forms, and negated ones such as `\W` rule them out. For example, `\w+` now matches all of `café`, and `\W` no longer matches `é`. This makes each such set about 1,000 to 1,500 characters long; call `setAccentInsensitiveSetExpansion(false)` to leave sets as they are.
+- Character sets that match letters, such as `\w` and `\p{L}`, inside or outside classes, also match those letters' accented forms, and negated ones such as `\W` rule them out. For example, `\w+` now matches all of `café`, and `\W` no longer matches `é`. Letters a set matches in both cases share one case-insensitive group, which also lets `\w` match `ẛ` and, with the `u` flag, `ſ` and the Kelvin sign (U+212A). This makes each such set about 500 to 1,000 characters long; call `setAccentInsensitiveSetExpansion(false)` to leave sets as they are.
 
 Patterns using the flag now match strings they didn't match before, and the transformed source is different and longer.
 
