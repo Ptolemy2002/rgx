@@ -1,4 +1,4 @@
-import { RGXFlagTransformerConflictError, RGXInvalidFlagTransformerKeyError, RGXInvalidRegexFlagsError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError, RGXNotDirectRegExpError } from "./errors";
+import { RGXFlagTransformerConflictError, RGXInvalidFlagTransformerKeyError, RGXInvalidRegexFlagsError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError } from "./errors";
 import { createConstructFunction } from "./internal";
 import { isValidVanillaRegexFlags } from "./typeGuards";
 import { ValidRegexFlags } from "./types";
@@ -57,8 +57,13 @@ export function unregisterFlagTransformer(key: string): void {
 }
 
 export function applyFlagTransformers(regex: RegExp, flags: string, alreadyAppliedFlags: string = ''): RegExp {
+    // Subclasses such as ExtRegExp can report custom flags in `flags`, and those
+    // have already been applied to the source. Mark them as applied and hand
+    // transformers a plain RegExp with only the vanilla flags, so a transformer
+    // that passes `exp.flags` through doesn't produce invalid vanilla flags.
     if (Object.getPrototypeOf(regex) !== RegExp.prototype) {
-        throw new RGXNotDirectRegExpError("Cannot apply flag transformers to non-direct RegExp instances", regex.constructor.name);
+        alreadyAppliedFlags += extractCustomRegexFlags(regex.flags);
+        regex = createRegex(regex.source, extractVanillaRegexFlags(regex.flags));
     }
 
     for (const flag in flagTransformers) {

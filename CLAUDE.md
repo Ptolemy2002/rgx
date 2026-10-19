@@ -34,5 +34,3 @@ The library generates regex modifier groups like `(?i:...)`, which need Node 23 
 N=$(dirname $(npx -y node@24 -e 'console.log(process.execPath)'))
 PATH=$N:$PATH npm run test
 ```
-
-The `prepare` script runs `typesync`, which adds `@types/node`. If dependencies were installed without running scripts, the typecheck and many test suites fail with `Cannot find name 'setImmediate'`. Install it with `pnpm add -D @types/node --ignore-scripts`, then restore `package.json` and `pnpm-lock.yaml` with `git checkout` so the change isn't committed.
