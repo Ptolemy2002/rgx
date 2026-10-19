@@ -50,6 +50,23 @@ type RGXTryWalkOptions = {
     revertCaptures?: boolean;
 };
 
+type RGXWalkerSnapshotKey =
+    | "sourcePosition"
+    | "tokenPosition"
+    | "reduced"
+    | "share"
+    | "captures"
+    | "namedCaptures";
+
+type RGXWalkerSnapshot<R, S> = Partial<{
+    sourcePosition: number;
+    tokenPosition: number;
+    reduced: R;
+    share: S;
+    captures: RGXCapture[];
+    namedCaptures: Record<string, RGXCapture[]>;
+}>;
+
 type RGXPartControl = "skip" | "stop" | "silent" | "stop-silent" | void;
 
 type RGXCapture<T = unknown> = {
@@ -239,4 +256,6 @@ constructor(source: string, tokens: RGXTokenOrPart<R, S>[], options?: RGXWalkerO
   - `revertShare` (`boolean`, optional): When `true`, the `share` value is deep-cloned before the walk and restored if the walk fails. Defaults to `false`.
   - `revertCaptures` (`boolean`, optional): When `true`, both `captures` and `namedCaptures` are deep-cloned before the walk and restored if the walk fails. Defaults to `false`.
 - `tryWalkAsync(options?: RGXTryWalkOptions, yieldFn?: () => Promise<void>) => Promise<boolean>`: Async variant of `tryWalk`. Like `walkAsync()`, but snapshots and restores state on failure. Returns a `Promise<boolean>` — `true` if the walk succeeded or was stopped, `false` if it failed due to a match or validation error. Unexpected errors are re-thrown after restoring state. Accepts the same `options` as `tryWalk`.
+- `snapshot(name: string, ...keys: Array<RGXWalkerSnapshotKey | false>) => this`: Saves the current values of the listed walker fields under `name`, so they can be put back later with `restore(name)`. Only the listed keys are saved; a snapshot taken with no keys saves nothing and restoring it changes nothing. `sourcePosition` and `tokenPosition` are copied as numbers, while `reduced`, `share`, `captures`, and `namedCaptures` are deep-cloned (`extClone` with depth `"max"`), so later changes to the walker do not affect what was saved. `false` entries in `keys` are ignored, which allows keys to be included conditionally (e.g., `walker.snapshot("before", "sourcePosition", keepCaptures && "captures")`). Taking a snapshot with a name that already exists replaces the previous one. Snapshots are stored per walker instance and are not copied by `clone()`. Note that `tryWalk` and `tryWalkAsync` use the name `"tryWalk"` internally, so a snapshot saved under that name is overwritten when either is called.
+- `restore(name: string) => this`: Restores the fields saved by the snapshot named `name`, leaving every field that snapshot did not include untouched. Positions are set through the `sourcePosition` and `tokenPosition` setters. If no snapshot with that name exists, does nothing. The snapshot remains stored after restoring, but its `reduced`, `share`, `captures`, and `namedCaptures` values are assigned to the walker directly rather than cloned again, so if the walker then mutates them in place (for example, by recording new captures), those changes also appear in the stored snapshot. To restore the same reference-type state more than once, take a fresh snapshot after each restore.
 - `clone(depth: CloneDepth = "max") => RGXWalker`: Creates a clone of the walker. When `depth` is `0`, returns `this`; otherwise, creates a new `RGXWalker` with cloned tokens, source position, reduced value, share value, captures, stopped state, and the `infinite`/`looping`/`contiguous` flags.

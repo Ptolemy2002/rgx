@@ -173,6 +173,23 @@ type RGXTryWalkOptions = {
     revertCaptures?: boolean;
 };
 
+type RGXWalkerSnapshotKey =
+    | "sourcePosition"
+    | "tokenPosition"
+    | "reduced"
+    | "share"
+    | "captures"
+    | "namedCaptures";
+
+type RGXWalkerSnapshot<R, S> = Partial<{
+    sourcePosition: number;
+    tokenPosition: number;
+    reduced: R;
+    share: S;
+    captures: RGXCapture[];
+    namedCaptures: Record<string, RGXCapture[]>;
+}>;
+
 type RGXJSONClassArgsParser<A extends unknown[]> = (args: RGXJSONValue[]) => A | string;
 type RGXJSONClassConstructor = (args: RGXJSONValue[]) => RGXClassToken;
 type RGXJSONClassTokenConstructor = {
