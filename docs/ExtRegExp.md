@@ -25,12 +25,12 @@ A function `extRegExp` is provided with the same parameters as this class' const
 ```typescript
 constructor(pattern: string | RegExp, flags?: string)
 ```
-- `pattern` (`string | RegExp`): The regex pattern. If a `RegExp` is provided, its `source` is used and its existing `flags` are tracked as already-applied flags to avoid re-applying transformers. If it is an `ExtRegExp`, its `originalSource` is carried over, and its custom flags are kept in the new instance's `flags` even when `flags` leaves them out, since their transformations are already in the source.
+- `pattern` (`string | RegExp`): The regex pattern. If a `RegExp` is provided, its `source` is used and its existing `flags` are tracked as already-applied flags to avoid re-applying transformers. If it is an `ExtRegExp`, it is rebuilt from its `originalSource` instead, so `flags` replaces its custom flags just as it replaces its vanilla flags, and each custom flag in `flags` is applied once.
 - `flags` (`string`, optional): The flags string, which may include both vanilla regex flags and custom registered flag keys. Validated via `assertValidRegexFlags`. Defaults to `''`.
 
 ## Properties
 - `flags` (`string`): Returns the combination of the vanilla flags (from the underlying `RegExp`) and any custom flags that were applied during construction.
-- `originalSource` (`string`, readonly): The pattern before any custom flag transformations were applied. `source` is the transformed pattern, which is what is used when the `ExtRegExp` is embedded in a larger pattern. `new ExtRegExp(regex.originalSource, regex.flags)` rebuilds an equivalent `ExtRegExp`, which is how JSON literal tokens store it (see [json.md](./json.md)).
+- `originalSource` (`string`, readonly): The pattern before any custom flag transformations were applied. `source` is the transformed pattern, which is what is used when the `ExtRegExp` is embedded in a larger pattern. `new ExtRegExp(regex.originalSource, regex.flags)` rebuilds an equivalent `ExtRegExp`, which is how JSON literal tokens store it (see [json.md](./json.md)), and passing other flags rebuilds it with those instead, adding or removing custom flags.
 
 # Functions
 ## isFlagKeyAvailable
@@ -167,7 +167,7 @@ Expanding character sets makes patterns much longer, and any set containing ASCI
 ```typescript
 function setAccentInsensitiveSetExpansion(value: boolean): void
 ```
-Sets whether `accentInsensitiveFlagTransformer` expands character sets, as described above. This is a global setting, which defaults to `true`. It only affects patterns transformed after it is changed: an `ExtRegExp` that has already been created keeps its transformed source.
+Sets whether `accentInsensitiveFlagTransformer` expands character sets, as described above. This is a global setting, which defaults to `true`. It only affects patterns transformed after it is changed: an `ExtRegExp` that has already been created keeps its transformed source, but `new ExtRegExp(regex, regex.flags)` rebuilds it with the current setting.
 
 #### Parameters
 - `value` (`boolean`): `true` to expand character sets, `false` to leave them as they are.

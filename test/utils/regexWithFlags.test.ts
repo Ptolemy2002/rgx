@@ -1,4 +1,4 @@
-import { regexWithFlags, RGXInvalidRegexFlagsError } from "src/index";
+import { ExtRegExp, regexWithFlags, registerFlagTransformer, RGXInvalidRegexFlagsError, unregisterFlagTransformer } from "src/index";
 
 describe("regexWithFlags", () => {
     it("always returns a new regex", () => {
@@ -28,5 +28,22 @@ describe("regexWithFlags", () => {
     it("rejects invalid flags", () => {
         const exp = /abc/;
         expect(() => regexWithFlags(exp, "z")).toThrow(RGXInvalidRegexFlagsError);
+    });
+
+    it("applies the custom flags of an ExtRegExp once, and can remove them", () => {
+        registerFlagTransformer("x", exp => ["a" + exp.source, exp.flags]);
+        try {
+            const exp = new ExtRegExp("b", "x");
+
+            const merged = regexWithFlags(exp, "g");
+            expect(merged.source).toBe("ab");
+            expect(merged.flags).toBe("gx");
+
+            const replaced = regexWithFlags(exp, "g", true);
+            expect(replaced.source).toBe("b");
+            expect(replaced.flags).toBe("g");
+        } finally {
+            unregisterFlagTransformer("x");
+        }
     });
 });

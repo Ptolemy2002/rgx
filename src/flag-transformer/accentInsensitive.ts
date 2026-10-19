@@ -8,7 +8,8 @@ type ReplaceableNode = AST.Character | AST.CharacterSet | CharacterClassNode;
 let setExpansion = true;
 
 // Whether character sets such as \w and \p{L} are expanded to cover the accented forms of the letters they match.
-// Expanding them makes patterns much longer, so it can be turned off. Only patterns transformed afterwards are affected.
+// Expanding them makes patterns much longer, so it can be turned off. Only patterns transformed afterwards are affected,
+// but an ExtRegExp can be rebuilt from its original source to pick up the change.
 export function setAccentInsensitiveSetExpansion(value: boolean) {
     setExpansion = value;
 }

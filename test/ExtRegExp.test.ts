@@ -39,12 +39,18 @@ describe("ExtRegExp", () => {
             expect(new ExtRegExp("b", "gx").originalSource).toBe("b");
             expect(new ExtRegExp(/b/g).originalSource).toBe("b");
 
-            // Constructing from an ExtRegExp carries the original source over, and keeps reporting the custom flags
-            // that are applied to its source.
-            const derived = new ExtRegExp(new ExtRegExp("b", "x"), "g");
-            expect(derived.source).toBe("ab");
-            expect(derived.originalSource).toBe("b");
-            expect(derived.flags).toBe("gx");
+            // Constructing from an ExtRegExp rebuilds it from the original source, so the new flags replace its
+            // custom flags, and each one is applied once.
+            const base = new ExtRegExp("b", "x");
+            const withoutCustom = new ExtRegExp(base, "g");
+            expect(withoutCustom.source).toBe("b");
+            expect(withoutCustom.originalSource).toBe("b");
+            expect(withoutCustom.flags).toBe("g");
+
+            const withCustom = new ExtRegExp(base, "gx");
+            expect(withCustom.source).toBe("ab");
+            expect(withCustom.originalSource).toBe("b");
+            expect(withCustom.flags).toBe("gx");
         } finally {
             unregisterFlagTransformer("x");
         }

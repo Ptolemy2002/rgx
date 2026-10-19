@@ -47,7 +47,7 @@ One construct can't be represented by class tokens yet, and is kept as interpola
 
 Only the built-in classes in the table above are recognized. Patterns produced by other class tokens (such as `RGXExclusionToken`, constants, or your own classes) come back as the tokens they are made of, which match the same but don't have the original class's API. To store or send tokens without losing their classes, use their JSON form (see [json.md](./json.md)) instead of their resolved regex.
 
-Throws `RGXInvalidRegexStringError` if `pattern` is not a valid regex with the given flags, `RGXInvalidVanillaRegexFlagsError` if the flags are invalid, and `RGXNotSupportedError` if the flags include a custom flag (see [ExtRegExp.md](./ExtRegExp.md)), since flag transformers change the source in ways that can't be undone.
+Throws `RGXInvalidRegexStringError` if `pattern` is not a valid regex with the given flags, `RGXInvalidVanillaRegexFlagsError` if the flags are invalid, and `RGXNotSupportedError` if the flags include a custom flag (see [ExtRegExp.md](./ExtRegExp.md)), since tokens can't carry custom flags, so their transformations would be lost. To parse an `ExtRegExp` with custom flags, pass its `originalSource` and vanilla flags to convert the pattern without the transformations, or its `source` and vanilla flags to convert the transformed pattern.
 
 ## Parameters
   - `pattern` (`RegExp | string`): The regex to convert, or its source.
