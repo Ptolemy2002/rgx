@@ -12,6 +12,16 @@ const letter = (base: string, after = marks) => accentVariantClass(base) + after
 // The letters with accented forms that \w matches, in the order the replacements list them.
 const wordLetters = [..."ABCDEFGHIJKLMNOPRSTUVWXYZabcdefghijklmnoprstuvwxyz"];
 const letters = (bases: string[], after = marks) => bases.map(base => letter(base, after)).join("|");
+// The letters with accented forms that \w matches in both cases, each made case-insensitive. Case folding misses İ,
+// and the Angstrom sign without the u flag, so they are added.
+const caselessWordLetters = [..."abcdefghijklmnoprstuvwxyz"];
+function caselessLetters(after = marks, modifier = true) {
+    return caselessWordLetters.map(base => {
+        const extra = base === "i" ? "İ" : base === "a" && after === marks ? "\u212b" : "";
+        const variants = `${accentVariantClass(base).slice(0, -1)}${extra}]`;
+        return (modifier ? `(?i:${variants})` : variants) + after;
+    }).join("|");
+}
 
 function transform(source: string, flags = "") {
     return accentInsensitiveFlagTransformer(new ExtRegExp(source, flags))[0];
@@ -103,15 +113,15 @@ describe("accentInsensitiveFlagTransformer", () => {
     });
 
     it("adds the letters character sets in a class match, keeping the sets whole", () => {
-        expect(transform("[\\w.]", "g")).toBe(`(?:${letters(wordLetters)}|[\\w.])`);
+        expect(transform("[\\w.]", "g")).toBe(`(?:${caselessLetters()}|[\\w.])`);
         // Negated sets are kept as they are.
         expect(transform("[\\W_]", "g")).toBe("[\\W_]");
-        expect(transform("[^\\w]", "g")).toBe(`(?!${letters(wordLetters)})[^\\w]`);
+        expect(transform("[^\\w]", "g")).toBe(`(?!${caselessLetters()})[^\\w]`);
     });
 
     it("expands character sets outside classes", () => {
-        expect(transform("\\w", "g")).toBe(`(?:${letters(wordLetters)}|\\w)`);
-        expect(transform("\\w+", "u")).toBe(`(?:${letters(wordLetters, unicodeMarks)}|\\w)+`);
+        expect(transform("\\w", "g")).toBe(`(?:${caselessLetters()}|\\w)`);
+        expect(transform("\\w+", "u")).toBe(`(?:${caselessLetters(unicodeMarks)}|\\w)+`);
         expect(transform("\\p{Lu}", "u")).toBe(`(?:${letters(wordLetters.slice(0, 25), unicodeMarks)}|\\p{Lu})`);
         expect(transform("\\d\\s.", "g")).toBe("\\d\\s.");
 
@@ -120,8 +130,32 @@ describe("accentInsensitiveFlagTransformer", () => {
         expect(regex.test("caf!")).toBe(false);
     });
 
+    it("makes letters a set matches in both cases case-insensitive", () => {
+        // Sets matching one case keep their own letters.
+        expect(transform("[a-z]", "g")).toBe(`(?:${letters(wordLetters.slice(25))}|[q])`);
+        // The i flag already makes them case-insensitive.
+        expect(transform("\\w", "gi")).toBe(`(?:${caselessLetters(marks, false)}|\\w)`);
+        // With the v flag, V8 would make classes after a modifier group case-insensitive too, so cases are kept apart.
+        expect(transform("\\w", "v")).toBe(`(?:${letters(wordLetters, unicodeMarks)}|\\w)`);
+        expect(transformed("^\\w[B]$", "v").test("ab")).toBe(false);
+        expect(transform("\\w", "iv")).toBe(`(?:${caselessLetters(unicodeMarks, false)}|\\w)`);
+
+        for (const flags of ["", "u", "i"]) {
+            const regex = transformed("^\\w+$", flags);
+            // Each letter has its own modifier group, since V8 only makes the first class in an alternation inside
+            // one case-insensitive without the u flag.
+            for (const word of ["CAFÉ", "Ärger", "İSTANBUL", "\u212bngström", "E\u0301TE\u0301"]) expect(regex.test(word)).toBe(true);
+            expect(transformed("^\\W$", flags).test("Ö")).toBe(false);
+        }
+
+        // Case folding adds a few characters the letters' variants don't include.
+        expect(transformed("^\\w$", "u").test("ſ")).toBe(true);
+        expect(transformed("^\\w$", "u").test("\u212a")).toBe(true);
+        expect(transformed("^\\w$").test("ẛ")).toBe(true);
+    });
+
     it("turns negated character sets into a negative lookahead for the letters of their positive form", () => {
-        expect(transform("\\W", "g")).toBe(`(?!${letters(wordLetters)})\\W`);
+        expect(transform("\\W", "g")).toBe(`(?!${caselessLetters()})\\W`);
         expect(transform("\\P{Lu}+", "u")).toBe(`(?:(?!${letters(wordLetters.slice(0, 25), unicodeMarks)})\\P{Lu})+`);
         expect(transform("\\D", "g")).toBe("\\D");
 
