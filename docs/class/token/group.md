@@ -32,7 +32,6 @@ type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInter
 type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXInterpolationToken | RGXJSONObjectToken | RGXToken[];
 
-type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
 
 type RGXGroupTokenArgs = {
     name?: string | null;
@@ -54,17 +53,17 @@ A function `rgxGroup` is provided with the same parameters as this class' constr
 
 ## Constructor
 ```typescript
-constructor(args?: RGXGroupTokenArgs, tokens?: RGXTokenCollectionInput)
+constructor(args?: RGXGroupTokenArgs, tokens?: RGXToken)
 ```
 - `args` (`RGXGroupTokenArgs`, optional): An object specifying the group configuration. Defaults to `{}`.
   - `name` (`string | null`, optional): The name of the group for named capture groups. Must be a valid identifier (validated via `assertValidIdentifier`). Defaults to `null`.
   - `capturing` (`boolean`, optional): Whether the group is capturing. Defaults to `true`. Setting this to `false` also clears any `name`.
   - `flags` (`string | null`, optional): The localizable regex flags (`i`, `m`, `s`) in effect inside the group, or `null` to inherit the flags in effect where the group is placed. `''` turns off all three. Validated via `assertValidRegexLocalizableFlags` when not `null`. Defaults to `null`.
   - `aliases` (`string[]`, optional): Extra names for the group, set through the `aliases` setter after `name` (so when `name` is `null`, the first alias becomes the name). Defaults to `[]`. Since `capturing` is applied afterwards, setting it to `false` drops the name and the aliases.
-- `tokens` (`RGXTokenCollectionInput`, optional): The tokens to be wrapped by the group. Internally stored as an `RGXTokenCollection` in 'concat' mode. Defaults to an empty array. If `tokens` is an `RGXTokenCollection` in 'union' mode, it is kept as a single element of the concat collection, so the alternation is preserved rather than its tokens being concatenated.
+- `tokens` (`RGXToken`, optional): The tokens to be wrapped by the group, which are concatenated. An array lists the tokens (it is copied); any other token, including an `RGXClassUnionToken`, is the group's only token. To group a union written as an array, put it inside another array (`[["a", "b"]]`). Defaults to an empty array.
 
 ## Properties
-- `tokens` (`RGXTokenCollection`): The internal collection of tokens managed in 'concat' mode.
+- `tokens` (`RGXToken[]`): The tokens inside the group, which are concatenated.
 - `name` (`string | null`): The name of the group. Setting this to a non-null value validates it as a valid identifier via `assertValidIdentifier`, and throws `RGXInvalidIdentifierError` if it is one of the aliases. Setting it to `null` also clears the aliases.
 - `capturing` (`boolean`): Whether the group is capturing. Any named group is automatically capturing (returns `true` when `name` is not `null`). Setting this to `false` also clears `name` to `null` (and so the aliases).
 - `aliases` (`string[]`): Extra names for the group, each output as another named group nested inside the one for `name` (see `toRgx`). The getter returns a copy, so change the list by setting it or with `addAlias`. Setting it validates every name with `assertValidIdentifier` and throws `RGXInvalidIdentifierError` if any name, including `name`, appears more than once, without changing anything. When `name` is `null`, the first alias becomes `name` and the rest become the aliases, and setting an empty list does nothing. Setting `name` to `null` clears the aliases, and setting `name` to one of the aliases throws `RGXInvalidIdentifierError`.

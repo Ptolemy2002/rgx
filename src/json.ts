@@ -2,7 +2,6 @@ import * as t from "./types";
 import * as e from "./errors";
 import * as tg from "./typeGuards";
 import { RGXClassToken, toRGXClassToken } from "./class";
-import { RGXTokenCollection } from "./collection";
 import { ExtRegExp } from "./ExtRegExp";
 import { resolveRGXToken, rgxInterpolation } from "./resolve";
 import { removeRedundantRegexGroups } from "./internal/analyzeRegexSource";
@@ -129,7 +128,6 @@ export function rgxTokenToJSON(token: t.RGXToken, { resolveConvertible = true }:
     if (tg.isRGXInterpolationToken(token)) return createRGXJSONInterpolationToken(token.rgxInterpolation);
 
     if (RGXClassToken.check(token) && token.toJSON !== RGXClassToken.prototype.toJSON) return token.toJSON();
-    if (RGXTokenCollection.check(token)) return toRGXClassToken(token).toJSON();
 
     // Class tokens without a custom toJSON fall through to here, since they are also convertible tokens.
     if (tg.isRGXConvertibleToken(token, false)) {

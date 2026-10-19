@@ -42,7 +42,6 @@ type RGXTokenTypeGuardInput =
     // - null, which can be used to indicate any token type
     // - Constructors for class tokens
     // - The RegExp and ExtRegExp constructors, which can be used to indicate literal tokens
-    // - RGXTokenCollection, which can be used to indicate arrays of tokens
     // - "repeatable", which can be used to indicate any token that is repeatable (see isRGXToken in type-guards.md)
     // - "json", which can be used to indicate any JSON token (native, JSON object token, or array of JSON tokens)
     // - Arrays of any of the above, allowing for nested token type specifications
@@ -276,7 +275,6 @@ When `acceptJSON` is `true` (the default), JSON object tokens (see [json.md](./j
     - `null`, which indicates that any token type is acceptable.
     - Constructors for class tokens, which check for instances of those specific constructors.
     - The `RegExp` and `ExtRegExp` constructors, which check for literal tokens.
-    - The `RGXTokenCollection` constructor, which checks for arrays of tokens.
     - The string literal `"repeatable"`, which checks for any token that is repeatable (see above).
     - The string literal `"json"`, which checks for any JSON token.
     - Arrays of any of the above, allowing for nested token type specifications.
@@ -381,4 +379,4 @@ Converts an `RGXTokenType` to its flat equivalent `RGXTokenTypeFlat`. If the typ
 function rgxTokenTypeGuardInputToFlat(type: RGXTokenTypeGuardInput): RGXTokenTypeFlat | null
 ```
 
-Converts an `RGXTokenTypeGuardInput` to its flat equivalent. If the type is `null`, it returns `null`; if it is an array, it returns `'array'`; if it is a RegEx constructor, it returns `'literal`; if it is the `RGXTokenCollection` constructor, it returns `'convertible'`; if it is an `RGXClassTokenConstructor` (a constructor for an `RGXClassToken` subclass), it returns `'class'` (making it slightly lossy in that case); if it is `"repeatable"`, it returns `null`; otherwise (including `"json"`), it returns the type as-is.
+Converts an `RGXTokenTypeGuardInput` to its flat equivalent. If the type is `null`, it returns `null`; if it is an array, it returns `'array'`; if it is a RegEx constructor, it returns `'literal`; if it is an `RGXClassTokenConstructor` (a constructor for an `RGXClassToken` subclass), it returns `'class'` (making it slightly lossy in that case); if it is `"repeatable"`, it returns `null`; otherwise (including `"json"`), it returns the type as-is.

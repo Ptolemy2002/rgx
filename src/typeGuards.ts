@@ -5,7 +5,6 @@ import { isConstructor, isNonConsumingRGXToken, isSingletonRegexSource, withoutR
 import { resolveRGXToken } from "./resolve";
 import { RGXClassToken } from "./class";
 import { ExtRegExp } from "./ExtRegExp";
-import { RGXTokenCollection } from "./collection";
 import { getRGXJSONClass, hasRGXJSONClass, rgxTokenFromJSON } from "./json";
 import { createRegex } from "./utils/createRegex";
 import { assertValidRegexFlags, extractVanillaRegexFlags, isValidRegexFlags } from "./ExtRegExp";
@@ -259,7 +258,6 @@ export function rgxTokenTypeGuardInputToFlat(type: t.RGXTokenTypeGuardInput): t.
     if (type === null) return null;
     if (Array.isArray(type)) return 'array';
     if (type === RegExp || type === ExtRegExp) return 'literal';
-    if (type === RGXTokenCollection) return 'convertible';
     if (isConstructor(type)) return 'class';
     if (type === "repeatable") return null;
 

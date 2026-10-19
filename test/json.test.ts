@@ -5,7 +5,7 @@ import {
     createRGXJSONClassToken, createRGXJSONLiteralToken, assertRGXJSONClassTokenOf, rgxJSONClassArgs,
     RGX_BUILTIN_JSON_CLASSES, registerBuiltinRGXJSONClasses,
     RGXClassToken, RGXClassWrapperToken, RGXClassUnionToken, RGXGroupToken, RGXRepeatToken,
-    RGXLookaheadToken, RGXLookbehindToken, RGXExclusionToken, RGXSubpatternToken, RGXTokenCollection,
+    RGXLookaheadToken, RGXLookbehindToken, RGXExclusionToken, RGXSubpatternToken,
     ExtRegExp, registerFlagTransformer, unregisterFlagTransformer,
     RGXInvalidJSONClassKeyError, RGXJSONClassConflictError, RGXJSONClassArgsValidationFailedError,
     RGXNotJSONSerializableError, RGXInvalidJSONTokenError, RGXInvalidTokenError, RGXNotImplementedError, RGXInvalidRegexStringError,
@@ -295,13 +295,6 @@ describe("rgxTokenToJSON", () => {
         expect(rgxTokenToJSON(new RGXSubpatternToken(2))).toEqual({ $rgx: true, class: "RGXSubpatternToken", args: [2] });
     });
 
-    it("converts collections through toRGXClassToken", () => {
-        expect(rgxTokenToJSON(new RGXTokenCollection(["a", "b"], "union"))).toEqual({ $rgx: true, class: "RGXClassUnionToken", args: [["a", "b"]] });
-        expect(rgxTokenToJSON(new RGXTokenCollection(["a", "b"], "concat"))).toEqual({
-            $rgx: true, class: "RGXGroupToken", args: [{ name: null, capturing: false, flags: null }, ["a", "b"]]
-        });
-    });
-
     it("resolves plain convertible tokens into literal tokens by default", () => {
         expect(rgxTokenToJSON({ toRgx: () => "abc" })).toEqual({ $rgx: true, source: "abc" });
         expect(rgxTokenToJSON({ toRgx: () => ["a", "b"] })).toEqual({ $rgx: true, source: "a|b" });
@@ -468,8 +461,8 @@ describe("built-in class token round trips", () => {
         expect(() => RGXGroupToken.fromJSON(createRGXJSONClassToken("RGXGroupToken", [{ name: null }, "a"]))).not.toThrow();
     });
 
-    it("keeps a union-mode collection inside a concat-mode token as a union", () => {
-        const union = () => new RGXTokenCollection(["a", "b"], 'union');
+    it("keeps a union inside a group or lookaround as a union", () => {
+        const union = () => new RGXClassUnionToken(["a", "b"]);
         const tokens = [
             new RGXGroupToken({}, union()),
             new RGXLookaheadToken(union()),

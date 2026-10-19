@@ -1,9 +1,9 @@
-import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
+import { RGXToken } from "src/types";
 import { RGXClassToken } from "./base";
 import { RGXInvalidTokenError } from "src/errors";
 
 export abstract class RGXLookaroundToken extends RGXClassToken {
-    tokens: RGXTokenCollection;
+    tokens: RGXToken[];
     _negative = false;
 
     // The createClassGuard function only accepts non-abstract classes, so we 
@@ -31,12 +31,12 @@ export abstract class RGXLookaroundToken extends RGXClassToken {
         return !this.negative;
     }
 
-    constructor(tokens: RGXTokenCollectionInput = [], positive: boolean = true) {
+    constructor(tokens: RGXToken = [], positive: boolean = true) {
         super();
         this.positive = positive;
 
-        if (tokens instanceof RGXTokenCollection && tokens.mode === 'union') this.tokens = new RGXTokenCollection([tokens], 'concat');
-        else this.tokens = new RGXTokenCollection(tokens, 'concat');
+        // An array lists the tokens to concatenate. Anything else, including a union, is a single token.
+        this.tokens = Array.isArray(tokens) ? [...tokens] : [tokens];
     }
 
     abstract negate(): RGXLookaroundToken;

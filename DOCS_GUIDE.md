@@ -104,7 +104,7 @@ constructor(param1: Type1, param2: Type2 = defaultValue)
 - Mark abstract classes with `# ClassName (abstract)` in the heading.
 - Put abstract methods in a separate `## Abstract Methods` section before `## Properties`.
 - Properties with only getters get a note: "These properties only have getters."
-- For inherited/standard interface implementations (e.g., array methods), add a prose paragraph at the bottom of the file describing them rather than listing each individually. See `docs/class/collection.md` for an example.
+- For inherited/standard interface implementations (e.g., array methods), add a prose paragraph at the bottom of the file describing them rather than listing each individually.
 
 ### Multiple related components in one file
 

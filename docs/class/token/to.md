@@ -34,11 +34,10 @@ type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXInte
 ```typescript
 function toRGXClassToken(token: RGXToken): RGXClassToken
 ```
-Converts any `RGXToken` into an appropriate `RGXClassToken` subclass, giving you access to the extended API that class tokens provide. JSON object tokens are first converted with `rgxTokenFromJSON` (see [json.md](../../json.md)), so a JSON class token becomes the class token it describes and a JSON literal token becomes an `ExtRegExp`, which is then handled like any other literal. Tokens that are already class tokens are returned as-is. Array tokens and `RGXTokenCollection` instances in union mode are converted to `RGXClassUnionToken`. `RGXTokenCollection` instances in concat mode are converted to a non-capturing `RGXGroupToken`. All other tokens are wrapped in an `RGXClassWrapperToken`.
+Converts any `RGXToken` into an appropriate `RGXClassToken` subclass, giving you access to the extended API that class tokens provide. JSON object tokens are first converted with `rgxTokenFromJSON` (see [json.md](../../json.md)), so a JSON class token becomes the class token it describes and a JSON literal token becomes an `ExtRegExp`, which is then handled like any other literal. Tokens that are already class tokens are returned as-is. Array tokens are converted to `RGXClassUnionToken`. All other tokens are wrapped in an `RGXClassWrapperToken`.
 
 ## Returns
 - `RGXClassToken`: The corresponding class token:
   - The described class token for JSON class tokens.
-  - `RGXClassUnionToken` for array tokens and union-mode `RGXTokenCollection` instances.
-  - `RGXGroupToken` (non-capturing) for concat-mode `RGXTokenCollection` instances.
+  - `RGXClassUnionToken` for array tokens.
   - `RGXClassWrapperToken` for all other tokens.

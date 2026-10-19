@@ -1,7 +1,7 @@
 import rgx, {
     rgxa, rgxwa, rgxConcat, resolveRGXToken, rgxTokenToJSON, isRGXSingletonToken, isRGXConvertibleToken,
     RGXClassToken, RGXClassWrapperToken, RGXGroupToken, RGXLookaheadToken, RGXRepeatToken, RGXExclusionToken,
-    RGXClassUnionToken, RGXTokenCollection, RGXInsertionRejectedError, RGXInvalidTokenError, RGXPart,
+    RGXClassUnionToken, RGXInsertionRejectedError, RGXInvalidTokenError, RGXPart,
     RGXInsertionContext, RGXToken, registerRGXJSONClassToken, unregisterRGXJSONClass, createRGXJSONClassToken
 } from "src/index";
 import { expectError } from "./utils";
@@ -105,8 +105,8 @@ describe("insertion context", () => {
             new RGXLookaheadToken([token]),
             new RGXRepeatToken(token, 2),
             new RGXClassUnionToken([token, "a"]),
-            new RGXTokenCollection([token, "b"], "union"),
-            new RGXTokenCollection(["c", token], "concat"),
+            new RGXGroupToken({ capturing: false }, [token, "b"]),
+            new RGXGroupToken({}, ["c", token]),
             new RGXClassWrapperToken(token),
             new RGXExclusionToken("ex", token, ["d"], token),
             ["e", token],
@@ -143,12 +143,8 @@ describe("insertion context", () => {
             expect(path(error.context!)).toEqual([1, 1, 0]);
         });
 
-        expectError(() => rgxa([[token, "a"], new RGXTokenCollection([token]), new RGXClassWrapperToken({ toRgx: () => token })]), RGXInsertionRejectedError, error => {
+        expectError(() => rgxa([[token, "a"], new RGXGroupToken({}, [token]), new RGXClassWrapperToken({ toRgx: () => token })]), RGXInsertionRejectedError, error => {
             expect(error.message).toContain("index 0 > 0 (inside array)");
-        });
-
-        expectError(() => rgxa([new RGXTokenCollection([token])]), RGXInsertionRejectedError, error => {
-            expect(error.message).toContain("index 0 > 0 (inside RGXTokenCollection)");
         });
 
         expectError(() => rgxa([{ toRgx: () => token }]), RGXInsertionRejectedError, error => {

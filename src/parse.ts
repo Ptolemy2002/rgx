@@ -2,7 +2,6 @@ import type { AST } from "@eslint-community/regexpp";
 import * as t from "./types";
 import * as e from "./errors";
 import { RGXClassToken, RGXClassUnionToken, RGXGroupToken, RGXLookaheadToken, RGXLookbehindToken, RGXRepeatToken, RGXSubpatternToken, toRGXClassToken } from "./class";
-import { RGXTokenCollection } from "./collection";
 import { extractCustomRegexFlags } from "./ExtRegExp";
 import { assertValidVanillaRegexFlags } from "./typeGuards";
 import { createRegex } from "./utils/createRegex";
@@ -58,11 +57,12 @@ function convertCharacters(characters: AST.Character[], flags: LocalizableFlags,
     return leaf(characters.map(character => escapeCharacter(character.value, context)).join(""), flags, context);
 }
 
-// A sequence of tokens as one token: nothing for an empty sequence, the token itself for one, or a concatenation.
+// A sequence of tokens as one token: nothing for an empty sequence, the token itself for one, or a non-capturing
+// group of them.
 function sequenceToken(tokens: t.RGXToken[]): t.RGXToken {
     if (tokens.length === 0) return null;
     if (tokens.length === 1) return tokens[0];
-    return new RGXTokenCollection(tokens, "concat");
+    return new RGXGroupToken({ capturing: false }, tokens);
 }
 
 function convertAlternative(alternative: AST.Alternative, flags: LocalizableFlags, context: ParseContext): t.RGXToken[] {
@@ -141,7 +141,7 @@ function convertQuantifier(quantifier: AST.Quantifier, flags: LocalizableFlags, 
         // after the element instead, with a group around the element so the quantifier is valid with any flags.
         if (err instanceof e.RGXNotSupportedError) {
             const suffix = quantifier.raw.slice(quantifier.element.end - quantifier.start);
-            return new RGXTokenCollection([rgxInterpolation("(?:"), element, rgxInterpolation(")" + suffix)], "concat");
+            return new RGXGroupToken({ capturing: false }, [rgxInterpolation("(?:"), element, rgxInterpolation(")" + suffix)]);
         }
 
         // This is ignored because I don't know what kind of

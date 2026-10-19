@@ -4,7 +4,8 @@ import { createConstructFunction, createRegexPiece, parseLookaroundJSONArgs } fr
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { RGXLookaheadToken } from "./lookahead";
 import { RGXLookaroundToken } from "./lookaround";
-import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
+import { CloneDepth, depthDecrement, extClone } from "@ptolemy2002/immutability-utils";
+import { rgxConcat } from "src/concat";
 
 export class RGXLookbehindToken extends RGXLookaroundToken {
     static check = createRGXClassGuardFunction(RGXLookbehindToken);
@@ -19,7 +20,7 @@ export class RGXLookbehindToken extends RGXLookaroundToken {
     }
 
     toRgx(currentFlags: string = ''): RGXToken {
-        let result: string = this.tokens.toRgx(currentFlags).source;
+        let result: string = rgxConcat(this.tokens, true, currentFlags);
         if (this.positive) result = `(?<=${result})`;
         else result = `(?<!${result})`;
         return createRegexPiece(result, currentFlags);
@@ -27,7 +28,7 @@ export class RGXLookbehindToken extends RGXLookaroundToken {
 
     clone(depth: CloneDepth="max") {
         if (depth === 0) return this;
-        return new RGXLookbehindToken(this.tokens.clone(depthDecrement(depth, 1)), this.positive);
+        return new RGXLookbehindToken(extClone(this.tokens, depthDecrement(depth, 1)), this.positive);
     }
 
     static fromJSON(json: RGXJSONClassToken): RGXLookbehindToken {
@@ -36,7 +37,7 @@ export class RGXLookbehindToken extends RGXLookaroundToken {
     }
 
     toJSON(): RGXJSONClassToken {
-        return createRGXJSONClassToken("RGXLookbehindToken", [rgxTokenToJSON(this.tokens.tokens), this.positive]);
+        return createRGXJSONClassToken("RGXLookbehindToken", [rgxTokenToJSON(this.tokens), this.positive]);
     }
 }
 

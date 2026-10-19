@@ -1,7 +1,6 @@
 import { Branded } from "@ptolemy2002/ts-brand-utils";
 import type { RGXClassToken } from "./class";
 import type { ExtRegExp } from "./ExtRegExp";
-import type { RGXTokenCollection } from "./collection";
 import type { RGXWalkerOptions } from "./walker";
 
 export type RGXNoOpToken = null | undefined;
@@ -61,7 +60,6 @@ export type RGXTokenTypeGuardInput =
     null | RGXClassTokenConstructor |
     typeof RegExp |
     typeof ExtRegExp |
-    typeof RGXTokenCollection |
     RGXTokenTypeGuardInput[]
 ;
 export type RGXTokenFromType<T extends RGXTokenTypeGuardInput, J extends boolean = true> =

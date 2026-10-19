@@ -32,7 +32,6 @@ type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInter
 type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXInterpolationToken | RGXJSONObjectToken | RGXToken[];
 
-type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
 ```
 
 # RGXLookaroundToken (abstract)
@@ -44,13 +43,13 @@ An abstract base class for lookaround assertion tokens (lookahead and lookbehind
 
 ## Constructor
 ```typescript
-constructor(tokens?: RGXTokenCollectionInput, positive?: boolean)
+constructor(tokens?: RGXToken, positive?: boolean)
 ```
-- `tokens` (`RGXTokenCollectionInput`, optional): The tokens to include in the lookaround. Internally stored as an `RGXTokenCollection` in 'concat' mode. Defaults to an empty array. If `tokens` is an `RGXTokenCollection` in 'union' mode, it is kept as a single element of the concat collection, so the alternation is preserved rather than its tokens being concatenated.
+- `tokens` (`RGXToken`, optional): The tokens to include in the lookaround, which are concatenated. An array lists the tokens (it is copied); any other token, including an `RGXClassUnionToken`, is the lookaround's only token. Defaults to an empty array.
 - `positive` (`boolean`, optional): Whether the lookaround is positive (matches if the pattern is present) or negative (matches if the pattern is absent). Defaults to `true`.
 
 ## Properties
-- `tokens` (`RGXTokenCollection`): The internal collection of tokens managed in 'concat' mode.
+- `tokens` (`RGXToken[]`): The tokens inside the lookaround, which are concatenated.
 - `positive` (`boolean`): Whether the lookaround is positive. Setting this updates `negative` accordingly.
 - `negative` (`boolean`): Whether the lookaround is negative. Setting this updates `positive` accordingly.
 

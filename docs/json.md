@@ -92,14 +92,13 @@ Converts any `RGXToken` into a JSON token. The conversion is by token type:
 - JSON object tokens are validated (`assertRGXJSONObjectToken`) and returned as-is.
 - Interpolation tokens become JSON interpolation tokens that store the fragment as-is. Resolving them into JSON literal tokens would fail whenever the fragment is unbalanced.
 - Class tokens that override `toJSON()` are converted with it. Class tokens that do not are treated like any other convertible token (see below).
-- `RGXTokenCollection` instances are converted via `toRGXClassToken` (an `RGXClassUnionToken` for union mode, a non-capturing `RGXGroupToken` for concat mode) and then with `toJSON()`.
 - Any other convertible token (including a class token that does not override `toJSON()`) cannot be reconstructed from JSON, so when `resolveConvertible` is `true` (the default) it is resolved with `resolveRGXToken(token, { groupWrap: false })` into a JSON literal token, after removing groups that are redundant in an isolated source (this is safe because a JSON literal's source must be a valid regex on its own, and it is wrapped or flag-localized again whenever it is inserted). This is lossy: `rgxIsRepeatable` and `rgxAcceptInsertion` preferences are not preserved, and the resolved string may be wrapped in an extra non-capturing group once used, though the matching behavior is the same. When `resolveConvertible` is `false`, an `RGXNotJSONSerializableError` is thrown instead.
 - Arrays are converted element-wise (with the same options).
 
 ## Parameters
   - `token` (`RGXToken`): The token to convert.
   - `options` (`RGXTokenToJSONOptions`, optional): An object containing optional configuration.
-    - `resolveConvertible` (`boolean`, optional): Whether plain convertible tokens (ones that are neither class tokens with a custom `toJSON()` nor collections) are resolved into JSON literal tokens. Defaults to `true`. When `false`, encountering one throws `RGXNotJSONSerializableError`.
+    - `resolveConvertible` (`boolean`, optional): Whether plain convertible tokens (ones that are neither class tokens with a custom `toJSON()`) are resolved into JSON literal tokens. Defaults to `true`. When `false`, encountering one throws `RGXNotJSONSerializableError`.
 
 ## Returns
 - `RGXJSONToken`: The JSON token. Passing it through `JSON.stringify` and `JSON.parse` yields an equal value.

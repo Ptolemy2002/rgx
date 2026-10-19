@@ -36,7 +36,7 @@ The rest becomes simpler tokens:
 - Everything else, such as character classes, escapes like `\d` and `\p{L}`, `.`, `^`, `$` and `\b`, becomes a literal token (a `RegExp`) with the same source.
 - Non-capturing groups without flags are only syntax, so they don't become tokens of their own. Their contents become the tokens described here, nested the same way (for example, `(?:ab)+` becomes an `RGXRepeatToken` of `"ab"`, and `(?:a|b)` becomes an `RGXClassUnionToken`).
 - Unless the `mergeAliases` option is `false`, a named group whose only contents are another named group (ignoring non-capturing groups without flags between them) becomes a single `RGXGroupToken`, with the outer name as its `name` and the inner group's names as its `aliases` (see [group.md](./class/token/group.md)). This repeats for deeper nesting, so `(?<a>(?<b>(?<c>x)))` becomes one group with the name `a` and the aliases `b` and `c`, which resolves to the same pattern. With `mergeAliases: false`, each named group is its own token.
-- A sequence of several tokens (inside a group, an alternative, or at the top level) becomes an `RGXTokenCollection` in `concat` mode.
+- A sequence of several tokens (inside an alternative, or at the top level) becomes a non-capturing `RGXGroupToken` without flags. Groups contain their tokens directly.
 
 The result is always a class token: the top level is converted with `toRGXClassToken` (see [to.md](./class/token/to.md)), so a sequence becomes a non-capturing `RGXGroupToken` and a lone string or literal token becomes an `RGXClassWrapperToken`.
 
@@ -63,7 +63,7 @@ Throws `RGXInvalidRegexStringError` if `pattern` is not a valid regex with the g
 ```typescript
 const token = rgxParse(/(?<year>\d{4})-(?<month>\d{2})/) as RGXGroupToken;
 // A non-capturing RGXGroupToken containing the two named groups and "-".
-const year = token.tokens.at(0) as RGXGroupToken;
+const year = token.tokens[0] as RGXGroupToken;
 year.name = "y";
 rgxa([token]); // /(?<y>\d{4})\x2d(?<month>\d{2})/
 ```

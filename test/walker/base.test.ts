@@ -1,5 +1,4 @@
 import { rgxPart, RGXPart, rgxWalker, RGXWalker } from "src/walker";
-import { RGXTokenCollection } from "src/collection";
 import { RGXInsertionRejectedError, RGXInvalidWalkerError, RGXInvalidWalkerStepError, RGXOutOfBoundsError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError, RGXRegexNotMatchedAtPositionError } from "src/errors";
 import { RGXClassToken, RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { rgxInterpolation, rgxSubpattern, rgxwa, RGXInvalidBackreferenceError } from "src/index";
@@ -577,18 +576,8 @@ describe("RGXWalker", () => {
             expect(result).toEqual({ raw: "bar", value: "BAR", start: 0, end: 3, ownerId: part.id, branch: 1, groups: null });
         });
 
-        it("handles branches correctly with a part with a token collection in union mode", () => {
-            const part = new RGXPart(new RGXTokenCollection(["foo", "bar"], "union"), {
-                transform: s => s.toUpperCase()
-            });
-            const instance = new RGXWalker("bar", [part]);
-
-            const result = instance.step();
-            expect(result).toEqual({ raw: "bar", value: "BAR", start: 0, end: 3, ownerId: part.id, branch: 1, groups: null });
-        });
-
-        it("handles branches correctly with a part with a token collection in concat mode", () => {
-            const part = new RGXPart(new RGXTokenCollection(["foo", "bar"], "concat"), {
+        it("handles branches correctly with a part with a group token", () => {
+            const part = new RGXPart(new RGXGroupToken({ capturing: false }, ["foo", "bar"]), {
                 transform: s => s.toUpperCase()
             });
             const instance = new RGXWalker("foobar", [part]);

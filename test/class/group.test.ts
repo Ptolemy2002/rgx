@@ -1,5 +1,4 @@
-import { RGXClassToken, RGXGroupToken, rgxGroup } from "src/class";
-import { RGXTokenCollection } from "src/collection";
+import { RGXClassToken, RGXClassUnionToken, RGXGroupToken, rgxGroup } from "src/class";
 import { RGXInvalidIdentifierError, RGXInvalidRegexLocalizableFlagsError, RGXInvalidTokenError } from "src/errors";
 import { ConstructFunction } from "src/internal";
 
@@ -100,24 +99,22 @@ function constructionTest(constructor: ConstructFunction<typeof RGXGroupToken>) 
         const token = new TestClassToken1();
         const instance = constructor({}, [token]);
 
-        expect(instance.tokens.toArray()).toEqual([token]);
+        expect(instance.tokens).toEqual([token]);
     });
 
-    it("correctly initializes with a token collection in concat mode", () => {
+    it("correctly initializes with a single token", () => {
         const token = new TestClassToken1();
-        const collection = new RGXTokenCollection([token], 'concat');
-        const instance = constructor({}, collection);
+        const instance = constructor({}, token);
 
-        expect(instance.tokens.toArray()).toEqual([token]);
+        expect(instance.tokens).toEqual([token]);
     });
 
-    it("correctly initializes with a token collection in union mode", () => {
-        const collection = new RGXTokenCollection(["a", "b"], 'union');
-        const instance = constructor({}, collection);
+    it("correctly initializes with a union", () => {
+        const union = new RGXClassUnionToken(["a", "b"]);
+        const instance = constructor({}, union);
 
         // The union is kept as a single element rather than being flattened into the concat.
-        expect(instance.tokens.mode).toBe('concat');
-        expect(instance.tokens.toArray()).toEqual([collection]);
+        expect(instance.tokens).toEqual([union]);
         expect(instance.toRgx().source).toBe("((?:a|b))");
     });
 }
@@ -363,7 +360,7 @@ describe("RGXGroupToken", () => {
             expect(clone).not.toBe(instance);
             expect(clone.name).toBe(instance.name);
             expect(clone.capturing).toBe(instance.capturing);
-            expect(clone.tokens.toArray()).toEqual(instance.tokens.toArray());
+            expect(clone.tokens).toEqual(instance.tokens);
         });
     });
 });

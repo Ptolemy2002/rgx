@@ -32,7 +32,6 @@ type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInter
 type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXInterpolationToken | RGXJSONObjectToken | RGXToken[];
 
-type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
 
 type RGXUnionInsertionPosition = 'prefix' | 'suffix';
 ```
@@ -49,43 +48,43 @@ A function `rgxClassUnion` is provided with the same parameters as this class' c
 
 ## Constructor
 ```typescript
-constructor(tokens: RGXTokenCollectionInput = [])
+constructor(tokens: RGXToken = [])
 ```
-- `tokens` (`RGXTokenCollectionInput`, optional): The tokens to include in the union. Internally stored as an `RGXTokenCollection` in 'union' mode. Defaults to an empty array.
+- `tokens` (`RGXToken`, optional): The alternatives of the union. An array, or another `RGXClassUnionToken`, lists the alternatives; any other token is a single alternative. Nested arrays and unions are expanded and duplicates are removed (see `cleanTokens()`). Defaults to an empty array.
 
 ## Properties
-- `tokens` (`RGXTokenCollection`): The internal collection of tokens managed in 'union' mode.
+- `tokens` (`RGXToken[]`): The alternatives of the union.
 
 ## Methods
-- `add(token: RGXToken, pos?: RGXUnionInsertionPosition) => this`: Adds a token to the union. The `pos` parameter controls where the token is inserted: `'prefix'` inserts at the beginning, `'suffix'` (default) appends to the end. Returns `this` for chaining.
-- `concat(pos?: RGXUnionInsertionPosition, ...others: RGXTokenCollectionInput[]) => this`: Concatenates additional tokens into the union. The `pos` parameter controls insertion position: `'suffix'` (default) appends to the end, `'prefix'` prepends to the beginning. Returns `this` for chaining.
-- `cleanTokens() => this`: Expands any nested union tokens and removes duplicates from the internal token collection. Returns `this` for chaining. Called automatically during construction and after `add` or `concat`.
-- `toRgx(currentFlags?: string) => RegExp`: Resolves the union by calling `toRgx(currentFlags)` on the internal `RGXTokenCollection`, returning a `RegExp`. `currentFlags` (`string`, optional, defaults to `''`) is the flags in effect where the token is placed, including those set by enclosing flag-modifier groups; the tokens inside are resolved with it, and the returned `RegExp` carries its localizable and unicode flags, so resolving the result in that context leaves those flags alone.
+- `add(token: RGXToken, pos?: RGXUnionInsertionPosition) => this`: Adds a token to the union. Arrays and `RGXClassUnionToken` instances add each of their alternatives. The `pos` parameter controls where the token is inserted: `'prefix'` inserts at the beginning, `'suffix'` (default) appends to the end. Returns `this` for chaining.
+- `concat(pos?: RGXUnionInsertionPosition, ...others: RGXToken[]) => this`: Concatenates additional tokens into the union. The `pos` parameter controls insertion position: `'suffix'` (default) appends to the end, `'prefix'` prepends to the beginning. Returns `this` for chaining.
+- `cleanTokens() => this`: Expands any nested union tokens and removes duplicates from `tokens`. Returns `this` for chaining. Called automatically during construction and after `add` or `concat`.
+- `toRgx(currentFlags?: string) => RegExp`: Resolves the alternatives as a union (the same way as an array token), returning a `RegExp`. `currentFlags` (`string`, optional, defaults to `''`) is the flags in effect where the token is placed, including those set by enclosing flag-modifier groups; the tokens inside are resolved with it, and the returned `RegExp` carries its localizable and unicode flags, so resolving the result in that context leaves those flags alone.
 - `clone(depth: CloneDepth = "max") => ThisType<this>`: Creates a clone of this instance to a specified depth: `0` for no clone, `1` for a shallow clone of the top-level token, any other number for that many levels down, and `"max"` (the default) for a full deep clone.
 - `toJSON() => RGXJSONClassToken`: Returns a JSON class token with `class` set to `"RGXClassUnionToken"` and `args` set to `[tokens]`, where `tokens` is the array of this union's tokens converted with `rgxTokenToJSON`. The result is accepted by `fromJSON` and by `rgxTokenFromJSON` (see [../../json.md](../../json.md)). Nested tokens are converted with `rgxTokenToJSON`, so plain convertible tokens inside this token are resolved into JSON literal tokens.
 
 # Functions
 ## expandRgxUnionTokens
 ```typescript
-function expandRgxUnionTokens(...tokens: RGXTokenCollectionInput[]): RGXTokenCollection
+function expandRgxUnionTokens(...tokens: RGXToken[]): RGXToken[]
 ```
 
-Recursively expands nested union tokens (arrays, `RGXTokenCollection` instances in union mode, and `RGXClassUnionToken` instances) into a flat `RGXTokenCollection`. This is useful for normalizing a set of union alternatives before deduplication.
+Recursively expands nested union tokens (arrays and `RGXClassUnionToken` instances) into a flat array. This is useful for normalizing a set of union alternatives before deduplication.
 
 ## Parameters
-  - `tokens` (`...RGXTokenCollectionInput[]`): The tokens to expand.
+  - `tokens` (`...RGXToken[]`): The tokens to expand.
 
 ## Returns
-- `RGXTokenCollection`: A flat collection containing all expanded tokens.
+- `RGXToken[]`: A flat array containing all expanded tokens.
 
 # removeRgxUnionDuplicates
 ```typescript
-function removeRgxUnionDuplicates(...tokens: RGXTokenCollectionInput[]): RGXTokenCollection
+function removeRgxUnionDuplicates(...tokens: RGXToken[]): RGXToken[]
 ```
-Removes duplicate tokens from the provided list using `Set` equality and returns a new `RGXTokenCollection` in union mode containing only the unique tokens. `RegExp` tokens are compared by their string form (source and flags), and JSON object tokens are compared by their `JSON.stringify` form, since neither would otherwise be considered equal.
+Removes duplicate tokens from the provided list using `Set` equality and returns a new array containing only the unique tokens, in order. `RegExp` tokens are compared by their string form (source and flags), and JSON object tokens are compared by their `JSON.stringify` form, since neither would otherwise be considered equal.
 
 ## Parameters
-  - `tokens` (`...RGXTokenCollectionInput[]`): The tokens to deduplicate.
+  - `tokens` (`...RGXToken[]`): The tokens to deduplicate.
 
 ## Returns
-- `RGXTokenCollection`: A union-mode collection with duplicates removed.
+- `RGXToken[]`: The tokens with duplicates removed.

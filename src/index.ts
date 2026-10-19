@@ -55,7 +55,6 @@ export function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {mul
 export * from "./errors";
 export * from "./types";
 export * from "./typeGuards";
-export * from "./collection";
 export * from "./class";
 export * from "./resolve";
 export * from "./json";

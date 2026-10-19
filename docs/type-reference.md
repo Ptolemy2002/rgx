@@ -77,7 +77,6 @@ type RGXTokenTypeGuardInput =
     // - null, which can be used to indicate any token type
     // - Constructors for class tokens
     // - The RegExp and ExtRegExp constructors, which can be used to indicate literal tokens
-    // - RGXTokenCollection, which can be used to indicate arrays of tokens
     // - "repeatable", which can be used to indicate any token that is repeatable (see isRGXToken in type-guards.md)
     // - "json", which can be used to indicate any JSON token (native, JSON object token, or array of JSON tokens)
     // - Arrays of any of the above, allowing for nested token type specifications
@@ -114,9 +113,6 @@ type ExpectedTokenType = {
     type: "custom";
     values: string[];
 };
-type RGXTokenCollectionMode = 'union' | 'concat';
-type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
-
 type RGXUnionInsertionPosition = 'prefix' | 'suffix';
 
 type RGXGroupTokenArgs = {

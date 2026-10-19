@@ -1,4 +1,4 @@
-import rgx, { rgxa, rgxw, rgxwa, RGXClassToken, RGXClassWrapperToken, rgxConcat, rgxConstant, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXToken, RGXTokenCollection, ValidRegexFlags, RGXPart, RGXSubpatternToken, RGXInvalidBackreferenceError, RGXDuplicateGroupNameError, RGXReservedGroupNameError, RGXInvalidWalkerStepError, rgxGroup, rgxSubpattern, rgxPart } from 'src/index';
+import rgx, { rgxa, rgxw, rgxwa, RGXClassToken, RGXClassWrapperToken, RGXGroupToken, rgxConcat, rgxConstant, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXToken, ValidRegexFlags, RGXPart, RGXSubpatternToken, RGXInvalidBackreferenceError, RGXDuplicateGroupNameError, RGXReservedGroupNameError, RGXInvalidWalkerStepError, rgxGroup, rgxSubpattern, rgxPart } from 'src/index';
 import { RGXWalker } from 'src/walker';
 import { expectError } from './utils';
 
@@ -264,19 +264,10 @@ describe('rgx', () => {
         expect(() => rgxa(['bar', token, 'baz'])).toThrow(RGXInsertionRejectedError);
     });
 
-    it('Handles an RGXTokenCollection in union mode correctly', () => {
-        const collection = new RGXTokenCollection(['foo', 'bar', 'baz'], "union");
-        const regex1 = rgx()`qux${collection}quux`;
-        const regex2 = rgxa(['qux', collection, 'quux']);
-
-        expectRegexpEqual(regex1, 'qux(?:foo|bar|baz)quux');
-        expectRegexpEqual(regex2, 'qux(?:foo|bar|baz)quux');
-    });
-
-    it('Handles an RGXTokenCollection in concat mode correctly', () => {
-        const collection = new RGXTokenCollection(['foo', 'bar', 'baz'], "concat");
-        const regex1 = rgx()`qux${collection}quux`;
-        const regex2 = rgxa(['qux', collection, 'quux']);
+    it('Handles a non-capturing group token correctly', () => {
+        const group = new RGXGroupToken({ capturing: false }, ['foo', 'bar', 'baz']);
+        const regex1 = rgx()`qux${group}quux`;
+        const regex2 = rgxa(['qux', group, 'quux']);
 
         expectRegexpEqual(regex1, 'quxfoobarbazquux');
         expectRegexpEqual(regex2, 'quxfoobarbazquux');

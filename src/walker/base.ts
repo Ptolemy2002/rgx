@@ -1,5 +1,4 @@
 import { CloneDepth, depthDecrement, extClone } from "@ptolemy2002/immutability-utils";
-import { RGXTokenCollection } from "src/collection";
 import {
     assertInRange, RGXInvalidWalkerError, RGXInvalidWalkerStepError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError,
     RGXRegexNotMatchedAtPositionError
@@ -61,15 +60,11 @@ type RGXWalkerBranch<R, S> = {
 };
 
 // The alternatives of a union, with every union that is only reachable through other unions flattened, in order.
-// Anything that isn't a union is a single alternative. Collections in union mode are only expanded at the top
-// level, as before, since they are being removed.
-function unionAlternatives<R, S>(step: RGXWalkerStep<R, S>, top = true): RGXTokenOrPart<R, S>[] {
+// Anything that isn't a union is a single alternative.
+function unionAlternatives<R, S>(step: RGXWalkerStep<R, S>): RGXTokenOrPart<R, S>[] {
     // An empty union is kept as an alternative that matches the empty string.
-    if (Array.isArray(step) && step.length > 0) return step.flatMap(alternative => unionAlternatives(alternative, false));
-    if (RGXClassUnionToken.check(step)) return step.tokens.flatMap(alternative => unionAlternatives(alternative, false));
-    if (top && step instanceof RGXTokenCollection && step.mode === "union") {
-        return step.tokens.flatMap(alternative => unionAlternatives(alternative, false));
-    }
+    if (Array.isArray(step) && step.length > 0) return step.flatMap(alternative => unionAlternatives(alternative));
+    if (RGXClassUnionToken.check(step)) return step.tokens.flatMap(alternative => unionAlternatives(alternative));
     return [step as RGXTokenOrPart<R, S>];
 }
 

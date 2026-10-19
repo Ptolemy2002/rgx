@@ -26,7 +26,6 @@ Because there is so much to document, it has been broken up into multiple files.
   - [createRGXClassGuardFunction](./docs/util/createRGXClassGuardFunction.md) - The `createRGXClassGuardFunction` and `createAssertRGXClassGuardFunction` utilities for creating type guard and assertion functions for class instances.
   - [createRGXBounds](./docs/util/createRGXBounds.md) - The `createRGXBounds` function, which creates a pair of zero-width boundary tokens representing the start and end of a region delimited by two patterns.
 - `class` - A directory containing documentation for all classes in the library.
-  - [collection](./docs/class/collection.md) - The `RGXTokenCollection` class, which is a collection of tokens.
   - [RGXError](./docs/class/RGXError.md) - Details on all custom error classes and the base `RGXError` class.
   - [walker](./docs/class/walker.md) - Details on both `RGXWalker` and `RGXPart`, which are used for creating custom matchers that can validate partial matches and transform captured values with custom logic.
   - [lexer](./docs/class/lexer.md) - Details on `RGXLexer`, which tokenizes a source string into structured lexemes using named lexeme definitions grouped by mode.
