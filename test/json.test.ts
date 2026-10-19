@@ -258,15 +258,25 @@ describe("rgxTokenToJSON", () => {
         expect(rgxTokenToJSON(/abc/gi)).toEqual({ $rgx: true, source: "abc", flags: "gi" });
     });
 
-    it("drops custom flags from ExtRegExp literals since the source already has them applied", () => {
+    it("stores the original source and the custom flags of ExtRegExp literals", () => {
         registerFlagTransformer("q", exp => [exp.source + "q", exp.flags]);
         try {
             const regex = new ExtRegExp("abc", "iq");
             expect(regex.source).toBe("abcq");
-            expect(rgxTokenToJSON(regex)).toEqual({ $rgx: true, source: "abcq", flags: "i" });
+            expect(rgxTokenToJSON(regex)).toEqual({ $rgx: true, source: "abc", flags: "iq" });
+
+            // The transformation is applied exactly once when deserializing, even when the flag is added again.
+            const restored = rgxTokenFromJSON(rgxTokenToJSON(regex)) as ExtRegExp;
+            expect(restored.source).toBe("abcq");
+            expect(restored.flags).toBe("iq");
+            expect(new ExtRegExp(restored, "iq").source).toBe("abcq");
         } finally {
             unregisterFlagTransformer("q");
         }
+    });
+
+    it("requires custom flag transformers to be registered when deserializing", () => {
+        expect(() => rgxTokenFromJSON({ $rgx: true, source: "abc", flags: "q" })).toThrow(RGXInvalidJSONTokenError);
     });
 
     it("returns valid JSON object tokens as-is", () => {

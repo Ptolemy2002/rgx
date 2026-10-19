@@ -33,6 +33,23 @@ describe("ExtRegExp", () => {
         unregisterFlagTransformer("x");
     });
 
+    it("keeps the source from before custom flag transformations", () => {
+        registerFlagTransformer("x", exp => ["a" + exp.source, exp.flags]);
+        try {
+            expect(new ExtRegExp("b", "gx").originalSource).toBe("b");
+            expect(new ExtRegExp(/b/g).originalSource).toBe("b");
+
+            // Constructing from an ExtRegExp carries the original source over, and keeps reporting the custom flags
+            // that are applied to its source.
+            const derived = new ExtRegExp(new ExtRegExp("b", "x"), "g");
+            expect(derived.source).toBe("ab");
+            expect(derived.originalSource).toBe("b");
+            expect(derived.flags).toBe("gx");
+        } finally {
+            unregisterFlagTransformer("x");
+        }
+    });
+
     it("preserves custom flags in derived regexes", () => {
         const customFlagTransformer: RegExpFlagTransformer = (exp: RegExp) => ["transformed", exp.flags];
 

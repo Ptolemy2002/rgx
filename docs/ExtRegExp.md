@@ -25,11 +25,12 @@ A function `extRegExp` is provided with the same parameters as this class' const
 ```typescript
 constructor(pattern: string | RegExp, flags?: string)
 ```
-- `pattern` (`string | RegExp`): The regex pattern. If a `RegExp` is provided, its `source` is used and its existing `flags` are tracked as already-applied flags to avoid re-applying transformers.
+- `pattern` (`string | RegExp`): The regex pattern. If a `RegExp` is provided, its `source` is used and its existing `flags` are tracked as already-applied flags to avoid re-applying transformers. If it is an `ExtRegExp`, its `originalSource` is carried over, and its custom flags are kept in the new instance's `flags` even when `flags` leaves them out, since their transformations are already in the source.
 - `flags` (`string`, optional): The flags string, which may include both vanilla regex flags and custom registered flag keys. Validated via `assertValidRegexFlags`. Defaults to `''`.
 
 ## Properties
 - `flags` (`string`): Returns the combination of the vanilla flags (from the underlying `RegExp`) and any custom flags that were applied during construction.
+- `originalSource` (`string`, readonly): The pattern before any custom flag transformations were applied. `source` is the transformed pattern, which is what is used when the `ExtRegExp` is embedded in a larger pattern. `new ExtRegExp(regex.originalSource, regex.flags)` rebuilds an equivalent `ExtRegExp`, which is how JSON literal tokens store it (see [json.md](./json.md)).
 
 # Functions
 ## isFlagKeyAvailable

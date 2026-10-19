@@ -3,7 +3,7 @@ import * as e from "./errors";
 import * as tg from "./typeGuards";
 import { RGXClassToken, toRGXClassToken } from "./class";
 import { RGXTokenCollection } from "./collection";
-import { ExtRegExp, extractVanillaRegexFlags } from "./ExtRegExp";
+import { ExtRegExp } from "./ExtRegExp";
 import { resolveRGXToken, rgxInterpolation } from "./resolve";
 import { removeRedundantRegexGroups } from "./internal/analyzeRegexSource";
 import { withoutRGXInsertionChecks } from "./internal/insertionContext";
@@ -115,9 +115,9 @@ export function rgxTokenToJSON(token: t.RGXToken, { resolveConvertible = true }:
     }
 
     if (tg.isRGXLiteralToken(token)) {
-        // The source of an ExtRegExp already has any custom flag transformations applied,
-        // so only the vanilla flags are kept to avoid applying the transformations twice.
-        return createRGXJSONLiteralToken(token.source, extractVanillaRegexFlags(token.flags));
+        // The source of an ExtRegExp has its custom flag transformations applied, so the source from before them is
+        // stored, and rgxTokenFromJSON applies them again.
+        return createRGXJSONLiteralToken(token instanceof ExtRegExp ? token.originalSource : token.source, token.flags);
     }
 
     if (tg.isRGXJSONObjectToken(token, false)) {
