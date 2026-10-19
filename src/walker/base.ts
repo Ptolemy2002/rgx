@@ -466,10 +466,11 @@ export class RGXWalker<R, S = unknown> {
         if (!snap) return this;
         if ("sourcePosition" in snap) this.sourcePosition = snap.sourcePosition!;
         if ("tokenPosition" in snap) this.tokenPosition = snap.tokenPosition!;
-        if ("reduced" in snap) this.reduced = snap.reduced!;
-        if ("share" in snap) this.share = snap.share!;
-        if ("captures" in snap) this.captures = snap.captures!;
-        if ("namedCaptures" in snap) this.namedCaptures = snap.namedCaptures!;
+        // Clone again so later mutations don't leak into the stored snapshot.
+        if ("reduced" in snap) this.reduced = extClone(snap.reduced!, "max");
+        if ("share" in snap) this.share = extClone(snap.share!, "max");
+        if ("captures" in snap) this.captures = extClone(snap.captures!, "max");
+        if ("namedCaptures" in snap) this.namedCaptures = extClone(snap.namedCaptures!, "max");
         return this;
     }
 
