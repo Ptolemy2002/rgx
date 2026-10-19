@@ -10,6 +10,7 @@ import {
     RGXRegexNotMatchedAfterPositionError, RGXCurrentTokenNotFoundError, RGXInvalidRegexLocalizableFlagsError,
     RGXInvalidRegexLocalizableFlagDiffError,
     RGXInvalidJSONTokenError, RGXJSONClassConflictError, RGXInvalidJSONClassKeyError, RGXJSONClassArgsValidationFailedError, RGXNotJSONSerializableError,
+    RGXInvalidBackreferenceError, RGXDuplicateGroupNameError, RGXReservedGroupNameError, RGXInvalidWalkerStepError,
 } from 'src/index';
 
 class TestClassToken extends RGXClassToken {
@@ -1546,5 +1547,60 @@ describe("RGXNotJSONSerializableError", () => {
         expect(new RGXNotJSONSerializableError("Cannot serialize", circular).toString()).toBe('RGXNotJSONSerializableError: Cannot serialize; Got: [object Object]');
         expect(new RGXNotJSONSerializableError("Cannot serialize", undefined).toString()).toBe('RGXNotJSONSerializableError: Cannot serialize; Got: undefined');
         expect(new RGXNotJSONSerializableError("Cannot serialize", () => {}).toString()).toContain('Got: () => { }');
+    });
+});
+
+describe("RGXInvalidBackreferenceError", () => {
+    it("formats the error message correctly for named references", () => {
+        const error = new RGXInvalidBackreferenceError("Bad reference", "x", "missing-group", "\\k<x>");
+        expect(error.code).toBe("INVALID_BACKREFERENCE");
+        expect(error.name).toBe("RGXInvalidBackreferenceError");
+        expect(error.reference).toBe("x");
+        expect(error.reason).toBe("missing-group");
+        expect(error.got).toBe("\\k<x>");
+        expect(error.toString()).toBe('RGXInvalidBackreferenceError: Bad reference; Reference: \\k<x>; Reason: missing-group; Got: "\\\\k<x>"');
+    });
+
+    it("formats the error message correctly for numeric references", () => {
+        const error = new RGXInvalidBackreferenceError("Bad reference", 2, "before-group", "\\2");
+        expect(error.toString()).toBe('RGXInvalidBackreferenceError: Bad reference; Reference: \\2; Reason: before-group; Got: "\\\\2"');
+    });
+});
+
+describe("RGXDuplicateGroupNameError", () => {
+    it("formats the error message correctly", () => {
+        const error = new RGXDuplicateGroupNameError("Duplicate", "a", "(?<a>x)(?<a>y)");
+        expect(error.code).toBe("DUPLICATE_GROUP_NAME");
+        expect(error.name).toBe("RGXDuplicateGroupNameError");
+        expect(error.groupName).toBe("a");
+        expect(error.got).toBe("(?<a>x)(?<a>y)");
+        expect(error.toString()).toBe('RGXDuplicateGroupNameError: Duplicate; Group name: "a"; Got: "(?<a>x)(?<a>y)"');
+    });
+});
+
+describe("RGXReservedGroupNameError", () => {
+    it("formats the error message correctly", () => {
+        const error = new RGXReservedGroupNameError("Reserved", "rgx_branch_0", "(?<rgx_branch_0>x)");
+        expect(error.code).toBe("RESERVED_GROUP_NAME");
+        expect(error.name).toBe("RGXReservedGroupNameError");
+        expect(error.groupName).toBe("rgx_branch_0");
+        expect(error.got).toBe("(?<rgx_branch_0>x)");
+        expect(error.toString()).toBe('RGXReservedGroupNameError: Reserved; Group name: "rgx_branch_0"; Got: "(?<rgx_branch_0>x)"');
+    });
+});
+
+describe("RGXInvalidWalkerStepError", () => {
+    it("formats the error message correctly with an index", () => {
+        const error = new RGXInvalidWalkerStepError("Bad step", 2, "(");
+        expect(error.code).toBe("INVALID_WALKER_STEP");
+        expect(error.name).toBe("RGXInvalidWalkerStepError");
+        expect(error.index).toBe(2);
+        expect(error.got).toBe("(");
+        expect(error.toString()).toBe('RGXInvalidWalkerStepError: Bad step; Step index: 2; Got: "("');
+    });
+
+    it("formats the error message correctly without an index", () => {
+        const error = new RGXInvalidWalkerStepError("Bad step", null, "(");
+        expect(error.toString()).toBe('RGXInvalidWalkerStepError: Bad step; Got: "("');
     });
 });

@@ -28,4 +28,7 @@ export * from './invalidJSONToken';
 export * from './jsonClassConflict';
 export * from './invalidJSONClassKey';
 export * from './jsonClassArgsValidationFailed';
-export * from './notJSONSerializable';
+export * from './notJSONSerializable';export * from './invalidBackreference';
+export * from './duplicateGroupName';
+export * from './reservedGroupName';
+export * from './invalidWalkerStep';

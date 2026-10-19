@@ -318,6 +318,18 @@ describe("RGXWalker", () => {
             expect(captured).toBe("t");
         });
 
+        it("returns the whole match when includeMatch is true", () => {
+            const instance = new RGXWalker("test", [/(?<x>t)e/]);
+            const captured = instance.capture(/(?<x>t)e/, true);
+            expect(captured[0]).toBe("te");
+            expect(captured.groups).toEqual({ x: "t" });
+        });
+
+        it("doesn't add branch groups to unions", () => {
+            const instance = new RGXWalker("test", [["x", "t"]]);
+            expect(instance.capture(["x", "t"], true).groups).toBeUndefined();
+        });
+
         it("captures the inner token when passed a part", () => {
             const part = new RGXPart("t");
             const instance = new RGXWalker("test", [part]);

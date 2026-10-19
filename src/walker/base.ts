@@ -1,7 +1,10 @@
 import { CloneDepth, depthDecrement, extClone } from "@ptolemy2002/immutability-utils";
 import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
-import { assertInRange, RGXInvalidWalkerError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError, RGXRegexNotMatchedAtPositionError } from "src/errors";
-import { RGXToken } from "src/types";
+import {
+    assertInRange, RGXInvalidWalkerError, RGXInvalidWalkerStepError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError,
+    RGXRegexNotMatchedAtPositionError
+} from "src/errors";
+import { RGXToken, ValidRegexFlags } from "src/types";
 import { RGXPart, RGXCapture } from "./part";
 import { resolveRGXToken } from "src/resolve";
 import { assertRegexMatchesAfterPosition, assertRegexMatchesAtPosition, createRegex } from "src/utils";
@@ -9,6 +12,7 @@ import { isRGXArrayToken } from "src/typeGuards";
 import { RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { RGXCurrentTokenNotFoundError } from "src/errors/currentTokenNotFound";
+import { assertValidRegexReferences, collectRGXReferences, hasRegexParenErrors, placeRGXToken, withRGXInsertionRoot } from "src/internal";
 
 export type RGXWalkerOptions<R, S = unknown> = {
     startingSourcePosition?: number;
@@ -50,13 +54,52 @@ function createBranchGroups(tokens: RGXTokenCollectionInput): RGXToken {
 
     if (isRGXArrayToken(tokens)) {
         const newTokens = tokens.map((token, i) => {
-            return new RGXGroupToken({name: `rgx_branch_${i}`}, [token]);
+            return new RGXGroupToken({name: `${branchGroupPrefix}${i}`}, [token]);
         });
 
         return new RGXClassUnionToken(newTokens);
     } else {
         return tokens;
     }
+}
+
+const branchGroupPrefix = "rgx_branch_";
+
+function stepToken<R, S>(token: RGXTokenOrPart<R, S>): RGXToken {
+    return RGXPart.check(token) ? token.token : token as RGXToken;
+}
+
+// Checks the source a step resolves to, before branch groups are added. index is the step's position in the walker's
+// tokens, if known.
+function assertValidStepSource(source: string, references: readonly (string | number)[], index: number | null, isUnion: boolean) {
+    // Interpolations may leave parentheses unbalanced for a later token to close, but a step is matched on its own.
+    if (hasRegexParenErrors(source)) {
+        throw new RGXInvalidWalkerStepError("Walker steps are matched on their own, so each one must have balanced parentheses", index, source);
+    }
+
+    // Branch groups would shift the group numbers of a union.
+    assertValidRegexReferences(source, references, { reservedGroupPrefix: branchGroupPrefix, rejectNumeric: isUnion });
+}
+
+// Resolves a step and checks it, returning the source to match it with.
+function resolveStep(token: RGXToken, branch: boolean): string {
+    const [source, references] = collectRGXReferences(() => resolveRGXToken(token));
+    const branched = branch ? createBranchGroups(token) : token;
+    assertValidStepSource(source, references, null, branched !== token);
+    return branched === token ? source : resolveRGXToken(branched);
+}
+
+// Checks every step, the same way the walker does before matching each one. The walker matches each step on its own,
+// without flags, so insertions are checked by resolving each step at its position as the top level of a pattern with
+// no flags.
+export function validateRGXWalkerSteps<R, S>(tokens: readonly RGXTokenOrPart<R, S>[]) {
+    const plainTokens = tokens.map(stepToken);
+    withRGXInsertionRoot('' as ValidRegexFlags, () => {
+        plainTokens.forEach((token, i) => {
+            const [source, references] = collectRGXReferences(() => placeRGXToken(plainTokens, i, () => resolveRGXToken(token)));
+            assertValidStepSource(source, references, i, createBranchGroups(token) !== token);
+        });
+    });
 }
 
 function isMatchError(e: unknown): e is RGXRegexNotMatchedAtPositionError | RGXRegexNotMatchedAfterPositionError | RGXPartValidationFailedError {
@@ -179,8 +222,12 @@ export class RGXWalker<R, S = unknown> {
     capture(token: RGXTokenOrPart<R, S>, includeMatch: true): RegExpExecArray;
     capture(token: RGXTokenOrPart<R, S>, includeMatch?: false): string;
     capture(token: RGXTokenOrPart<R, S>, includeMatch = false): string | RegExpExecArray {
-        const regex = createRegex(resolveRGXToken(RGXPart.check(token) ? token.token : token as RGXToken));
-        
+        const match = this.matchRegex(createRegex(resolveStep(stepToken(token), false)));
+        return includeMatch ? match : match[0];
+    }
+
+    // Matches the regex at the current position (or after it, if not contiguous), and moves past the match.
+    private matchRegex(regex: RegExp): RegExpExecArray {
         const args = [regex, this.source, Math.min(this.sourcePosition, this.source.length - 1), 10, true] as const;
         let match: RegExpExecArray;
         let endPosition: number;
@@ -195,7 +242,7 @@ export class RGXWalker<R, S = unknown> {
         }
 
         this.sourcePosition = endPosition;
-        return includeMatch ? match : match[0];
+        return match;
     }
 
     private advanceToken() {
@@ -211,7 +258,7 @@ export class RGXWalker<R, S = unknown> {
 
     private determineBranch(capture: RegExpExecArray): number {
         for (let i = 0; i < capture.length; i++) {
-            if (capture.groups?.[`rgx_branch_${i}`] !== undefined) return i;
+            if (capture.groups?.[`${branchGroupPrefix}${i}`] !== undefined) return i;
         }
         return 0;
     }
@@ -243,11 +290,13 @@ export class RGXWalker<R, S = unknown> {
 
     // Returns the capture on success, or a directive on handled failure. Unhandled errors are rethrown.
     private attemptCapture(
-        branchedToken: RGXTokenOrPart<R, S>,
+        token: RGXTokenOrPart<R, S>,
         part: RGXPart<R, S, unknown> | null
     ): RegExpExecArray | Exclude<RGXWalkerStepDirective, "silent"> {
+        // Unions are wrapped in branch groups, so the capture can record which branch matched.
+        const regex = createRegex(resolveStep(stepToken(token), true));
         try {
-            return this.capture(branchedToken, true);
+            return this.matchRegex(regex);
         } catch (e) {
             if (part !== null && (e instanceof RGXRegexNotMatchedAtPositionError || e instanceof RGXRegexNotMatchedAfterPositionError)) {
                 const control = part.afterFailure?.(e, { part, walker: this });
@@ -327,15 +376,13 @@ export class RGXWalker<R, S = unknown> {
             silent = dir === "silent";
         }
 
-        const branchedToken = isPart ? createBranchGroups(token.token) : createBranchGroups(token);
-
         // Snapshot the source position so validateCapture and handleAfterCapture
         // can restore it on skip/failure.
         this.snapshot("step", "sourcePosition");
 
         let captureAttempt: ReturnType<typeof this.attemptCapture>;
         try {
-            captureAttempt = this.attemptCapture(branchedToken, isPart ? token : null);
+            captureAttempt = this.attemptCapture(token, isPart ? token : null);
             if (captureAttempt === "stop") { this._stopped = true; return null; }
             if (captureAttempt === "skip") { this.advanceToken(); return null; }
         } catch (e) {

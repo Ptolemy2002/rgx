@@ -10,6 +10,7 @@ A change is breaking if it changes what a pattern matches, or changes the public
 
 | Version | Main changes |
 | --- | --- |
+| [15.0.0](#1500) | Backreferences and walker steps are validated |
 | [14.0.0](#1400) | `rgxIsGroup`, `rgxGroupWrap` and `rgxInterpolate` removed, repeatability detected automatically, new `rgxAcceptInsertion` signature, single-step JSON class construction |
 | [13.0.0](#1300) | `resolveRGXToken` takes an options object, `rgxConstant` always returns a class token, word bounds match at the edges of the string |
 | [12.0.0](#1200) | `rgx` takes an options object |
@@ -19,6 +20,40 @@ A change is breaking if it changes what a pattern matches, or changes the public
 | [7.0.0](#700) | `namedCaptures` stores arrays |
 
 Version 10.0.0 isn't covered. It made validation stricter (invalid flags and invalid resolved patterns now throw `RGXError`s) and added interpolation, which 14.0.0 then reworked.
+
+---
+
+# 15.0.0
+
+## Backreferences are validated
+
+Patterns built with `rgx` and `rgxa`, and every walker step, now have their backreferences checked once they're finished (see [Backreference validation](./docs/general.md#backreference-validation)). The patterns that now throw used to compile, but could never match what their group captured. They matched the empty string or literal text instead, so they were almost certainly bugs.
+
+Now throwing `RGXInvalidBackreferenceError`:
+
+- An `RGXSubpatternToken` whose group doesn't exist. Before, `\k<x>` in a pattern with no named groups matched the literal text `k<x>`, and `\5` in a pattern with fewer than 5 groups matched the character `\x05`.
+- A backreference matched before its group (`\1(a)`), inside its own group (`(a\1)`), in a different alternative than its group (`(a)|\1`), or pointing into a negative lookaround it isn't in (`(?!(a))\1`). This includes backreferences written directly in `RegExp` literals and interpolations.
+- A numeric backreference in a walker step that is a union. The walker wraps each branch in a group, so the number pointed at the wrong group.
+
+When two groups with the same name in the same alternative only meet in the finished pattern (for example, two named group tokens next to each other), they now throw `RGXDuplicateGroupNameError`, which names the group, instead of `RGXInvalidRegexStringError`.
+
+To update:
+
+- Fix or remove the backreference. If you meant to match the text `k<x>`, write it without the backslash.
+- In walker steps that are unions, name the group and reference it by name.
+- If you catch `RGXInvalidRegexStringError` for duplicate group names, catch `RGXDuplicateGroupNameError` too.
+
+## Walker steps are checked when the walker is created
+
+`rgxwa` and `rgxw` now check each step when the walker is created, and the walker checks each step again before matching it (see [Step validation](./docs/class/walker.md#step-validation)). Along with the backreference checks above:
+
+- A step with unbalanced parentheses throws `RGXInvalidWalkerStepError` when the walker is created. Before, it was accepted and threw `RGXInvalidRegexStringError` only when the walker reached it. This mostly affects `rgxw` with `verbatim: false`, where each literal part of the template is its own step.
+- A group name starting with `rgx_branch_` in a step throws `RGXReservedGroupNameError`. The walker uses these names to find out which branch of a union matched, so a step that used one could report the wrong branch.
+
+To update:
+
+- Make each literal part of a `verbatim: false` template balanced on its own, or move the whole group into a single token.
+- Rename groups that start with `rgx_branch_`.
 
 ---
 

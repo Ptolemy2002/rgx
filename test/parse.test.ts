@@ -215,7 +215,7 @@ describe("rgxParse", () => {
 
         it("matches the same as the original when used with the same flags", () => {
             const texts = ["", "a", "A", "ab", "AB", "a\nb", "A\nB", "aaa", "x-y", "é", "É"];
-            for (const regex of [/a+b?/, /(a)|b\1/i, /^b$/m, /a.b/s, /(?i:a)b/, /(?<n>a)(?-i:b)/i, /\w-\w/u, /é/iu, /(?=a)*a/, /(?:^)+a/m]) {
+            for (const regex of [/a+b?/, /(a)b?\1/i, /^b$/m, /a.b/s, /(?i:a)b/, /(?<n>a)(?-i:b)/i, /\w-\w/u, /é/iu, /(?=a)*a/, /(?:^)+a/m]) {
                 expectSameMatches(regex, texts);
             }
         });

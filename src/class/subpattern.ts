@@ -4,7 +4,7 @@ import { createRGXJSONClassToken, rgxJSONClassArgs } from "src/json";
 import { assertValidIdentifier } from "src/typeGuards";
 import { assertInRange } from "src/errors";
 import { CloneDepth } from "@ptolemy2002/immutability-utils";
-import { createConstructFunction, createRegexPiece } from "src/internal";
+import { createConstructFunction, createRegexPiece, recordRGXReference } from "src/internal";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 
 function parseSubpatternJSONArgs(args: RGXJSONValue[]): [string | number] | string {
@@ -40,6 +40,8 @@ export class RGXSubpatternToken extends RGXClassToken {
     }
 
     toRgx(currentFlags: string = '') {
+        // Recorded so finished patterns can check that the group exists (see assertValidRegexReferences).
+        recordRGXReference(this.pattern);
         if (typeof this.pattern === "string") {
             return createRegexPiece(`\\k<${this.pattern}>`, currentFlags);
         } else {
