@@ -8,7 +8,7 @@ import { scanOptionsFromFlags } from "./internal/scanRegexSource";
 import { assertValidRegexReferences } from "./internal/validateReferences";
 import { rgxTaggedTemplateToArray } from "./internal/taggedTemplateToArray";
 import { assertValidRegexFlags, ExtRegExp } from "./ExtRegExp";
-import { RGXTokenOrPart, RGXWalker } from "./walker";
+import { RGXWalker, RGXWalkerStep } from "./walker";
 import { validateRGXWalkerSteps } from "./walker/base";
 import { createRegex } from "./utils/createRegex";
 
@@ -37,7 +37,7 @@ export default function rgx(flags: string = '', {multiline=true, verbatim=true}:
 }
 
 export function rgxwa<R = unknown, S = unknown, T = unknown>(
-    source: string, tokens: RGXTokenOrPart<R, S, T>[],
+    source: string, tokens: RGXWalkerStep<R, S, T>[],
     options: Omit<t.RGXWOptions<R, S>, "multiline"> = {}
 ) {
     // Steps are checked when the walker is created, so problems are found before walking starts.
@@ -46,7 +46,7 @@ export function rgxwa<R = unknown, S = unknown, T = unknown>(
 }
 
 export function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {multiline=true, verbatim=true, ...options}: t.RGXWOptions<R, S> = {}) {
-    return (strings: TemplateStringsArray, ...tokens: RGXTokenOrPart<R, S, T>[]) => {
+    return (strings: TemplateStringsArray, ...tokens: RGXWalkerStep<R, S, T>[]) => {
         return rgxwa<R, S, T>(source, rgxTaggedTemplateToArray(strings, tokens, multiline, verbatim), options);
     };
 }

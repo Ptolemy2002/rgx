@@ -747,3 +747,13 @@ describe('dynamic parts in rgxwa', () => {
         expect(siblings).toEqual([token, null]);
     });
 });
+
+describe('unions of parts in rgxw', () => {
+    it('accepts a union of parts as a template value', () => {
+        const word = rgxPart(/[a-z]+/, { id: "word" });
+        const number = rgxPart(/\d+/, { id: "number", transform: Number });
+        const walker = rgxw("12 ab", { looping: true })`${[word, number]}${/ ?/}`;
+        walker.walk();
+        expect(walker.captures.filter(c => c.ownerId !== null).map(c => [c.ownerId, c.value])).toEqual([["number", 12], ["word", "ab"]]);
+    });
+});

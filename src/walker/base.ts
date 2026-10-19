@@ -1,14 +1,13 @@
 import { CloneDepth, depthDecrement, extClone } from "@ptolemy2002/immutability-utils";
-import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
+import { RGXTokenCollection } from "src/collection";
 import {
     assertInRange, RGXInvalidWalkerError, RGXInvalidWalkerStepError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError,
     RGXRegexNotMatchedAtPositionError
 } from "src/errors";
 import { RGXToken, ValidRegexFlags } from "src/types";
-import { RGXPart, RGXCapture } from "./part";
+import { RGXPart, RGXCapture, RGXPartLossControl } from "./part";
 import { resolveRGXToken } from "src/resolve";
 import { assertRegexMatchesAfterPosition, assertRegexMatchesAtPosition, createRegex } from "src/utils";
-import { isRGXArrayToken } from "src/typeGuards";
 import { RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { RGXCurrentTokenNotFoundError } from "src/errors/currentTokenNotFound";
@@ -46,34 +45,59 @@ export type RGXWalkerSnapshot<R, S> = Partial<{
     namedCaptures: Record<string, RGXCapture[]>;
 }>;
 
-function createBranchGroups(tokens: RGXTokenCollectionInput): RGXToken {
-    if (
-        (tokens instanceof RGXTokenCollection && tokens.mode === "union") ||
-        RGXClassUnionToken.check(tokens)
-    ) return createBranchGroups(tokens.tokens);
-
-    if (isRGXArrayToken(tokens)) {
-        const newTokens = tokens.map((token, i) => {
-            return new RGXGroupToken({name: `${branchGroupPrefix}${i}`}, [token]);
-        });
-
-        return new RGXClassUnionToken(newTokens);
-    } else {
-        return tokens;
-    }
-}
-
 const branchGroupPrefix = "rgx_branch_";
 
-function isDynamicPart<R, S>(token: RGXTokenOrPart<R, S>): boolean {
-    return RGXPart.check(token) && token.isDynamic();
+export type RGXTokenOrPart<R, S = unknown, T = any> = RGXToken | RGXPart<R, S, T>;
+// A step can be a union of tokens and parts, written as an array nested to any depth.
+export type RGXWalkerStep<R, S = unknown, T = any> = RGXTokenOrPart<R, S, T> | RGXWalkerStep<R, S, T>[];
+export type RGXWalkerStepDirective = "stop" | "skip" | "silent";
+
+// One alternative of a step: the part that handles its capture (or null for a plain token), and the token it is
+// matched with. index is its position among the step's alternatives, which is the capture's branch number.
+type RGXWalkerBranch<R, S> = {
+    index: number;
+    owner: RGXPart<R, S, unknown> | null;
+    token: RGXToken;
+};
+
+// The alternatives of a union, with every union that is only reachable through other unions flattened, in order.
+// Anything that isn't a union is a single alternative. Collections in union mode are only expanded at the top
+// level, as before, since they are being removed.
+function unionAlternatives<R, S>(step: RGXWalkerStep<R, S>, top = true): RGXTokenOrPart<R, S>[] {
+    // An empty union is kept as an alternative that matches the empty string.
+    if (Array.isArray(step) && step.length > 0) return step.flatMap(alternative => unionAlternatives(alternative, false));
+    if (RGXClassUnionToken.check(step)) return step.tokens.flatMap(alternative => unionAlternatives(alternative, false));
+    if (top && step instanceof RGXTokenCollection && step.mode === "union") {
+        return step.tokens.flatMap(alternative => unionAlternatives(alternative, false));
+    }
+    return [step as RGXTokenOrPart<R, S>];
 }
 
-// The token a step is matched with, as far as it is known before walking. Dynamic parts only produce their token when
-// they are captured, so they are a no-op token here.
-function staticStepToken<R, S>(token: RGXTokenOrPart<R, S>): RGXToken {
-    if (!RGXPart.check(token)) return token as RGXToken;
-    return token.isDynamic() ? null : token.token as RGXToken;
+function containsPart<R, S>(step: RGXWalkerStep<R, S>, predicate: (part: RGXPart<R, S, unknown>) => boolean = () => true): boolean {
+    if (Array.isArray(step)) return step.some(alternative => containsPart(alternative, predicate));
+    return RGXPart.check(step) && predicate(step);
+}
+
+// Replaces each part in the step with a token: the one it would be matched with now, or a no-op token for a dynamic
+// part when resolveDynamic isn't given. Steps without parts are returned as-is.
+function plainStepToken<R, S>(step: RGXWalkerStep<R, S>, resolveDynamic?: (part: RGXPart<R, S, unknown>) => RGXToken): RGXToken {
+    if (!containsPart(step)) return step as RGXToken;
+    if (RGXPart.check(step)) return step.isDynamic() ? resolveDynamic?.(step) ?? null : step.token as RGXToken;
+    return (step as RGXWalkerStep<R, S>[]).map(alternative => plainStepToken(alternative, resolveDynamic));
+}
+
+// Wraps each branch in a group named after its index, so the match shows which one matched. A single branch is
+// matched as-is.
+function branchesToken<R, S>(branches: readonly RGXWalkerBranch<R, S>[]): RGXToken {
+    if (branches.length === 1) return branches[0]!.token;
+    return new RGXClassUnionToken(branches.map(branch => new RGXGroupToken({ name: `${branchGroupPrefix}${branch.index}` }, [branch.token])));
+}
+
+// The groups of a match, without the walker's branch groups, or null if there are none.
+function userGroups(groups: Record<string, string> | undefined): Record<string, string> | null {
+    if (!groups) return null;
+    const entries = Object.entries(groups).filter(([name]) => !name.startsWith(branchGroupPrefix));
+    return entries.length > 0 ? Object.fromEntries(entries) : null;
 }
 
 // Checks the source a step resolves to, before branch groups are added. index is the step's position in the walker's
@@ -97,14 +121,14 @@ function resolveCheckedStep(siblings: readonly RGXToken[], index: number): [stri
     }));
 }
 
-// Checks every step that isn't a dynamic part, the same way the walker does before matching each one.
-export function validateRGXWalkerSteps<R, S>(tokens: readonly RGXTokenOrPart<R, S>[]) {
-    const plainTokens = tokens.map(staticStepToken);
-    tokens.forEach((token, i) => {
-        // Dynamic parts are checked when they are captured instead.
-        if (isDynamicPart(token)) return;
+// Checks every step, the same way the walker does before matching each one. Dynamic parts produce their token when
+// they are captured, so they are checked then instead, and other steps see them as no-op tokens.
+export function validateRGXWalkerSteps<R, S>(tokens: readonly RGXWalkerStep<R, S>[]) {
+    const plainTokens = tokens.map(step => plainStepToken(step));
+    tokens.forEach((step, i) => {
+        if (RGXPart.check(step) && step.isDynamic()) return;
         const [source, references] = resolveCheckedStep(plainTokens, i);
-        assertValidStepSource(source, references, i, createBranchGroups(plainTokens[i]) !== plainTokens[i]);
+        assertValidStepSource(source, references, i, unionAlternatives(plainTokens[i]).length > 1);
     });
 }
 
@@ -116,14 +140,11 @@ function isMatchError(e: unknown): e is RGXRegexNotMatchedAtPositionError | RGXR
     );
 }
 
-export type RGXTokenOrPart<R, S = unknown, T = any> = RGXToken | RGXPart<R, S, T>;
-export type RGXWalkerStepDirective = "stop" | "skip" | "silent";
-
 export class RGXWalker<R, S = unknown> {
     readonly source: string;
     _sourcePosition: number;
 
-    readonly tokens: RGXTokenOrPart<R, S>[];
+    readonly tokens: RGXWalkerStep<R, S>[];
     _tokenPosition: number;
 
     reduced: R;
@@ -168,7 +189,7 @@ export class RGXWalker<R, S = unknown> {
         return this._stopped;
     }
 
-    constructor(source: string, tokens: RGXTokenOrPart<R, S>[], options: RGXWalkerOptions<R, S> = {}) {
+    constructor(source: string, tokens: RGXWalkerStep<R, S>[], options: RGXWalkerOptions<R, S> = {}) {
         this.source = source;
         this.sourcePosition = options.startingSourcePosition ?? 0;
         this.tokens = tokens;
@@ -195,7 +216,7 @@ export class RGXWalker<R, S = unknown> {
         return this.tokenPosition === this.tokens.length - 1;
     }
 
-    hasNextToken(predicate: (token: RGXTokenOrPart<R, S, unknown>) => boolean = () => true) {
+    hasNextToken(predicate: (token: RGXWalkerStep<R, S, unknown>) => boolean = () => true) {
         return !this.atTokenEnd() && predicate(this.currentToken());
     }
 
@@ -235,33 +256,38 @@ export class RGXWalker<R, S = unknown> {
         return this.source.slice(this.sourcePosition);
     }
 
-    capture(token: RGXTokenOrPart<R, S>, includeMatch: true): RegExpExecArray;
-    capture(token: RGXTokenOrPart<R, S>, includeMatch?: false): string;
-    capture(token: RGXTokenOrPart<R, S>, includeMatch = false): string | RegExpExecArray {
-        const match = this.matchRegex(createRegex(this.resolveStep(token, false)));
+    capture(token: RGXWalkerStep<R, S>, includeMatch: true): RegExpExecArray;
+    capture(token: RGXWalkerStep<R, S>, includeMatch?: false): string;
+    capture(token: RGXWalkerStep<R, S>, includeMatch = false): string | RegExpExecArray {
+        const plain = this.resolveStepToken(token);
+        // Without branch groups, group numbers don't shift.
+        const source = this.checkStep(token, plain, false);
+        const match = this.matchRegex(createRegex(source));
         return includeMatch ? match : match[0];
     }
 
-    // Resolves a step and checks it, returning the source to match it with. A dynamic part produces its token here,
-    // so its insertions are checked here too, at its position among the walker's tokens if it is the current one.
-    private resolveStep(token: RGXTokenOrPart<R, S>, branch: boolean): string {
-        let plain: RGXToken;
+    // The token to match the step with now, with each part replaced by the token it produces.
+    private resolveStepToken(step: RGXWalkerStep<R, S>): RGXToken {
+        return plainStepToken(step, part => part.resolveToken(this));
+    }
+
+    // Resolves the token a step is matched with and checks it, returning the resolved source. When the step has a
+    // dynamic part, its token is only known now, so its insertions are checked now too, at the step's position among
+    // the walker's tokens if it is the current one.
+    private checkStep(step: RGXWalkerStep<R, S>, plain: RGXToken, isUnion: boolean): string {
         let source: string;
         let references: (string | number)[];
 
-        if (RGXPart.check(token) && token.isDynamic()) {
-            plain = token.resolveToken(this);
-            const isCurrent = !this.atTokenEnd() && this.currentToken() === token;
-            const siblings = isCurrent ? this.tokens.map((t, i) => i === this.tokenPosition ? plain : staticStepToken(t)) : [plain];
+        if (containsPart(step, part => part.isDynamic())) {
+            const isCurrent = !this.atTokenEnd() && this.currentToken() === step;
+            const siblings = isCurrent ? this.tokens.map((t, i) => i === this.tokenPosition ? plain : plainStepToken(t)) : [plain];
             [source, references] = resolveCheckedStep(siblings, isCurrent ? this.tokenPosition : 0);
         } else {
-            plain = staticStepToken(token);
             [source, references] = collectRGXReferences(() => resolveRGXToken(plain));
         }
 
-        const branched = branch ? createBranchGroups(plain) : plain;
-        assertValidStepSource(source, references, null, branched !== plain);
-        return branched === plain ? source : resolveRGXToken(branched);
+        assertValidStepSource(source, references, null, isUnion);
+        return source;
     }
 
     // Matches the regex at the current position (or after it, if not contiguous), and moves past the match.
@@ -294,25 +320,18 @@ export class RGXWalker<R, S = unknown> {
         }
     }
 
-    private determineBranch(capture: RegExpExecArray): number {
-        for (let i = 0; i < capture.length; i++) {
-            if (capture.groups?.[`${branchGroupPrefix}${i}`] !== undefined) return i;
-        }
-        return 0;
-    }
-
-    private registerCapture(captureResult: RGXCapture, token: RGXTokenOrPart<R, S>) {
+    private registerCapture(captureResult: RGXCapture, owner: RGXPart<R, S, unknown> | null) {
         this.captures.push(captureResult);
-        if (token instanceof RGXPart && token.hasId()) {
-            if (!(token.id in this.namedCaptures)) this.namedCaptures[token.id] = [];
-            this.namedCaptures[token.id]!.push(captureResult);
+        if (owner !== null && owner.hasId()) {
+            if (!(owner.id in this.namedCaptures)) this.namedCaptures[owner.id] = [];
+            this.namedCaptures[owner.id]!.push(captureResult);
         }
     }
 
-    private unregisterLastCapture(token: RGXTokenOrPart<R, S>) {
+    private unregisterLastCapture(owner: RGXPart<R, S, unknown>) {
         this.captures.pop();
-        if (token instanceof RGXPart && token.hasId()) {
-            this.namedCaptures[token.id]!.pop();
+        if (owner.hasId()) {
+            this.namedCaptures[owner.id]!.pop();
         }
     }
 
@@ -326,33 +345,31 @@ export class RGXWalker<R, S = unknown> {
         return null;
     }
 
-    // Returns the capture on success, or a directive on handled failure. Unhandled errors are rethrown.
-    private attemptCapture(
-        token: RGXTokenOrPart<R, S>,
-        part: RGXPart<R, S, unknown> | null
-    ): RegExpExecArray | Exclude<RGXWalkerStepDirective, "silent"> {
-        // Unions are wrapped in branch groups, so the capture can record which branch matched.
-        const regex = createRegex(this.resolveStep(token, true));
-        try {
-            return this.matchRegex(regex);
-        } catch (e) {
-            if (part !== null && (e instanceof RGXRegexNotMatchedAtPositionError || e instanceof RGXRegexNotMatchedAfterPositionError)) {
-                const control = part.afterFailure?.(e, { part, walker: this });
-                // If this happens, afterFailure itself stopped the walker, so we just need to respect that.
-                if (this.stopped) return "stop";
-                if (control === "stop" || control === "stop-silent") return "stop";
-                if (control === "skip") return "skip";
-                // Handling silent is pointless here since it won't add a capture in either case, so we don't check for it.
-            }
-            throw e;
+    // Calls afterFailure on each part, in order. Every part's hook runs, and the first directive other than void
+    // decides what happens. Returns null if the error should be rethrown.
+    private handleAfterFailure(
+        parts: readonly RGXPart<R, S, unknown>[],
+        e: RGXRegexNotMatchedAtPositionError | RGXRegexNotMatchedAfterPositionError
+    ): Exclude<RGXWalkerStepDirective, "silent"> | null {
+        let result: Exclude<RGXWalkerStepDirective, "silent"> | null = null;
+        for (const part of parts) {
+            const control = part.afterFailure?.(e, { part, walker: this });
+            // If this happens, afterFailure itself stopped the walker, so we just need to respect that.
+            if (this.stopped) return "stop";
+            // Handling silent is pointless here since it won't add a capture in either case, so we don't check for it.
+            if (result === null && (control === "stop" || control === "stop-silent")) result = "stop";
+            if (result === null && control === "skip") result = "skip";
         }
+        return result;
     }
 
-    // Returns a directive on handled validation failure, null on success. Unhandled errors are rethrown.
+    // Returns a directive on handled validation failure, "retry" if another branch should be tried, and null on
+    // success. Unhandled errors are rethrown.
     private validateCapture(
         token: RGXPart<R, S, unknown>,
-        captureResult: RGXCapture<unknown>
-    ): Exclude<RGXWalkerStepDirective, "silent"> | null {
+        captureResult: RGXCapture<unknown>,
+        canRetry: boolean
+    ): Exclude<RGXWalkerStepDirective, "silent"> | "retry" | null {
         try {
             token.validate(captureResult, { part: token, walker: this });
             return null;
@@ -365,9 +382,30 @@ export class RGXWalker<R, S = unknown> {
                 if (control === "stop" || control === "stop-silent") return "stop";
                 if (control === "skip") return "skip";
                 // Handling silent is pointless here since it won't add a capture in either case, so we don't check for it.
+                if (canRetry) return "retry";
             }
             throw e;
         }
+    }
+
+    // Calls afterLoss on each part that wasn't picked, in branch order. Every part's hook runs, and the first directive
+    // other than void decides what happens.
+    private handleAfterLoss(
+        losers: readonly RGXWalkerBranch<R, S>[],
+        winner: RGXWalkerBranch<R, S>,
+        winningStep: RGXTokenOrPart<R, S>,
+        captureResult: RGXCapture<unknown>
+    ): RGXPartLossControl {
+        let result: RGXPartLossControl = undefined;
+        for (const loser of losers) {
+            const part = loser.owner!;
+            const reason = loser.index < winner.index ? "no-match" : "not-reached";
+            const control = part.afterLoss?.({ reason, winner: winningStep, capture: captureResult }, { part, walker: this });
+            // If this happens, afterLoss itself stopped the walker, so we just need to respect that.
+            if (this.stopped) return result ?? "stop";
+            if (result === undefined && (control === "stop" || control === "stop-silent")) result = control;
+        }
+        return result;
     }
 
     private handleAfterCapture(
@@ -392,6 +430,40 @@ export class RGXWalker<R, S = unknown> {
         return null;
     }
 
+    // The step's branches, after calling beforeCapture on its parts. Returns a directive instead if a part stopped
+    // the walker or every alternative was skipped.
+    private prepareBranches(step: RGXWalkerStep<R, S>):
+        | { branches: RGXWalkerBranch<R, S>[], silentParts: Set<RGXPart<R, S, unknown>>, alternatives: RGXTokenOrPart<R, S>[] }
+        | Exclude<RGXWalkerStepDirective, "silent"> {
+        // A single part is one alternative, so it handles every branch of its own token.
+        const alternatives = RGXPart.check(step) ? [step] : unionAlternatives(step);
+        const silentParts = new Set<RGXPart<R, S, unknown>>();
+        const skipped = new Set<number>();
+
+        for (const [i, alternative] of alternatives.entries()) {
+            if (!RGXPart.check(alternative)) continue;
+            const dir = this.handleBeforeCapture(alternative);
+            if (dir === "stop") return "stop";
+            if (dir === "skip") skipped.add(i);
+            if (dir === "silent") silentParts.add(alternative);
+        }
+
+        if (skipped.size === alternatives.length) return "skip";
+
+        let branches: RGXWalkerBranch<R, S>[];
+        if (RGXPart.check(step)) {
+            branches = unionAlternatives(step.resolveToken(this)).map((token, index) => ({ index, owner: step, token: token as RGXToken }));
+        } else {
+            branches = alternatives.flatMap((alternative, index): RGXWalkerBranch<R, S>[] => {
+                if (skipped.has(index)) return [];
+                if (RGXPart.check(alternative)) return [{ index, owner: alternative, token: alternative.resolveToken(this) }];
+                return [{ index, owner: null, token: alternative as RGXToken }];
+            });
+        }
+
+        return { branches, silentParts, alternatives };
+    }
+
     step(): RGXCapture | null {
         if (!this.infinite && !this.looping && this.atTokenEnd()) {
             this._stopped = true;
@@ -403,63 +475,90 @@ export class RGXWalker<R, S = unknown> {
             return null;
         }
 
-        const token = this.currentToken();
-        const isPart = token instanceof RGXPart;
-        let silent = false;
+        const step = this.currentToken();
+        const prepared = this.prepareBranches(step);
+        if (prepared === "stop") { this._stopped = true; return null; }
+        if (prepared === "skip") { this.advanceToken(); return null; }
 
-        if (isPart) {
-            const dir = this.handleBeforeCapture(token);
-            if (dir === "stop") { this._stopped = true; return null; }
-            if (dir === "skip") { this.advanceToken(); return null; }
-            silent = dir === "silent";
-        }
+        const { silentParts, alternatives } = prepared;
+        let branches = prepared.branches;
+        // In a union of parts, a branch whose capture fails validation is dropped, so the others get a chance.
+        const canRetry = !RGXPart.check(step);
+        const isUnion = (RGXPart.check(step) ? branches.length : alternatives.length) > 1;
+        this.checkStep(step, branches.length === 1 ? branches[0]!.token : branches.map(branch => branch.token), isUnion);
 
         // Snapshot the source position so validateCapture and handleAfterCapture
         // can restore it on skip/failure.
         this.snapshot("step", "sourcePosition");
 
-        let captureAttempt: ReturnType<typeof this.attemptCapture>;
-        try {
-            captureAttempt = this.attemptCapture(token, isPart ? token : null);
-            if (captureAttempt === "stop") { this._stopped = true; return null; }
-            if (captureAttempt === "skip") { this.advanceToken(); return null; }
-        } catch (e) {
-            if (e instanceof RGXRegexNotMatchedAfterPositionError) {
-                // If we're in infinite mode, we've reached the end before, and we're at the end now,
-                // this is recoverable. Just stop the walker instead of throwing an error.
-                if (this.infinite && this._didReachEnd && this.atLastToken()) {
-                    this._stopped = true;
-                    return null;
+        let winner: RGXWalkerBranch<R, S>;
+        let captureResult: RGXCapture<unknown>;
+        while (true) {
+            let match: RegExpExecArray;
+            try {
+                match = this.matchRegex(createRegex(resolveRGXToken(branchesToken(branches))));
+            } catch (e) {
+                if (e instanceof RGXRegexNotMatchedAtPositionError || e instanceof RGXRegexNotMatchedAfterPositionError) {
+                    const owners = [...new Set(branches.flatMap(branch => branch.owner === null ? [] : [branch.owner]))];
+                    const dir = this.handleAfterFailure(owners, e);
+                    if (dir === "stop") { this._stopped = true; return null; }
+                    if (dir === "skip") { this.advanceToken(); return null; }
                 }
+
+                if (e instanceof RGXRegexNotMatchedAfterPositionError) {
+                    // If we're in infinite mode, we've reached the end before, and we're at the end now,
+                    // this is recoverable. Just stop the walker instead of throwing an error.
+                    if (this.infinite && this._didReachEnd && this.atLastToken()) {
+                        this._stopped = true;
+                        return null;
+                    }
+                }
+
+                throw e;
             }
 
-            throw e;
-        }
+            winner = branches.length === 1 ? branches[0]! : branches.find(branch => match.groups?.[`${branchGroupPrefix}${branch.index}`] !== undefined)!;
+            const owner = winner.owner;
 
-        // The reason we no longer track start as the position before attempting capture
-        // is the possibility of non-contiguous matches. In that case, there may be a gap between
-        // the previous position and the actual start of the capture.
-        const start = this.sourcePosition - captureAttempt[0].length;
-        const raw = isPart ? token.rawTransform(captureAttempt[0]) : captureAttempt[0];
-        const end = this.sourcePosition;
-        const value = isPart ? token.transform(raw) : raw;
-        const captureResult: RGXCapture<typeof value> = {
-            raw, value, start, end,
-            branch: this.determineBranch(captureAttempt),
-            ownerId: isPart && token.hasId() ? token.id : null,
-            groups: captureAttempt.groups ?? null
-        };
+            // The reason we no longer track start as the position before attempting capture
+            // is the possibility of non-contiguous matches. In that case, there may be a gap between
+            // the previous position and the actual start of the capture.
+            const start = this.sourcePosition - match[0].length;
+            const raw = owner ? owner.rawTransform(match[0]) : match[0];
+            const end = this.sourcePosition;
+            const value = owner ? owner.transform(raw) : raw;
+            captureResult = {
+                raw, value, start, end,
+                branch: winner.index,
+                ownerId: owner?.hasId() ? owner.id : null,
+                groups: userGroups(match.groups)
+            };
 
-        if (isPart) {
-            const dir = this.validateCapture(token, captureResult);
+            if (owner === null) break;
+            const dir = this.validateCapture(owner, captureResult, canRetry && branches.length > 1);
             if (dir === "stop") { this._stopped = true; return null; }
             if (dir === "skip") { this.advanceToken(); return null; }
+            if (dir === null) break;
+            branches = branches.filter(branch => branch !== winner);
         }
 
-        if (!silent) this.registerCapture(captureResult, token);
+        const owner = winner.owner;
+        const silent = owner !== null && silentParts.has(owner);
 
-        if (isPart) {
-            const dir = this.handleAfterCapture(token, captureResult, silent);
+        // The parts in a union that weren't picked are told so before the winner's afterCapture.
+        const losers = canRetry ? branches.filter(branch => branch !== winner && branch.owner !== null) : [];
+        const lossControl = losers.length > 0 ? this.handleAfterLoss(losers, winner, alternatives[winner.index]!, captureResult) : undefined;
+        if (lossControl !== undefined) {
+            if (!silent && lossControl === "stop") this.registerCapture(captureResult, owner);
+            this.advanceToken();
+            this._stopped = true;
+            return null;
+        }
+
+        if (!silent) this.registerCapture(captureResult, owner);
+
+        if (owner !== null) {
+            const dir = this.handleAfterCapture(owner, captureResult, silent);
             if (dir === "stop") { this.advanceToken(); this._stopped = true; return null; }
             if (dir === "skip") { this.advanceToken(); return null; }
         }
@@ -468,7 +567,7 @@ export class RGXWalker<R, S = unknown> {
         return captureResult;
     }
 
-    private *_stepToTokenIter(predicate: (token: RGXTokenOrPart<R, S, unknown>) => boolean): Generator<void> {
+    private *_stepToTokenIter(predicate: (token: RGXWalkerStep<R, S, unknown>) => boolean): Generator<void> {
         while (this.hasNextToken()) {
             this._stopped = false;
             if (predicate(this.currentToken())) break;
@@ -478,14 +577,14 @@ export class RGXWalker<R, S = unknown> {
         }
     }
 
-    stepToToken(predicate: (token: RGXTokenOrPart<R>) => boolean = () => true) {
+    stepToToken(predicate: (token: RGXWalkerStep<R, S>) => boolean = () => true) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         for (const _ of this._stepToTokenIter(predicate)) { /* sync — no yield needed */ }
         return this;
     }
 
     async stepToTokenAsync(
-        predicate: (token: RGXTokenOrPart<R, S, unknown>) => boolean = () => true,
+        predicate: (token: RGXWalkerStep<R, S, unknown>) => boolean = () => true,
         yieldFn: () => Promise<void> = () => new Promise(resolve => setImmediate(resolve))
     ): Promise<this> {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars

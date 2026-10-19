@@ -5,7 +5,7 @@ import {
     LexemeNotMatchedCause, RGXLexemeNotMatchedAtPositionError,
     isLexemeNotMatchedCauseError, RGXInvalidLexerError
 } from "src/errors";
-import { RGXTokenOrPart, RGXWalker, RGXWalkerOptions } from "src/walker";
+import { RGXWalker, RGXWalkerOptions, RGXWalkerStep } from "src/walker";
 import { assertRegexMatchesAtPosition, createRegex, regexMatchAtPosition } from "src/utils";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { rgxConstant } from "src/constants";
@@ -15,7 +15,7 @@ export type RGXLexemeDefinition<Data, Share=unknown> = Readonly<({
     token: RGXToken
 } | {
     type: "walk",
-    tokens: RGXTokenOrPart<Data, Share>[],
+    tokens: RGXWalkerStep<Data, Share>[],
     // The lexer needs complete control over the source position and the source,
     // so we omit startingSourcePosition and do not allow source specification.
     options?: Omit<RGXWalkerOptions<Data, Share>, "startingSourcePosition" | "reduced" | "share"> & {

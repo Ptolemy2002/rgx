@@ -10,7 +10,7 @@ A change is breaking if it changes what a pattern matches, or changes the public
 
 | Version | Main changes |
 | --- | --- |
-| [15.0.0](#1500) | Backreferences and walker steps are validated, part tokens can be functions |
+| [15.0.0](#1500) | Backreferences and walker steps are validated, part tokens can be functions, walker steps can be unions of parts |
 | [14.0.0](#1400) | `rgxIsGroup`, `rgxGroupWrap` and `rgxInterpolate` removed, repeatability detected automatically, new `rgxAcceptInsertion` signature, single-step JSON class construction |
 | [13.0.0](#1300) | `resolveRGXToken` takes an options object, `rgxConstant` always returns a class token, word bounds match at the edges of the string |
 | [12.0.0](#1200) | `rgx` takes an options object |
@@ -63,6 +63,20 @@ To update:
 
 - To get the token to match a part with, call `part.resolveToken(walker)` instead of reading `part.token`.
 - If you only handle static parts, check `part.isDynamic()` first. When it's `false`, `part.token` is an `RGXToken`.
+
+## Walker steps can be unions of parts, and nested unions are flattened
+
+A walker step can now be an array of parts and tokens, nested to any depth (see [Unions of Parts](./docs/class/walker.md#unions-of-parts)). Along with that:
+
+- **Branch numbers count the flattened union.** Every union in a step that is only reachable through other unions (nested arrays and `RGXClassUnionToken`s) is flattened, and `capture.branch` is the position in the flattened list. Before, only the top level was split into branches. For example, in `[["a", "b"], "c"]`, `"c"` used to be branch `1` and is now branch `2`. The same applies to the token of a single part. Steps whose unions aren't nested keep their numbers.
+- **Branch groups are hidden from `capture.groups`.** The walker's `rgx_branch_<index>` groups no longer appear in `groups`, and `groups` is `null` when they were the only ones.
+- **Types.** The walker's steps are typed `RGXWalkerStep<R, S>` instead of `RGXTokenOrPart<R, S>`. This applies to `walker.tokens`, `currentToken()`, the predicates of `hasNextToken`, `stepToToken` and `stepToTokenAsync`, the token passed to `capture`, `rgxwa`, `rgxw`, and the `tokens` of a `"walk"` lexeme definition. A step you read back from the walker can now be an array that contains parts, so it isn't always an `RGXToken` or an `RGXPart`.
+
+To update:
+
+- If you compare `capture.branch` for a step with nested unions, renumber the branches by their position in the flattened union.
+- If you read `rgx_branch_<index>` from `capture.groups`, use `capture.branch` instead.
+- Where you typed steps as `RGXTokenOrPart`, use `RGXWalkerStep`, and handle arrays if you read steps back from the walker.
 
 ---
 

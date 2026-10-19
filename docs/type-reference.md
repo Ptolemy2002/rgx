@@ -36,6 +36,8 @@ type RGXNonJSONToken = Exclude<RGXToken, RGXJSONObjectToken>;
 const RGX_JSON_FLAG = "$rgx";
 type RGXJSONFlag = typeof RGX_JSON_FLAG;
 type RGXTokenOrPart<R, S = unknown, T = any> = RGXToken | RGXPart<R, S, T>;
+// A union of tokens and parts can be written as an array nested to any depth.
+type RGXWalkerStep<R, S = unknown, T = any> = RGXTokenOrPart<R, S, T> | RGXWalkerStep<R, S, T>[];
 
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 // When rgxIsRepeatable is absent, the token is only repeatable if it isn't detected as consuming no characters, which types can't express.
@@ -130,6 +132,13 @@ type RGXParseOptions = {
 };
 
 type RGXPartControl = "skip" | "stop" | "silent" | "stop-silent" | void;
+type RGXPartLossControl = "stop" | "stop-silent" | void;
+type RGXPartLossReason = "no-match" | "not-reached";
+type RGXPartLoss<R, S = unknown> = {
+    reason: RGXPartLossReason;
+    winner: RGXTokenOrPart<R, S>; // The alternative that captured: a part, or a plain token
+    capture: RGXCapture;
+};
 type RGXWalkerStepDirective = "stop" | "skip" | "silent";
 
 type RGXCapture<T = unknown> = {
@@ -138,8 +147,8 @@ type RGXCapture<T = unknown> = {
     start: number;
     end: number;
     ownerId: string | null; // The id of the RGXPart that captured this, if any
-    branch: number; // The branch index of the token that captured this, or 0 if there is only one branch
-    groups: Record<string, string> | null; // The groups captured by the token that captured this, or null if the token didn't capture any groups
+    branch: number; // The position of the alternative that captured this in the step's flattened union, or 0 if the step isn't a union
+    groups: Record<string, string> | null; // The groups captured by the token that captured this (without the walker's branch groups), or null if it has none
 };
 
 type RGXPartContext<R, S = unknown, T = string> = {
@@ -159,6 +168,7 @@ type RGXPartOptions<R, S = unknown, T=string> = {
     afterCapture: ((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
     afterFailure: ((e: RGXRegexNotMatchedAtPositionError | RGXRegexNotMatchedAfterPositionError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
     afterValidationFailure: ((e: RGXPartValidationFailedError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
+    afterLoss: ((loss: RGXPartLoss<R, S>, context: RGXPartContext<R, S, T>) => RGXPartLossControl) | null;
 };
 
 type RGXWalkerOptions<R, S = unknown> = {
@@ -246,7 +256,7 @@ type RGXLexemeDefinition<Data, Share=unknown> = Readonly<({
     token: RGXToken;
 } | {
     type: "walk";
-    tokens: RGXTokenOrPart<Data, Share>[];
+    tokens: RGXWalkerStep<Data, Share>[];
     options?: Omit<RGXWalkerOptions<Data, Share>, "startingSourcePosition" | "reduced" | "share"> & {
         reduced?: (() => Data) | null;
         share?: (() => Share) | null;

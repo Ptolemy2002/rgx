@@ -2,7 +2,7 @@ import { rgxPart, RGXPart, rgxWalker, RGXWalker } from "src/walker";
 import { RGXTokenCollection } from "src/collection";
 import { RGXInsertionRejectedError, RGXInvalidWalkerError, RGXInvalidWalkerStepError, RGXOutOfBoundsError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError, RGXRegexNotMatchedAtPositionError } from "src/errors";
 import { RGXClassToken, RGXClassUnionToken, RGXGroupToken } from "src/class";
-import { rgxInterpolation, rgxwa } from "src/index";
+import { rgxInterpolation, rgxSubpattern, rgxwa, RGXInvalidBackreferenceError } from "src/index";
 import { expectError } from "../utils";
 import { RGXCurrentTokenNotFoundError } from "src/errors";
 
@@ -564,10 +564,7 @@ describe("RGXWalker", () => {
         it("handles branches correctly with a non-part token", () => {
             const instance = new RGXWalker("bar", [["foo", "bar"]]);
             const result = instance.step();
-            expect(result).toEqual({ raw: "bar", value: "bar", start: 0, end: 3, ownerId: null, branch: 1, groups: {
-                rgx_branch_0: undefined,
-                rgx_branch_1: "bar"
-            } });
+            expect(result).toEqual({ raw: "bar", value: "bar", start: 0, end: 3, ownerId: null, branch: 1, groups: null });
         });
 
         it("handles branches correctly with a part with an array token", () => {
@@ -577,10 +574,7 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("bar", [part]);
 
             const result = instance.step();
-            expect(result).toEqual({ raw: "bar", value: "BAR", start: 0, end: 3, ownerId: part.id, branch: 1, groups: {
-                rgx_branch_0: undefined,
-                rgx_branch_1: "bar"
-            } });
+            expect(result).toEqual({ raw: "bar", value: "BAR", start: 0, end: 3, ownerId: part.id, branch: 1, groups: null });
         });
 
         it("handles branches correctly with a part with a token collection in union mode", () => {
@@ -590,10 +584,7 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("bar", [part]);
 
             const result = instance.step();
-            expect(result).toEqual({ raw: "bar", value: "BAR", start: 0, end: 3, ownerId: part.id, branch: 1, groups: {
-                rgx_branch_0: undefined,
-                rgx_branch_1: "bar"
-            } });
+            expect(result).toEqual({ raw: "bar", value: "BAR", start: 0, end: 3, ownerId: part.id, branch: 1, groups: null });
         });
 
         it("handles branches correctly with a part with a token collection in concat mode", () => {
@@ -613,10 +604,7 @@ describe("RGXWalker", () => {
             const instance = new RGXWalker("bar", [part]);
 
             const result = instance.step();
-            expect(result).toEqual({ raw: "bar", value: "BAR", start: 0, end: 3, ownerId: part.id, branch: 1, groups: {
-                rgx_branch_0: undefined,
-                rgx_branch_1: "bar"
-            } });
+            expect(result).toEqual({ raw: "bar", value: "BAR", start: 0, end: 3, ownerId: part.id, branch: 1, groups: null });
         });
 
         describe("beforeCapture returns 'skip'", () => {
@@ -1538,6 +1526,203 @@ describe("RGXWalker", () => {
 
             expect(clone.captures).toEqual(instance.captures);
             expect(clone.namedCaptures).toEqual(instance.namedCaptures);
+        });
+    });
+
+    describe("unions of parts", () => {
+        it("lets the branch that matched handle the capture", () => {
+            const word = new RGXPart(/[a-z]+/, { id: "word", transform: s => s.toUpperCase() });
+            const number = new RGXPart(/\d+/, { id: "number", transform: s => Number(s) });
+            const walker = new RGXWalker("12", [[word, number]]);
+
+            expect(walker.step()).toEqual({ raw: "12", value: 12, start: 0, end: 2, ownerId: "number", branch: 1, groups: null });
+            expect(walker.namedCaptures).toEqual({ number: [expect.objectContaining({ raw: "12" })] });
+        });
+
+        it("numbers branches by their position in the flattened union", () => {
+            const c = new RGXPart("c");
+            const walker = new RGXWalker("c", [[["a", new RGXClassUnionToken(["x", ["y"]])], c]]);
+            expect(walker.step()).toMatchObject({ raw: "c", branch: 3 });
+        });
+
+        it("flattens nested unions in a single part's token", () => {
+            const walker = new RGXWalker("c", [new RGXPart([["a", "b"], "c"])]);
+            expect(walker.step()).toMatchObject({ raw: "c", branch: 2 });
+        });
+
+        it("keeps empty unions as alternatives that match the empty string", () => {
+            const walker = new RGXWalker("a", [[[], new RGXPart("a")]]);
+            expect(walker.step()).toMatchObject({ raw: "", branch: 0, ownerId: null });
+        });
+
+        it("handles plain token branches without hooks", () => {
+            const part = new RGXPart("a", { id: "a" });
+            const walker = new RGXWalker("b", [[part, "b"]]);
+            expect(walker.step()).toMatchObject({ raw: "b", branch: 1, ownerId: null });
+        });
+
+        it("calls beforeCapture on every part, and leaves out the ones that skip", () => {
+            const calls: string[] = [];
+            const a = new RGXPart("x", { id: "a", beforeCapture: () => { calls.push("a"); return "skip"; } });
+            const b = new RGXPart("x", { id: "b", beforeCapture: () => { calls.push("b"); } });
+            const walker = new RGXWalker("x", [[a, b]]);
+
+            expect(walker.step()).toMatchObject({ ownerId: "b", branch: 1 });
+            expect(calls).toEqual(["a", "b"]);
+        });
+
+        it("skips the step when every branch skips", () => {
+            const walker = new RGXWalker("x", [[new RGXPart("x", { beforeCapture: () => "skip" }), new RGXPart("x", { beforeCapture: () => "skip" })], "x"]);
+            expect(walker.step()).toBe(null);
+            expect(walker.tokenPosition).toBe(1);
+            expect(walker.sourcePosition).toBe(0);
+        });
+
+        it("stops when any branch's beforeCapture stops", () => {
+            const later = jest.fn();
+            const walker = new RGXWalker("x", [[new RGXPart("x", { beforeCapture: () => "stop" }), new RGXPart("x", { beforeCapture: later })]]);
+            expect(walker.step()).toBe(null);
+            expect(walker.stopped).toBe(true);
+            expect(later).not.toHaveBeenCalled();
+        });
+
+        it("doesn't record the capture when the winning part asked to be silent", () => {
+            const walker = new RGXWalker("x", [[new RGXPart("y"), new RGXPart("x", { beforeCapture: () => "silent" })]]);
+            expect(walker.step()).toMatchObject({ raw: "x" });
+            expect(walker.captures).toEqual([]);
+        });
+
+        it("tries the other branches when the winner fails validation", () => {
+            const afterValidationFailure = jest.fn();
+            const a = new RGXPart(/\d+/, { id: "a", validate: () => false, afterValidationFailure });
+            const b = new RGXPart(/\d/, { id: "b" });
+            const walker = new RGXWalker("12", [[a, b]]);
+
+            expect(walker.step()).toMatchObject({ raw: "1", ownerId: "b", branch: 1 });
+            expect(afterValidationFailure).toHaveBeenCalledTimes(1);
+        });
+
+        it("rethrows the validation error when no branch is left", () => {
+            const walker = new RGXWalker("1", [[new RGXPart(/\d/, { validate: () => "bad" }), new RGXPart(/\d/, { validate: () => "worse" })]]);
+            expect(() => walker.step()).toThrow(/worse/);
+            expect(walker.sourcePosition).toBe(0);
+        });
+
+        it("follows directives from afterValidationFailure", () => {
+            const skipping = new RGXWalker("1", [[new RGXPart(/\d/, { validate: () => false, afterValidationFailure: () => "skip" }), /\d/], "1"]);
+            expect(skipping.step()).toBe(null);
+            expect(skipping.tokenPosition).toBe(1);
+
+            const stopping = new RGXWalker("1", [[new RGXPart(/\d/, { validate: () => false, afterValidationFailure: () => "stop" }), /\d/]]);
+            expect(stopping.step()).toBe(null);
+            expect(stopping.stopped).toBe(true);
+        });
+
+        it("calls afterFailure on every part when no branch matches, letting the first directive decide", () => {
+            const calls: string[] = [];
+            const a = new RGXPart("a", { afterFailure: () => { calls.push("a"); } });
+            const b = new RGXPart("b", { afterFailure: () => { calls.push("b"); return "skip"; } });
+            const c = new RGXPart("c", { afterFailure: () => { calls.push("c"); return "stop"; } });
+            const walker = new RGXWalker("x", [[a, b, c]]);
+
+            expect(walker.step()).toBe(null);
+            expect(calls).toEqual(["a", "b", "c"]);
+            expect(walker.stopped).toBe(false);
+            expect(walker.tokenPosition).toBe(1);
+        });
+
+        it("rethrows when no afterFailure handles the failure", () => {
+            const walker = new RGXWalker("x", [[new RGXPart("a", { afterFailure: () => {} }), "b"]]);
+            expect(() => walker.step()).toThrow(RGXRegexNotMatchedAtPositionError);
+        });
+
+        it("stops when afterFailure stops the walker itself", () => {
+            const later = jest.fn();
+            const walker = new RGXWalker("x", [[new RGXPart("a", { afterFailure: (_, { walker }) => { walker.stop(); } }), new RGXPart("b", { afterFailure: later })]]);
+            expect(walker.step()).toBe(null);
+            expect(walker.stopped).toBe(true);
+            expect(later).not.toHaveBeenCalled();
+        });
+
+        it("calls afterLoss on the parts that weren't picked, before the winner's afterCapture", () => {
+            const calls: unknown[] = [];
+            const a = new RGXPart("a", { afterLoss: loss => { calls.push(["a", loss.reason, loss.winner, loss.capture.raw]); } });
+            const b = new RGXPart("b", { afterCapture: () => { calls.push("b"); } });
+            const c = new RGXPart("b", { afterLoss: loss => { calls.push(["c", loss.reason]); } });
+            const walker = new RGXWalker("b", [[a, b, "x", c]]);
+
+            walker.step();
+            expect(calls).toEqual([["a", "no-match", b, "b"], ["c", "not-reached"], "b"]);
+        });
+
+        it("doesn't call afterLoss on branches that failed validation or were skipped", () => {
+            const afterLoss = jest.fn();
+            const a = new RGXPart("b", { validate: () => false, afterLoss });
+            const b = new RGXPart("b", { beforeCapture: () => "skip", afterLoss });
+            const walker = new RGXWalker("b", [[a, b, "b"]]);
+
+            expect(walker.step()).toMatchObject({ branch: 2 });
+            expect(afterLoss).not.toHaveBeenCalled();
+        });
+
+        it("stops after recording the capture when afterLoss returns stop", () => {
+            const afterCapture = jest.fn();
+            const walker = new RGXWalker("b", [[new RGXPart("a", { afterLoss: () => "stop" }), new RGXPart("b", { afterCapture })], "x"]);
+
+            expect(walker.step()).toBe(null);
+            expect(walker.stopped).toBe(true);
+            expect(walker.captures).toHaveLength(1);
+            expect(walker.tokenPosition).toBe(1);
+            expect(afterCapture).not.toHaveBeenCalled();
+        });
+
+        it("stops without recording the capture when afterLoss returns stop-silent", () => {
+            const walker = new RGXWalker("b", [[new RGXPart("a", { afterLoss: () => "stop-silent" }), new RGXPart("a", { afterLoss: () => "stop" }), "b"]]);
+            expect(walker.step()).toBe(null);
+            expect(walker.stopped).toBe(true);
+            expect(walker.captures).toHaveLength(0);
+        });
+
+        it("stops when afterLoss stops the walker itself", () => {
+            const later = jest.fn();
+            const walker = new RGXWalker("b", [[new RGXPart("a", { afterLoss: (_, { walker }) => { walker.stop(); } }), new RGXPart("a", { afterLoss: later }), "b"]]);
+            expect(walker.step()).toBe(null);
+            expect(walker.stopped).toBe(true);
+            expect(walker.captures).toHaveLength(1);
+            expect(later).not.toHaveBeenCalled();
+        });
+
+        it("doesn't record the capture when afterLoss stops and the winner asked to be silent", () => {
+            const walker = new RGXWalker("b", [[new RGXPart("a", { afterLoss: () => "stop" }), new RGXPart("b", { beforeCapture: () => "silent" })]]);
+            walker.step();
+            expect(walker.captures).toHaveLength(0);
+        });
+
+        it("resolves dynamic parts in a union for each capture", () => {
+            const contexts: { siblings: readonly unknown[] }[] = [];
+            const token = { toRgx: () => "b", rgxAcceptInsertion: (context: { siblings: readonly unknown[] }) => { contexts.push(context); return true; } };
+            const walker = new RGXWalker("b", [[new RGXPart("a"), new RGXPart(() => token)]]);
+
+            expect(walker.step()).toMatchObject({ raw: "b", branch: 1 });
+            expect(contexts[0]!.siblings).toEqual(["a", token]);
+        });
+
+        it("rejects numeric backreferences in parts in a union", () => {
+            expect(() => rgxwa("aa", [[new RGXPart(/(a)\1/), "b"]])).toThrow(/numeric-in-branches/);
+            expect(() => new RGXWalker("aa", [[new RGXPart(() => /(a)\1/), "b"]]).step()).toThrow(/numeric-in-branches/);
+        });
+
+        it("checks the static parts of a union with a dynamic part when created with rgxwa", () => {
+            const dynamic = jest.fn(() => "a");
+            expect(() => rgxwa("a", [[new RGXPart(dynamic), rgxSubpattern("x")]])).toThrow(RGXInvalidBackreferenceError);
+            expect(dynamic).not.toHaveBeenCalled();
+        });
+
+        it("matches a union of parts without hooks when captured directly", () => {
+            const beforeCapture = jest.fn();
+            const walker = new RGXWalker("b", []);
+            expect(walker.capture([new RGXPart("a", { beforeCapture }), new RGXPart(() => "b")])).toBe("b");
+            expect(beforeCapture).not.toHaveBeenCalled();
         });
     });
 

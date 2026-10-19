@@ -29,6 +29,7 @@ type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInter
 type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXInterpolationToken | RGXJSONObjectToken | RGXToken[];
 type RGXTokenOrPart<R, S = unknown, T = any> = RGXToken | RGXPart<R, S, T>;
+type RGXWalkerStep<R, S = unknown, T = any> = RGXTokenOrPart<R, S, T> | RGXWalkerStep<R, S, T>[];
 
 type RGXWalkerOptions<R, S = unknown> = {
     startingSourcePosition?: number;
@@ -63,7 +64,7 @@ type RGXLexemeDefinition<Data, Share=unknown> = Readonly<({
     token: RGXToken;
 } | {
     type: "walk";
-    tokens: RGXTokenOrPart<Data, Share>[];
+    tokens: RGXWalkerStep<Data, Share>[];
     options?: Omit<RGXWalkerOptions<Data, Share>, "startingSourcePosition" | "reduced" | "share"> & {
         reduced?: (() => Data) | null;
         share?: (() => Share) | null;
@@ -82,7 +83,7 @@ Each `RGXLexemeDefinition<Data, Share>` entry in a mode's array has:
 - `priority` (`number`, optional): Higher values are tried first within the same mode. Defaults to `0`.
 - `type` (`"resolve" | "walk"`): Determines how the lexeme is matched:
   - `"resolve"`: The definition holds a single `token` (`RGXToken`) that is resolved to a regex and matched at the current position. No structured data is attached to the resulting lexeme.
-  - `"walk"`: The definition holds an array of `tokens` (`RGXTokenOrPart<Data, Share>[]`) that are matched sequentially by a temporary `RGXWalker`. The walker's `reduced` value at the end of the walk becomes the lexeme's `data`. An `options` object (excluding `startingSourcePosition`, `reduced`, and `share`) can configure the walker, including a `reduced` factory function and a `share` factory function (each called once per match attempt) to provide fresh initial values. The `share` factory is used instead of passing `share` directly to prevent mutable state from being reused across multiple match attempts.
+  - `"walk"`: The definition holds an array of `tokens` (`RGXWalkerStep<Data, Share>[]`) that are matched sequentially by a temporary `RGXWalker`. The walker's `reduced` value at the end of the walk becomes the lexeme's `data`. An `options` object (excluding `startingSourcePosition`, `reduced`, and `share`) can configure the walker, including a `reduced` factory function and a `share` factory function (each called once per match attempt) to provide fresh initial values. The `share` factory is used instead of passing `share` directly to prevent mutable state from being reused across multiple match attempts.
 
 # Utilities
 ## rgxLexemeLocationFromIndex
