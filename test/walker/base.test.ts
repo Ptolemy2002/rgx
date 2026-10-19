@@ -1480,6 +1480,24 @@ describe("RGXWalker", () => {
             expect(instance.reduced).toBe("reduced");
             expect(instance.share).toBe("shared");
         });
+
+        it("can restore the same snapshot more than once", () => {
+            const instance = new RGXWalker<string[]>("abab", [new RGXPart("a", { id: "x" }), "b"], { looping: true, reduced: [] });
+            instance.snapshot("s", "sourcePosition", "tokenPosition", "reduced", "captures", "namedCaptures");
+
+            for (let i = 0; i < 2; i++) {
+                instance.walk();
+                instance.reduced.push("mutated");
+                expect(instance.captures).toHaveLength(4);
+
+                instance.restore("s");
+                expect(instance.sourcePosition).toBe(0);
+                expect(instance.tokenPosition).toBe(0);
+                expect(instance.reduced).toEqual([]);
+                expect(instance.captures).toEqual([]);
+                expect(instance.namedCaptures).toEqual({});
+            }
+        });
     });
 
     describe("clone", () => {
