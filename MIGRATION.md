@@ -10,7 +10,7 @@ A change is breaking if it changes what a pattern matches, or changes the public
 
 | Version | Main changes |
 | --- | --- |
-| [15.0.0](#1500) | `RGXTokenCollection` removed, group flags inherit by default, backreferences and walker steps are validated, part tokens can be functions, walker steps can be unions of parts, `rgxParse` merges aliases by default, `ExtRegExp` JSON keeps custom flags, the accent-insensitive flag covers all accents, `RGXNotDirectRegExpError` removed |
+| [15.0.0](#1500) | `RGXTokenCollection` removed, group flags inherit by default, backreferences and walker steps are validated, part tokens can be functions, walker steps can be unions of parts, `rgxParse` merges aliases by default, `ExtRegExp` JSON keeps custom flags and rebuilding from an `ExtRegExp` can remove them, the accent-insensitive flag covers all accents, `RGXNotDirectRegExpError` removed |
 | [14.0.0](#1400) | `rgxIsGroup`, `rgxGroupWrap` and `rgxInterpolate` removed, repeatability detected automatically, new `rgxAcceptInsertion` signature, single-step JSON class construction |
 | [13.0.0](#1300) | `resolveRGXToken` takes an options object, `rgxConstant` always returns a class token, word bounds match at the edges of the string |
 | [12.0.0](#1200) | `rgx` takes an options object |
@@ -83,18 +83,20 @@ To update:
 
 - Pass `{ mergeAliases: false }` to keep one `RGXGroupToken` per named group, or read the inner names from `group.aliases`.
 
-## `ExtRegExp` JSON keeps the original source and custom flags
+## `ExtRegExp` keeps its original source, so JSON keeps custom flags and rebuilding can remove them
 
-`ExtRegExp` has a new `originalSource` property, which holds the pattern before any custom flag transformations (and is carried over when an `ExtRegExp` is built from another `ExtRegExp`). `rgxTokenToJSON` now stores `originalSource` and the full flags, custom ones included, for `ExtRegExp` literals, and `rgxTokenFromJSON` applies the transformers again when reconstructing them. Before, the JSON stored the transformed source and only the vanilla flags, so the custom flags were lost, and adding one back applied its transformation twice.
+`ExtRegExp` has a new `originalSource` property, which holds the pattern before any custom flag transformations (and is what an `ExtRegExp` built from another `ExtRegExp` is rebuilt from). `rgxTokenToJSON` now stores `originalSource` and the full flags, custom ones included, for `ExtRegExp` literals, and `rgxTokenFromJSON` applies the transformers again when reconstructing them. Before, the JSON stored the transformed source and only the vanilla flags, so the custom flags were lost, and adding one back applied its transformation twice.
 
 - JSON for an `ExtRegExp` with custom flags changes shape. For example, with a transformer `x` that prepends `a`, `new ExtRegExp("b", "gx")` serializes as `{ $rgx: true, source: "b", flags: "gx" }` instead of `{ $rgx: true, source: "ab", flags: "g" }`.
 - Deserializing such JSON needs the custom flag transformers to be registered first. Otherwise, it throws `RGXInvalidJSONTokenError`.
 - JSON produced by older versions deserializes the same way as before, since it contains no custom flags.
+- `new ExtRegExp(extRegex, flags)` rebuilds `extRegex` from its `originalSource` with exactly `flags`. Before, it kept the transformations of `extRegex`'s custom flags in the source even when `flags` left them out (without reporting them), and they couldn't be removed. Now a custom flag left out of `flags` is removed, along with its transformation. `regexWithFlags` rebuilds from `originalSource` the same way, so it no longer applies an `ExtRegExp`'s custom flags a second time, and replacing the flags removes them.
 
 To update:
 
 - Register your custom flag transformers before calling `rgxTokenFromJSON` (or any `fromJSON`) on JSON that may contain them.
 - If you compare or store serialized output exactly, update the expected values.
+- When building an `ExtRegExp` from another one, include its custom flags in `flags` if you want to keep them, for example with `new ExtRegExp(extRegex, extRegex.flags + "g")`.
 
 ## The accent-insensitive flag covers all accents
 

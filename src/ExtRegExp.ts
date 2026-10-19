@@ -9,31 +9,23 @@ const flagTransformers: Record<string, RegExpFlagTransformer> = {};
 
 export class ExtRegExp extends RegExp {
     private extFlags: string;
-    // The pattern before any custom flag transformations, so it can be rebuilt with the same flags.
+    // The pattern before any custom flag transformations, so it can be rebuilt with any flags.
     readonly originalSource: string;
 
     constructor(pattern: string | RegExp, flags='') {
         assertValidRegexFlags(flags);
 
         const vanillaFlags = extractVanillaRegexFlags(flags);
-        let customFlags = extractCustomRegexFlags(flags);
+        const customFlags = extractCustomRegexFlags(flags);
 
-        const source = pattern instanceof RegExp ? pattern.source : pattern;
-        const alreadyAppliedFlags = pattern instanceof RegExp ? pattern.flags : '';
+        // An ExtRegExp is rebuilt from its source before any custom flag transformations, so `flags` replaces its
+        // custom flags the same way it replaces its vanilla ones.
+        const source = pattern instanceof ExtRegExp ? pattern.originalSource : pattern instanceof RegExp ? pattern.source : pattern;
 
-        const { source: transformedSource, flags: transformedFlags } = applyFlagTransformers(createRegex(source, vanillaFlags), customFlags, alreadyAppliedFlags);
+        const { source: transformedSource, flags: transformedFlags } = applyFlagTransformers(createRegex(source, vanillaFlags), customFlags);
         super(transformedSource, transformedFlags);
 
-        if (pattern instanceof ExtRegExp) {
-            // The pattern's custom flags are already applied to the source, so they are still reported, which keeps
-            // originalSource and the flags enough to rebuild it.
-            for (const flag of extractCustomRegexFlags(pattern.flags)) {
-                if (!customFlags.includes(flag)) customFlags += flag;
-            }
-            this.originalSource = pattern.originalSource;
-        } else {
-            this.originalSource = source;
-        }
+        this.originalSource = source;
         this.extFlags = customFlags;
     }
 

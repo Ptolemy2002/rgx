@@ -15,7 +15,7 @@ type ValidRegexFlags = Branded<string, [ValidRegexFlagsBrandSymbol]> | ValidVani
 ```typescript
 function regexWithFlags(exp: RegExp | ExtRegExp, flags: string, replace?: boolean): ExtRegExp
 ```
-Creates a new `ExtRegExp` from an existing one with additional or replaced flags. When `replace` is `false` (the default), the provided flags are merged with the existing flags and normalized (duplicates removed). When `replace` is `true`, the existing flags are discarded and only the provided flags are used. An `RGXInvalidRegexFlagsError` will be thrown if the resulting flags are invalid.
+Creates a new `ExtRegExp` from an existing one with additional or replaced flags. When `replace` is `false` (the default), the provided flags are merged with the existing flags and normalized (duplicates removed). When `replace` is `true`, the existing flags are discarded and only the provided flags are used. An `ExtRegExp` is rebuilt from its `originalSource`, so its custom flags are applied once, and replacing the flags removes the custom ones left out. An `RGXInvalidRegexFlagsError` will be thrown if the resulting flags are invalid.
 
 ## Parameters
   - `exp` (`RegExp | ExtRegExp`): The source regular expression.
@@ -23,4 +23,4 @@ Creates a new `ExtRegExp` from an existing one with additional or replaced flags
   - `replace` (`boolean`, optional): Whether to replace the existing flags entirely instead of merging. Defaults to `false`.
 
 ## Returns
-- `ExtRegExp`: A new `ExtRegExp` with the same source pattern and the resulting flags.
+- `ExtRegExp`: A new `ExtRegExp` with the same source pattern (the `originalSource` of an `ExtRegExp`) and the resulting flags.

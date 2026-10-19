@@ -193,7 +193,7 @@ export function rgxParse(pattern: RegExp | string, flagsOrOptions?: string | RGX
     if (extractCustomRegexFlags(flags) !== "") {
         throw new e.RGXNotSupportedError(
             "Parsing regexes with custom flags",
-            "Custom flag transformers change the source before it is compiled, and the change can't be undone."
+            "Tokens can't carry custom flags, so their transformations would be lost."
         );
     }
 
