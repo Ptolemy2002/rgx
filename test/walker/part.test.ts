@@ -104,6 +104,14 @@ describe("RGXPart", () => {
     });
 
     describe("clone", () => {
+        it("keeps the validate callback", () => {
+            const validate = jest.fn(() => "nope");
+            const clone = new RGXPart("test", { validate }).clone();
+            const context = {} as Parameters<typeof clone.validate>[1];
+            expect(() => clone.validate({ raw: "test", value: "test" } as Parameters<typeof clone.validate>[0], context)).toThrow("nope");
+            expect(validate).toHaveBeenCalled();
+        });
+
         it("does nothing when depth is 0", () => {
             const instance = new RGXPart("test");
             expect(instance.clone(0)).toBe(instance);

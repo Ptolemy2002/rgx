@@ -10,7 +10,7 @@ A change is breaking if it changes what a pattern matches, or changes the public
 
 | Version | Main changes |
 | --- | --- |
-| [15.0.0](#1500) | Backreferences and walker steps are validated, part tokens can be functions, walker steps can be unions of parts |
+| [15.0.0](#1500) | `RGXTokenCollection` removed, group flags inherit by default, backreferences and walker steps are validated, part tokens can be functions, walker steps can be unions of parts, `rgxParse` merges aliases by default, `ExtRegExp` JSON keeps custom flags, the accent-insensitive flag covers all accents, `RGXNotDirectRegExpError` removed |
 | [14.0.0](#1400) | `rgxIsGroup`, `rgxGroupWrap` and `rgxInterpolate` removed, repeatability detected automatically, new `rgxAcceptInsertion` signature, single-step JSON class construction |
 | [13.0.0](#1300) | `resolveRGXToken` takes an options object, `rgxConstant` always returns a class token, word bounds match at the edges of the string |
 | [12.0.0](#1200) | `rgx` takes an options object |
@@ -24,6 +24,100 @@ Version 10.0.0 isn't covered. It made validation stricter (invalid flags and inv
 ---
 
 # 15.0.0
+
+## `RGXTokenCollection` is removed
+
+`RGXTokenCollection` did nothing a group or union token couldn't do: a concat-mode collection resolved the same as a non-capturing `RGXGroupToken`, and a union-mode collection the same as an array or an `RGXClassUnionToken`.
+
+Removed:
+
+- `RGXTokenCollection`, `rgxTokenCollection`, `RGXTokenCollectionMode` and `RGXTokenCollectionInput`.
+- `RGXTokenCollection` as an input to `isRGXToken`, `assertRGXToken` and `rgxTokenTypeGuardInputToFlat`.
+
+Changed:
+
+- The `tokens` property of `RGXGroupToken`, `RGXClassUnionToken`, `RGXLookaroundToken`, `RGXLookaheadToken` and `RGXLookbehindToken` is a plain `RGXToken[]`. Collection members such as `mode`, `asUnion()`, `asConcat()`, `toArray()`, `getTokens()`, `toRgx()` and `resolve()` are gone, and array methods like `filter`, `slice` and `concat` return arrays.
+- Parameters typed `RGXTokenCollectionInput` are typed `RGXToken`: the constructors of those classes and of `RGXExclusionToken`, `or()`, `group()` and `subtract()` on class tokens, and `expandRgxUnionTokens` and `removeRgxUnionDuplicates`, which also return an `RGXToken[]`.
+- For groups and lookarounds, an array lists the tokens to concatenate, and any other token (including an `RGXClassUnionToken`) is the only token. For unions, an array or another `RGXClassUnionToken` lists the alternatives, and any other token is one alternative.
+- `rgxParse` returns a non-capturing `RGXGroupToken` where it returned a concat-mode collection, for sequences inside alternatives and at the top level.
+
+Resolved patterns don't change.
+
+To update:
+
+- Replace `new RGXTokenCollection(tokens, "concat")` with `new RGXGroupToken({ capturing: false }, tokens)`, and `new RGXTokenCollection(tokens, "union")` with the array itself or `new RGXClassUnionToken(tokens)`.
+- Replace `token.tokens.toArray()`, `token.tokens.tokens` and `token.tokens.getTokens()` with `token.tokens` (use `cloneRGXToken(token.tokens)` if you relied on getting a copy), and `token.tokens.at(i)` with `token.tokens[i]` or `token.tokens.at(i)`, which arrays also have.
+- To put a union-mode collection inside a group or lookaround, pass an `RGXClassUnionToken`, or put the array inside another array (`[["a", "b"]]`).
+- If you walk the tree `rgxParse` returns, check for non-capturing `RGXGroupToken`s where you checked for collections.
+
+```ts
+// Before
+const group = new RGXGroupToken({}, new RGXTokenCollection(["a", "b"], "union"));
+const first = group.tokens.toArray()[0];
+
+// After
+const group = new RGXGroupToken({}, new RGXClassUnionToken(["a", "b"]));
+const first = group.tokens[0];
+```
+
+## Group flags are the flags in effect inside the group, and inherit by default
+
+`RGXGroupToken.flags` used to list the localizable flags (`i`, `m`, `s`) to turn on, with `''` meaning "no modifier", and a non-empty value always turned off the flags it didn't list. It now works like the flags of literal tokens: it is the set of localizable flags in effect inside the group, and `null`, the new default, means "inherit the flags around the group". The modifier is computed from the flags in effect where the group is placed, so it only appears when something changes.
+
+- `flags: ''` now turns off `i`, `m` and `s` inside the group, instead of meaning "no modifier".
+- `flags` defaults to `null`, and `group.flags` reads `null` for groups without flags.
+- JSON group tokens with `flags: ""` now deserialize as groups that turn off every localizable flag. JSON from `toJSON()` stores `flags: null` for groups without flags.
+- Groups that set flags may output a shorter modifier (for example, `(?i:...)` instead of `(?i-ms:...)` when `m` and `s` are already off), which matches the same strings.
+- `rgxParse` converts a modifier group that turns off every flag in effect (such as `(?-i:x)` in an `/i` pattern) into an `RGXGroupToken` with `flags: ''`, instead of interpolation tokens around its contents.
+
+To update:
+
+- Replace `flags: ''` with `flags: null` (or leave it out) where you meant "no modifier", including in stored JSON.
+- Where you check `group.flags === ''` or `!group.flags` for "no flags", check `group.flags === null`.
+
+## `rgxParse` merges nested named groups into aliases by default
+
+The `mergeAliases` option of `rgxParse` now defaults to `true`, so a named group whose only contents are another named group (such as `(?<a>(?<b>x))`) becomes a single `RGXGroupToken` with the name `a` and the alias `b`. The resolved pattern is the same, but the tree has one group where it had two.
+
+To update:
+
+- Pass `{ mergeAliases: false }` to keep one `RGXGroupToken` per named group, or read the inner names from `group.aliases`.
+
+## `ExtRegExp` JSON keeps the original source and custom flags
+
+`ExtRegExp` has a new `originalSource` property, which holds the pattern before any custom flag transformations (and is carried over when an `ExtRegExp` is built from another `ExtRegExp`). `rgxTokenToJSON` now stores `originalSource` and the full flags, custom ones included, for `ExtRegExp` literals, and `rgxTokenFromJSON` applies the transformers again when reconstructing them. Before, the JSON stored the transformed source and only the vanilla flags, so the custom flags were lost, and adding one back applied its transformation twice.
+
+- JSON for an `ExtRegExp` with custom flags changes shape. For example, with a transformer `x` that prepends `a`, `new ExtRegExp("b", "gx")` serializes as `{ $rgx: true, source: "b", flags: "gx" }` instead of `{ $rgx: true, source: "ab", flags: "g" }`.
+- Deserializing such JSON needs the custom flag transformers to be registered first. Otherwise, it throws `RGXInvalidJSONTokenError`.
+- JSON produced by older versions deserializes the same way as before, since it contains no custom flags.
+
+To update:
+
+- Register your custom flag transformers before calling `rgxTokenFromJSON` (or any `fromJSON`) on JSON that may contain them.
+- If you compare or store serialized output exactly, update the expected values.
+
+## The accent-insensitive flag covers all accents
+
+`accentInsensitiveFlagTransformer` (the `a` flag when registered with `registerCustomFlagTransformers`) used to cover only a fixed list of accented vowels, written as themselves outside character classes. It now covers every Latin letter with accented forms, using their Unicode decompositions, and also applies to escapes, combining marks and character classes (see [accentInsensitiveFlagTransformer](./docs/ExtRegExp.md#accentinsensitiveflagtransformer)):
+
+- Each accentable character becomes a class of every precomposed form of its letter, followed by any number of combining marks, so decomposed text (such as `e` followed by U+0301) matches too. For example, `ñ` now matches `ń` and `n` followed by U+0303.
+- Escapes that produce an accentable character, such as `\u00e9`, are replaced too.
+- Character classes containing accentable characters are split into alternatives, and negated ones become a negative lookahead followed by the class. For example, `[a-c]` now matches `ç`, and `[^a]` no longer matches `á`.
+
+Patterns using the flag now match strings they didn't match before, and the transformed source is different and longer.
+
+To update:
+
+- If you relied on consonants, other accents, escapes or character classes being left alone, write those parts in a separate pattern without the flag, or with a literal token that doesn't have it.
+- If you compare the transformed source exactly, test what the pattern matches instead.
+
+## `RGXNotDirectRegExpError` is removed
+
+Nothing threw `RGXNotDirectRegExpError` anymore, since `applyFlagTransformers` converts `RegExp` subclasses into plain `RegExp`s instead. The class and the `NOT_DIRECT_REGEXP` error code are removed.
+
+To update:
+
+- Remove imports of `RGXNotDirectRegExpError`, and checks for it or for the `NOT_DIRECT_REGEXP` code.
 
 ## Backreferences are validated
 

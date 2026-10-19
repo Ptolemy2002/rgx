@@ -128,6 +128,7 @@ export class RGXPart<R, S = unknown, T=string> {
             id: this.id ?? undefined,
             rawTransform: this.rawTransform,
             transform: this.transform,
+            validate: this._validate,
             beforeCapture: this.beforeCapture,
             afterCapture: this.afterCapture,
             afterFailure: this.afterFailure,
