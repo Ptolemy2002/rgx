@@ -67,6 +67,9 @@ type RGXPartContext<R, S = unknown, T = string> = {
     walker: RGXWalker<R, S>;
 };
 
+// A token, or a function that produces one from the walker's current state each time the part is captured.
+type RGXPartToken<R, S = unknown, T = string> = RGXToken | ((context: RGXPartContext<R, S, T>) => RGXToken);
+
 type RGXPartOptions<R, S = unknown, T=string> = {
     id: string;
     rawTransform: (captured: string) => string;
@@ -114,7 +117,7 @@ Creates an `RGXWalker` instance from an interpolation of strings and tokens. The
 ```typescript
 function rgxwa<R = unknown, S = unknown, T = unknown>(source: string, tokens: RGXTokenOrPart<R, S, T>[], options: Omit<RGXWOptions<R, S>, "multiline"> = {}): RGXWalker<R, S>
 ```
-As an alternative to using the `rgxw` template tag, you can directly call `rgxwa` with a source string, an array of tokens and/or parts, and options to get an `RGXWalker` instance. This is useful in cases where you don't want to use a template literal. Each plain token and the inner token of each `RGXPart` is checked for acceptance at its position (including tokens nested inside it) by resolving it as the top level of a pattern with no flags, since the walker matches each token on its own without flags (see `rgxAcceptInsertion` in [base.md](./token/base.md)). Because of this, the tokens are resolved once when the walker is created. Each resolved step is then checked the same way the walker checks it before matching it (see [Step validation](#step-validation)), so problems are found before walking starts. `RGXPart` instances are then passed through to the walker. The provided options are passed through to configure the resulting walker.
+As an alternative to using the `rgxw` template tag, you can directly call `rgxwa` with a source string, an array of tokens and/or parts, and options to get an `RGXWalker` instance. This is useful in cases where you don't want to use a template literal. Each plain token and the inner token of each `RGXPart` is checked for acceptance at its position (including tokens nested inside it) by resolving it as the top level of a pattern with no flags, since the walker matches each token on its own without flags (see `rgxAcceptInsertion` in [base.md](./token/base.md)). Because of this, the tokens are resolved once when the walker is created, except for the tokens of dynamic parts, which aren't known until they are captured (see [Dynamic Parts](#dynamic-parts)). Each resolved step is then checked the same way the walker checks it before matching it (see [Step validation](#step-validation)), so problems are found before walking starts. `RGXPart` instances are then passed through to the walker. The provided options are passed through to configure the resulting walker.
 
 #### Parameters
   - `source` (`string`): An arbitrary string value that will be included in the `source` property of the walker object.
@@ -128,7 +131,7 @@ As an alternative to using the `rgxw` template tag, you can directly call `rgxwa
 - `RGXWalker<R, S>`: An `RGXWalker` instance configured with the provided source, the resolved tokens, and the specified options.
 
 # RGXPart\<R, S=unknown, T=string\>
-A class that wraps an `RGXToken` with optional callbacks for use within an `RGXWalker`. Unlike plain tokens, Parts can control walker behavior via `beforeCapture` (returning an `RGXPartControl` value) and react to captures via `afterCapture`. Parts are purely definitions and do not store capture state — all captures are stored on the walker as `RGXCapture` objects.
+A class that wraps an `RGXToken` with optional callbacks for use within an `RGXWalker`. The token can also be a function that produces it from the walker's current state each time the part is captured (see [Dynamic Parts](#dynamic-parts)). Unlike plain tokens, Parts can control walker behavior via `beforeCapture` (returning an `RGXPartControl` value) and react to captures via `afterCapture`. Parts are purely definitions and do not store capture state — all captures are stored on the walker as `RGXCapture` objects.
 
 A function `rgxPart` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
 
@@ -144,15 +147,36 @@ Each Part callback returns an `RGXPartControl` value. The effect of each value d
 | `"stop-silent"` | Same as `"stop"` (no capture has occurred yet) | Un-register capture, advance positions normally, set `stopped`, return `null` | Same as `"stop"` |
 | `"silent"` | Capture without recording in `captures`/`namedCaptures` | Un-register capture, advance positions normally, return capture result | No distinct effect — error is still re-thrown |
 
+## Dynamic Parts
+When a part's token is a function, the walker calls it each time it captures the part, after `beforeCapture`, with an `RGXPartContext` holding the part and the walker. The token it returns is matched as the step. This lets a step depend on what earlier steps captured, such as a closing delimiter that must be the same as the opening one:
+
+```typescript
+const walker = rgxwa(source, [
+    rgxPart(/["'#]/, { id: "open" }),
+    rgxPart(({ walker }) => rgxGroup({ capturing: false }, [
+        rgxInterpolation("(?:(?!"), walker.lastCapture("open")!.raw, rgxInterpolation(").)*")
+    ])),
+    rgxPart(({ walker }) => walker.lastCapture("open")!.raw)
+]);
+```
+
+`lastCapture(id)` and `lastGroup(name)` on the walker are convenient for reading earlier captures. Things to keep in mind:
+
+- The function returns the whole token for the step, so a value it reads can be placed anywhere inside it. Since each step is matched on its own, there is no backtracking into earlier steps, the same as for any other step.
+- The function reads whatever state the walker has when the capture runs, including after `tryWalk` or `restore` roll it back.
+- A string the function returns is escaped like any string token, so it matches as text, not as regex syntax. Return a `RegExp` or another token to insert pattern syntax.
+- The token isn't known until the part is captured, so `rgxwa` and `rgxw` skip dynamic parts when they check steps at creation (other steps see them as a no-op token among their siblings). The walker checks the produced token when it captures the part instead, including its insertions (see [Step validation](#step-validation)).
+- If the function returns something that isn't a valid token, an `RGXInvalidTokenError` is thrown.
+
 ## Static Properties
 - `check(value: unknown): value is RGXPart`: A type guard that checks if the given value is an instance of `RGXPart`.
 - `assert(value: unknown): asserts value is RGXPart`: An assertion that checks if the given value is an instance of `RGXPart`. If the assertion fails, an `RGXInvalidPartError` will be thrown.
 
 ## Constructor
 ```typescript
-constructor(token: RGXToken, options?: Partial<RGXPartOptions<R, S, T>>)
+constructor(token: RGXPartToken<R, S, T>, options?: Partial<RGXPartOptions<R, S, T>>)
 ```
-- `token` (`RGXToken`): The token to wrap.
+- `token` (`RGXPartToken<R, S, T>`): The token to wrap, or a function that produces it each time the part is captured (see [Dynamic Parts](#dynamic-parts)).
 - `options` (`Partial<RGXPartOptions<R, S, T>>`, optional): Configuration options. Defaults to `{}`.
   - `id` (`string`, optional): An optional identifier for this part. Defaults to `null`, but must be a string if provided.
   - `rawTransform` (`(captured: string) => string`, optional): A function that transforms the raw captured string before it is stored as `raw` on the capture result and before `transform` is applied. Defaults to an identity function.
@@ -165,7 +189,7 @@ constructor(token: RGXToken, options?: Partial<RGXPartOptions<R, S, T>>)
 
 ## Properties
 - `id` (`string | null`): An optional identifier for this part.
-- `token` (`RGXToken`): The wrapped token.
+- `token` (`RGXPartToken<R, S, T>`): The wrapped token, or the function that produces it.
 - `rawTransform` (`(captured: string) => string`, readonly): The raw transform function applied to the matched string before it is stored as `raw` and before `transform` is called.
 - `transform` (`(captured: string) => T`, readonly): The transform function used to convert captured strings to values of type `T`.
 - `beforeCapture` (`((context: RGXPartContext<R, S, T>) => RGXPartControl) | null`, readonly): The before-capture callback, or `null`.
@@ -174,8 +198,10 @@ constructor(token: RGXToken, options?: Partial<RGXPartOptions<R, S, T>>)
 - `afterValidationFailure` (`((e: RGXPartValidationFailedError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null`, readonly): The after-validation-failure callback, or `null`.
 
 ## Methods
-- `clone(depth: CloneDepth = "max") => RGXPart`: Creates a clone of this part. When `depth` is `0`, returns `this`; otherwise, returns a new `RGXPart` with a cloned token and the same `rawTransform`, `transform`, `beforeCapture`, `afterCapture`, `afterFailure`, and `afterValidationFailure` references.
+- `clone(depth: CloneDepth = "max") => RGXPart`: Creates a clone of this part. When `depth` is `0`, returns `this`; otherwise, returns a new `RGXPart` with a cloned token (or the same function, for a dynamic part) and the same `rawTransform`, `transform`, `beforeCapture`, `afterCapture`, `afterFailure`, and `afterValidationFailure` references.
 - `hasId() => this is RGXPart<R, S, T> & { id: string }`: A type guard that checks if this part has a non-null `id`. If `true`, narrows the type to indicate that `id` is a string.
+- `isDynamic() => this is RGXPart<R, S, T> & { token: (context: RGXPartContext<R, S, T>) => RGXToken }`: A type guard that checks if this part's token is a function (see [Dynamic Parts](#dynamic-parts)).
+- `resolveToken(walker: RGXWalker<R, S>) => RGXToken`: Returns the token to match this part with. For a static part, this is `token`. For a dynamic part, this calls `token` with `{ part: this, walker }` and returns the result, throwing an `RGXInvalidTokenError` if it isn't a valid token. The walker calls this each time it captures the part.
 - `validate(capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => void`: A method that calls the inner passed validation logic for this part, if any. If it returns `false`, a generic `RGXPartValidationFailedError` is thrown. If it returns a string, an `RGXPartValidationFailedError` is thrown with that string as the message. If it returns `true`, validation passed. This is called internally by the walker after capturing and transforming a part, before invoking `afterCapture`.
 
 # RGXWalker\<R, S=unknown\>
@@ -202,7 +228,7 @@ constructor(source: string, tokens: RGXTokenOrPart<R, S>[], options?: RGXWalkerO
   - `contiguous` (`boolean`, optional): When `true`, each token must match exactly at the current source position (via `assertRegexMatchesAtPosition`). When `false`, each token is searched for anywhere at or after the current source position (via `assertRegexMatchesAfterPosition`), allowing gaps between matches. Defaults to `true`.
 
 ## Step validation
-Each step (a plain token, or a part's inner token) is matched on its own as a finished pattern with no flags, so before matching it, the walker resolves it and checks it. `rgxwa` and `rgxw` run the same checks on every step when the walker is created, so a walker built with them finds these problems before walking starts. A walker created directly with the constructor finds them when it reaches the step. The checks are:
+Each step (a plain token, or a part's inner token) is matched on its own as a finished pattern with no flags, so before matching it, the walker resolves it and checks it. `rgxwa` and `rgxw` run the same checks on every step when the walker is created, so a walker built with them finds these problems before walking starts. Dynamic parts are the exception: their token is checked, along with its insertions at the part's position, each time the walker captures them. A walker created directly with the constructor finds them when it reaches the step. The checks are:
 
 - **Balanced parentheses.** An interpolation token may leave a group open for a later token to close (see `rgxInterpolation` in [general.md](../general.md)), but nothing can close it in a separate step. A step with unbalanced parentheses throws an `RGXInvalidWalkerStepError`. When `rgxwa` finds it, the error's `index` is the step's position in the tokens.
 - **Backreferences.** The step's backreferences are validated like a pattern built with `rgxa` (see [Backreference validation](../general.md#backreference-validation)), throwing `RGXInvalidBackreferenceError` or `RGXDuplicateGroupNameError`. Since each step is matched on its own, a backreference can't point to a group in another step.
@@ -230,7 +256,8 @@ Each step (a plain token, or a part's inner token) is matched on its own as a fi
 - `hasNextToken(predicate?: (token: RGXTokenOrPart<R, S, unknown>) => boolean) => boolean`: Returns `true` if there is a current token and it satisfies the optional predicate (defaults to `() => true`).
 - `atSourceEnd() => boolean`: Returns `true` if the source has been fully consumed (`sourcePosition >= source.length`).
 - `hasNextSource(predicate?: (rest: string) => boolean) => boolean`: Returns `true` if the source is not fully consumed and the remaining source satisfies the optional predicate (defaults to `() => true`).
-- `lastCapture() => RGXCapture | null`: Returns the last entry in `captures`, or `null` if empty.
+- `lastCapture(id?: string) => RGXCapture | null`: Returns the last entry in `captures`, or `null` if empty. With an `id`, returns the last entry in `namedCaptures[id]` instead, or `null` if the part with that id hasn't been captured.
+- `lastGroup(name: string) => string | null`: Returns what the group with the given name captured in the latest capture that matched it, searching `captures` from the end, or `null` if no capture did. Unlike `namedCaptures`, which is keyed by part id, this looks up regex group names.
 - `currentToken() => RGXTokenOrPart<R, S>`: Returns the token or part at the current token position. Throws `RGXCurrentTokenNotFoundError` if called when `atTokenEnd()` is `true`.
 - `remainingSource() => string | null`: Returns the remaining source string from the current position onward, or `null` if the source is fully consumed.
 - `capture(token: RGXTokenOrPart<R, S>, includeMatch?: false) => string`: Resolves the token (or part's inner token) to a regex, checks it as described in [Step validation](#step-validation), and attempts a match. Unlike `step()`, it doesn't wrap the branches of a union in branch groups. In contiguous mode, asserts that the regex matches exactly at the current source position (throwing `RGXRegexNotMatchedAtPositionError` if not). In non-contiguous mode, searches for the next match at or after the current position (throwing `RGXRegexNotMatchedAfterPositionError` if none is found), and the source position advances to the end of that match. Returns the matched string.

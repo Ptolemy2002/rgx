@@ -65,8 +65,15 @@ function createBranchGroups(tokens: RGXTokenCollectionInput): RGXToken {
 
 const branchGroupPrefix = "rgx_branch_";
 
-function stepToken<R, S>(token: RGXTokenOrPart<R, S>): RGXToken {
-    return RGXPart.check(token) ? token.token : token as RGXToken;
+function isDynamicPart<R, S>(token: RGXTokenOrPart<R, S>): boolean {
+    return RGXPart.check(token) && token.isDynamic();
+}
+
+// The token a step is matched with, as far as it is known before walking. Dynamic parts only produce their token when
+// they are captured, so they are a no-op token here.
+function staticStepToken<R, S>(token: RGXTokenOrPart<R, S>): RGXToken {
+    if (!RGXPart.check(token)) return token as RGXToken;
+    return token.isDynamic() ? null : token.token as RGXToken;
 }
 
 // Checks the source a step resolves to, before branch groups are added. index is the step's position in the walker's
@@ -81,24 +88,23 @@ function assertValidStepSource(source: string, references: readonly (string | nu
     assertValidRegexReferences(source, references, { reservedGroupPrefix: branchGroupPrefix, rejectNumeric: isUnion });
 }
 
-// Resolves a step and checks it, returning the source to match it with.
-function resolveStep(token: RGXToken, branch: boolean): string {
-    const [source, references] = collectRGXReferences(() => resolveRGXToken(token));
-    const branched = branch ? createBranchGroups(token) : token;
-    assertValidStepSource(source, references, null, branched !== token);
-    return branched === token ? source : resolveRGXToken(branched);
+// The walker matches each step on its own, without flags, so insertions are checked by resolving the step at its
+// position as the top level of a pattern with no flags. Returns the resolved source along with the backreferences
+// recorded while resolving it.
+function resolveCheckedStep(siblings: readonly RGXToken[], index: number): [string, (string | number)[]] {
+    return collectRGXReferences(() => withRGXInsertionRoot('' as ValidRegexFlags, () => {
+        return placeRGXToken(siblings, index, () => resolveRGXToken(siblings[index]));
+    }));
 }
 
-// Checks every step, the same way the walker does before matching each one. The walker matches each step on its own,
-// without flags, so insertions are checked by resolving each step at its position as the top level of a pattern with
-// no flags.
+// Checks every step that isn't a dynamic part, the same way the walker does before matching each one.
 export function validateRGXWalkerSteps<R, S>(tokens: readonly RGXTokenOrPart<R, S>[]) {
-    const plainTokens = tokens.map(stepToken);
-    withRGXInsertionRoot('' as ValidRegexFlags, () => {
-        plainTokens.forEach((token, i) => {
-            const [source, references] = collectRGXReferences(() => placeRGXToken(plainTokens, i, () => resolveRGXToken(token)));
-            assertValidStepSource(source, references, i, createBranchGroups(token) !== token);
-        });
+    const plainTokens = tokens.map(staticStepToken);
+    tokens.forEach((token, i) => {
+        // Dynamic parts are checked when they are captured instead.
+        if (isDynamicPart(token)) return;
+        const [source, references] = resolveCheckedStep(plainTokens, i);
+        assertValidStepSource(source, references, i, createBranchGroups(plainTokens[i]) !== plainTokens[i]);
     });
 }
 
@@ -201,9 +207,19 @@ export class RGXWalker<R, S = unknown> {
         return !this.atSourceEnd() && predicate(this.remainingSource()!);
     }
 
-    lastCapture(): RGXCapture | null {
-        if (this.captures.length === 0) return null;
-        return this.captures[this.captures.length - 1]!;
+    // The latest capture, or the latest one made by the part with the given id.
+    lastCapture(id?: string): RGXCapture | null {
+        const captures = id === undefined ? this.captures : this.namedCaptures[id] ?? [];
+        return captures[captures.length - 1] ?? null;
+    }
+
+    // The text the latest capture that matched a group with the given name captured in it, or null if none did.
+    lastGroup(name: string): string | null {
+        for (let i = this.captures.length - 1; i >= 0; i--) {
+            const value = this.captures[i]!.groups?.[name];
+            if (value !== undefined) return value;
+        }
+        return null;
     }
 
     currentToken() {
@@ -222,8 +238,30 @@ export class RGXWalker<R, S = unknown> {
     capture(token: RGXTokenOrPart<R, S>, includeMatch: true): RegExpExecArray;
     capture(token: RGXTokenOrPart<R, S>, includeMatch?: false): string;
     capture(token: RGXTokenOrPart<R, S>, includeMatch = false): string | RegExpExecArray {
-        const match = this.matchRegex(createRegex(resolveStep(stepToken(token), false)));
+        const match = this.matchRegex(createRegex(this.resolveStep(token, false)));
         return includeMatch ? match : match[0];
+    }
+
+    // Resolves a step and checks it, returning the source to match it with. A dynamic part produces its token here,
+    // so its insertions are checked here too, at its position among the walker's tokens if it is the current one.
+    private resolveStep(token: RGXTokenOrPart<R, S>, branch: boolean): string {
+        let plain: RGXToken;
+        let source: string;
+        let references: (string | number)[];
+
+        if (RGXPart.check(token) && token.isDynamic()) {
+            plain = token.resolveToken(this);
+            const isCurrent = !this.atTokenEnd() && this.currentToken() === token;
+            const siblings = isCurrent ? this.tokens.map((t, i) => i === this.tokenPosition ? plain : staticStepToken(t)) : [plain];
+            [source, references] = resolveCheckedStep(siblings, isCurrent ? this.tokenPosition : 0);
+        } else {
+            plain = staticStepToken(token);
+            [source, references] = collectRGXReferences(() => resolveRGXToken(plain));
+        }
+
+        const branched = branch ? createBranchGroups(plain) : plain;
+        assertValidStepSource(source, references, null, branched !== plain);
+        return branched === plain ? source : resolveRGXToken(branched);
     }
 
     // Matches the regex at the current position (or after it, if not contiguous), and moves past the match.
@@ -294,7 +332,7 @@ export class RGXWalker<R, S = unknown> {
         part: RGXPart<R, S, unknown> | null
     ): RegExpExecArray | Exclude<RGXWalkerStepDirective, "silent"> {
         // Unions are wrapped in branch groups, so the capture can record which branch matched.
-        const regex = createRegex(resolveStep(stepToken(token), true));
+        const regex = createRegex(this.resolveStep(token, true));
         try {
             return this.matchRegex(regex);
         } catch (e) {

@@ -1,5 +1,5 @@
 import { RGXClassToken } from "src/class";
-import { RGXInvalidPartError } from "src/errors";
+import { RGXInvalidPartError, RGXInvalidTokenError } from "src/errors";
 import { rgxPart, RGXPart, RGXWalker } from "src/walker";
 import { RGXPartValidationFailedError } from "src/errors";
 import { expectError } from "../utils";
@@ -150,6 +150,36 @@ describe("RGXPart", () => {
             expect(clone.afterCapture).toBe(instance.afterCapture);
             expect(clone.afterFailure).toBe(instance.afterFailure);
             expect(clone.afterValidationFailure).toBe(instance.afterValidationFailure);
+        });
+    });
+
+    describe("dynamic tokens", () => {
+        it("reports whether the token is a function", () => {
+            expect(new RGXPart("test").isDynamic()).toBe(false);
+            expect(new RGXPart(() => "test").isDynamic()).toBe(true);
+        });
+
+        it("returns static tokens as-is from resolveToken", () => {
+            const token = /a/;
+            expect(new RGXPart(token).resolveToken(new RGXWalker("a", []))).toBe(token);
+        });
+
+        it("calls the function with the part and walker from resolveToken", () => {
+            const walker = new RGXWalker("a", [], { share: "b" });
+            const fn = jest.fn(({ walker }) => walker.share);
+            const part = new RGXPart(fn);
+            expect(part.resolveToken(walker)).toBe("b");
+            expect(fn).toHaveBeenCalledWith({ part, walker });
+        });
+
+        it("throws if the function doesn't return a token", () => {
+            const part = new RGXPart((() => Symbol("x")) as unknown as () => string);
+            expect(() => part.resolveToken(new RGXWalker("a", []))).toThrow(RGXInvalidTokenError);
+        });
+
+        it("shares the function when cloned", () => {
+            const fn = () => "test";
+            expect(new RGXPart(fn).clone().token).toBe(fn);
         });
     });
 

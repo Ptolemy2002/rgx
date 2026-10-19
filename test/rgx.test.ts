@@ -732,3 +732,18 @@ describe('backreference validation', () => {
         expect(() => new RGXWalker("a", ["b"]).capture({ rgxInterpolation: "(" })).toThrow(RGXInvalidWalkerStepError);
     });
 });
+
+describe('dynamic parts in rgxwa', () => {
+    it("skips dynamic parts when checking steps at creation, since their token isn't known yet", () => {
+        const fn = jest.fn(() => "a");
+        expect(() => rgxwa("a", [rgxPart(fn)])).not.toThrow();
+        expect(fn).not.toHaveBeenCalled();
+    });
+
+    it('passes dynamic parts as no-op tokens to the insertion checks of other steps', () => {
+        const siblings: unknown[] = [];
+        const token = { toRgx: () => "a", rgxAcceptInsertion: (context: { siblings: readonly unknown[] }) => { siblings.push(...context.siblings); return true; } };
+        rgxwa("ab", [token, rgxPart(() => "b")]);
+        expect(siblings).toEqual([token, null]);
+    });
+});

@@ -4,6 +4,7 @@ import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "
 import { cloneRGXToken } from "src/clone";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { RGXInvalidPartError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError, RGXRegexNotMatchedAtPositionError } from "src/errors";
+import { assertRGXToken } from "src/typeGuards";
 
 // Return values from beforeCapture to control walker behavior.
 // - void/undefined: proceed normally
@@ -28,6 +29,9 @@ export type RGXPartContext<R, S= unknown, T=string> = {
     walker: RGXWalker<R, S>;
 };
 
+// A token, or a function that produces one from the walker's current state each time the part is captured.
+export type RGXPartToken<R, S = unknown, T = string> = RGXToken | ((context: RGXPartContext<R, S, T>) => RGXToken);
+
 export type RGXPartOptions<R, S = unknown, T=string> = {
     id: string;
     rawTransform: (captured: string) => string;
@@ -41,7 +45,7 @@ export type RGXPartOptions<R, S = unknown, T=string> = {
 
 export class RGXPart<R, S = unknown, T=string> {
     id: string | null;
-    token: RGXToken;
+    token: RGXPartToken<R, S, T>;
 
     readonly rawTransform: RGXPartOptions<R, S, T>["rawTransform"];
     readonly transform: RGXPartOptions<R, S, T>["transform"];
@@ -56,7 +60,7 @@ export class RGXPart<R, S = unknown, T=string> {
         (value, constructor) => new RGXInvalidPartError("Invalid Part", value, constructor.name)
     );
 
-    constructor(token: RGXToken, options: Partial<RGXPartOptions<R, S, T>> = {}) {
+    constructor(token: RGXPartToken<R, S, T>, options: Partial<RGXPartOptions<R, S, T>> = {}) {
         this.id = options.id ?? null;
         this.token = token;
         this.rawTransform = options.rawTransform ?? (captured => captured);
@@ -72,6 +76,20 @@ export class RGXPart<R, S = unknown, T=string> {
         return this.id !== null;
     }
 
+    // Whether the token is produced by a function each time the part is captured.
+    isDynamic(): this is RGXPart<R, S, T> & { token: (context: RGXPartContext<R, S, T>) => RGXToken } {
+        return typeof this.token === "function";
+    }
+
+    // The token to match the part with, given the walker's current state.
+    resolveToken(walker: RGXWalker<R, S>): RGXToken {
+        if (!this.isDynamic()) return this.token as RGXToken;
+
+        const token = this.token({ part: this, walker });
+        assertRGXToken(token);
+        return token;
+    }
+
     validate(capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) {
         const result = this._validate(capture, context);
         if (result === true) return;
@@ -83,7 +101,9 @@ export class RGXPart<R, S = unknown, T=string> {
     // Clone method
     clone(depth: CloneDepth = "max") {
         if (depth === 0) return this;
-        return new RGXPart(cloneRGXToken(this.token, depthDecrement(depth, 1)), {
+        // Functions are shared, the same way the callbacks are.
+        const token = this.isDynamic() ? this.token : cloneRGXToken(this.token as RGXToken, depthDecrement(depth, 1));
+        return new RGXPart(token, {
             id: this.id ?? undefined,
             rawTransform: this.rawTransform,
             transform: this.transform,

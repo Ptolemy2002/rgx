@@ -10,7 +10,7 @@ A change is breaking if it changes what a pattern matches, or changes the public
 
 | Version | Main changes |
 | --- | --- |
-| [15.0.0](#1500) | Backreferences and walker steps are validated |
+| [15.0.0](#1500) | Backreferences and walker steps are validated, part tokens can be functions |
 | [14.0.0](#1400) | `rgxIsGroup`, `rgxGroupWrap` and `rgxInterpolate` removed, repeatability detected automatically, new `rgxAcceptInsertion` signature, single-step JSON class construction |
 | [13.0.0](#1300) | `resolveRGXToken` takes an options object, `rgxConstant` always returns a class token, word bounds match at the edges of the string |
 | [12.0.0](#1200) | `rgx` takes an options object |
@@ -54,6 +54,15 @@ To update:
 
 - Make each literal part of a `verbatim: false` template balanced on its own, or move the whole group into a single token.
 - Rename groups that start with `rgx_branch_`.
+
+## `RGXPart.token` can be a function
+
+A part's token can now be a function that produces it from the walker's state each time the part is captured (see [Dynamic Parts](./docs/class/walker.md#dynamic-parts)). The `token` property is typed `RGXPartToken<R, S, T>` instead of `RGXToken`, so code that reads `part.token` and passes it on as a token no longer type-checks.
+
+To update:
+
+- To get the token to match a part with, call `part.resolveToken(walker)` instead of reading `part.token`.
+- If you only handle static parts, check `part.isDynamic()` first. When it's `false`, `part.token` is an `RGXToken`.
 
 ---
 

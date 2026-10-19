@@ -147,6 +147,9 @@ type RGXPartContext<R, S = unknown, T = string> = {
     walker: RGXWalker<R, S>;
 };
 
+// A token, or a function that produces one from the walker's current state each time the part is captured.
+type RGXPartToken<R, S = unknown, T = string> = RGXToken | ((context: RGXPartContext<R, S, T>) => RGXToken);
+
 type RGXPartOptions<R, S = unknown, T=string> = {
     id: string;
     rawTransform: (captured: string) => string;

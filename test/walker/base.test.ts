@@ -1,8 +1,8 @@
 import { rgxPart, RGXPart, rgxWalker, RGXWalker } from "src/walker";
 import { RGXTokenCollection } from "src/collection";
-import { RGXInvalidWalkerError, RGXOutOfBoundsError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError, RGXRegexNotMatchedAtPositionError } from "src/errors";
-import { RGXClassToken, RGXClassUnionToken } from "src/class";
-import { rgxwa } from "src/index";
+import { RGXInsertionRejectedError, RGXInvalidWalkerError, RGXInvalidWalkerStepError, RGXOutOfBoundsError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError, RGXRegexNotMatchedAtPositionError } from "src/errors";
+import { RGXClassToken, RGXClassUnionToken, RGXGroupToken } from "src/class";
+import { rgxInterpolation, rgxwa } from "src/index";
 import { expectError } from "../utils";
 import { RGXCurrentTokenNotFoundError } from "src/errors";
 
@@ -273,6 +273,78 @@ describe("RGXWalker", () => {
             instance.captures.push({ raw: "first", value: "first", start: 0, end: 5, ownerId: null, branch: 0, groups: null });
             instance.captures.push({ raw: "second", value: "second", start: 5, end: 11, ownerId: null, branch: 0, groups: null });
             expect(instance.lastCapture()).toEqual({ raw: "second", value: "second", start: 5, end: 11, ownerId: null, branch: 0, groups: null });
+        });
+
+        it("returns the last capture of the part with the given id", () => {
+            const instance = new RGXWalker("abab", [new RGXPart("a", { id: "a" }), new RGXPart("b", { id: "b" })], { looping: true });
+            instance.walk();
+            expect(instance.lastCapture("a")).toMatchObject({ raw: "a", start: 2 });
+            expect(instance.lastCapture("b")).toMatchObject({ raw: "b", start: 3 });
+            expect(instance.lastCapture("c")).toBe(null);
+        });
+    });
+
+    describe("lastGroup", () => {
+        it("returns the text the latest capture with the group captured in it", () => {
+            const instance = new RGXWalker("a1b", [/(?<letter>[a-z])(?<digit>\d)/, /(?<letter>[a-z])(?<digit>\d)?/]);
+            instance.walk();
+            expect(instance.lastGroup("letter")).toBe("b");
+            // The last capture didn't match the digit group, so an earlier one is used.
+            expect(instance.lastGroup("digit")).toBe("1");
+        });
+
+        it("returns null if no capture matched the group", () => {
+            const instance = new RGXWalker("a", [/a/]);
+            expect(instance.lastGroup("x")).toBe(null);
+            instance.walk();
+            expect(instance.lastGroup("x")).toBe(null);
+        });
+    });
+
+    describe("dynamic parts", () => {
+        it("matches the token the part produces from the walker's state", () => {
+            // Matches text between a delimiter and the same delimiter.
+            const open = new RGXPart(/[|#]/, { id: "open" });
+            const body = new RGXPart(({ walker }) => new RGXGroupToken({ capturing: false }, [
+                rgxInterpolation("(?:(?!"), walker.lastCapture("open")!.raw, rgxInterpolation(").)*")
+            ]));
+            const close = new RGXPart(({ walker }) => walker.lastCapture("open")!.raw);
+
+            const walker = new RGXWalker("#a|b#", [open, body, close]);
+            walker.walk();
+            expect(walker.captures.map(c => c.raw)).toEqual(["#", "a|b", "#"]);
+        });
+
+        it("produces the token again for each capture", () => {
+            const part = new RGXPart<unknown, string>(({ walker }) => walker.share, {
+                afterCapture: (_, { walker }) => { walker.share = String.fromCharCode(walker.share.charCodeAt(0) + 1); }
+            });
+            const walker = new RGXWalker<unknown, string>("abc", [part], { looping: true, share: "a" });
+            walker.walk();
+            expect(walker.captures.map(c => c.raw)).toEqual(["a", "b", "c"]);
+        });
+
+        it("checks insertions of the produced token at the part's position", () => {
+            const contexts: unknown[] = [];
+            const token = { toRgx: () => "b", rgxAcceptInsertion: (context: { index: number, siblings: readonly unknown[] }) => { contexts.push(context); return context.index !== 0; } };
+            const part = new RGXPart(() => token);
+
+            new RGXWalker("ab", ["a", part]).walk();
+            expect(contexts).toHaveLength(1);
+            expect(contexts[0]).toMatchObject({ index: 1, siblings: ["a", token] });
+
+            expect(() => new RGXWalker("b", [part]).walk()).toThrow(RGXInsertionRejectedError);
+        });
+
+        it("checks the produced token at its own position when captured directly", () => {
+            const token = { toRgx: () => "b", rgxAcceptInsertion: (context: { index: number, siblings: readonly unknown[] }) => context.siblings.length === 1 };
+            const part = new RGXPart(() => token);
+            expect(new RGXWalker("b", ["a", part]).capture(part)).toBe("b");
+        });
+
+        it("validates the produced token when it is captured", () => {
+            const walker = new RGXWalker("a", [new RGXPart(() => ({ rgxInterpolation: "(a" }))]);
+            expect(() => walker.walk()).toThrow(RGXInvalidWalkerStepError);
         });
     });
 
