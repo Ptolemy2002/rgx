@@ -1,37 +1,51 @@
-import { rgxConstant } from "src/constants";
+import { visitRegExpAST } from "@eslint-community/regexpp";
 import { RegExpFlagTransformer } from "src/ExtRegExp";
-import { resolveRGXToken } from "src/resolve";
-import { createRegex } from "src/utils";
+import { parseRegexSource, scanOptionsFromFlags } from "src/internal";
 
-const accentPatterns: string[] = [
-    "(?:a|á|à|ä|â|ã)", "(?:A|Á|À|Ä|Â|Ã)",
-    "(?:e|é|è|ë|ê)"  , "(?:E|É|È|Ë|Ê)"  ,
-    "(?:i|í|ì|ï|î)"  , "(?:I|Í|Ì|Ï|Î)"  ,
-    "(?:o|ó|ò|ö|ô|õ)", "(?:O|Ó|Ò|Ö|Ô|Õ)",
-    "(?:u|ú|ù|ü|û)"  , "(?:U|Ú|Ù|Ü|Û)"
+// Each base character, followed by its accented variants.
+const accentGroups: string[] = [
+    "aáàäâã", "AÁÀÄÂÃ",
+    "eéèëê" , "EÉÈËÊ" ,
+    "iíìïî" , "IÍÌÏÎ" ,
+    "oóòöôõ", "OÓÒÖÔÕ",
+    "uúùüû" , "UÚÙÜÛ"
 ];
 
-const nonEscapeBound = resolveRGXToken(rgxConstant("non-escape-bound"));
-
-const nonLocalizedFlagBound = resolveRGXToken({
-    toRgx() { return /(?<!\(\?[ms]*\-?[ms]*)/; }
-});
-
-const nonCharacterClassBound = resolveRGXToken({
-    toRgx() { return /(?<!\[[^\]]*)/; }
-});
+// Every character in a group is replaced with a character class matching the whole group. None of these characters
+// are special inside a class, and they are all single UTF-16 code units, so the class reads the same with any flags.
+const accentClasses = new Map<string, string>(
+    accentGroups.flatMap(group => [...group].map(character => [character, `[${group}]`] as const))
+);
 
 export const accentInsensitiveFlagTransformer: RegExpFlagTransformer = function (exp) {
-    let source = exp.source;
+    const source = exp.source;
     const flags = exp.flags;
 
-    accentPatterns.forEach((pattern) => {
-        // Replace any of the characters in the pattern with the pattern itself
-        source = source.replaceAll(createRegex(
-            nonEscapeBound + nonLocalizedFlagBound + nonCharacterClassBound + pattern,
-            "g"
-        ), pattern);
+    const ast = parseRegexSource(source, scanOptionsFromFlags(flags));
+    // Flag transformers are only given valid regexes, so this only happens if the engine accepts syntax that is newer
+    // than the parser. There is none at the moment, so this can't be tested.
+    /* istanbul ignore if */
+    if (ast === null) return [source, flags];
+
+    const replacements: { start: number; end: number; replacement: string }[] = [];
+    visitRegExpAST(ast, {
+        onCharacterEnter(node) {
+            // Characters in character classes (including ranges and class strings) are left alone, since a class
+            // can't be placed inside them.
+            if (node.parent.type !== "Alternative" && node.parent.type !== "Quantifier") return;
+            // Only characters written as themselves are replaced, not escapes that produce them (such as "é").
+            if (node.raw !== String.fromCodePoint(node.value)) return;
+
+            const replacement = accentClasses.get(node.raw);
+            if (replacement !== undefined) replacements.push({ start: node.start, end: node.end, replacement });
+        }
     });
 
-    return [source, flags];
+    // Replacing from the end keeps the positions of the earlier characters valid.
+    let result = source;
+    for (const { start, end, replacement } of replacements.sort((a, b) => b.start - a.start)) {
+        result = result.slice(0, start) + replacement + result.slice(end);
+    }
+
+    return [result, flags];
 };
