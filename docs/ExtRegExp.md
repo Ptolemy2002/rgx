@@ -149,17 +149,15 @@ Normalizes a string of regex flags (including both vanilla and custom registered
 Flag transformers predefined in this library.
 
 ## accentInsensitiveFlagTransformer
-A pre-built `RegExpFlagTransformer` that makes a regex pattern accent-insensitive. It parses the regex source and replaces any accentable characters (a, e, i, o, u, their uppercase equivalents, and the accented variants listed below) with a character class that matches the base character and all of its accented variants. For example, `é` becomes `[eéèëê]`. Since the replacement is a single character class, a quantifier after the character still applies to all of it (`ó+` becomes `[oóòöôõ]+`). The following accent mappings are supported:
-- `a` / `A`: á, à, ä, â, ã / Á, À, Ä, Â, Ã
-- `e` / `E`: é, è, ë, ê / É, È, Ë, Ê
-- `i` / `I`: í, ì, ï, î / Í, Ì, Ï, Î
-- `o` / `O`: ó, ò, ö, ô, õ / Ó, Ò, Ö, Ô, Õ
-- `u` / `U`: ú, ù, ü, û / Ú, Ù, Ü, Û
+A pre-built `RegExpFlagTransformer` that makes a regex pattern accent-insensitive. It parses the regex source and replaces every accentable character with a pattern matching any accented form of the same Latin letter. The accentable characters are the letters `a` to `z` and `A` to `Z` that have accented forms (every one except `q` and `Q`), and those accented forms: every character whose canonical decomposition (NFD) is the letter followed by combining marks, such as `é`, `ñ`, `ç`, `ā`, `ő`, `ę` or `ů`. The forms come from Unicode data, so no list is kept by hand.
 
-Only characters that are matched literally, and written as themselves, are replaced. The following are left as they are:
-- Characters that are part of other syntax, such as escapes (the `u` in `\u0025`), flag modifiers (the `i` in `(?i:a)`), group names (`(?<value>...)` and `\k<value>`) and property escapes (`\p{Script=Latin}`).
-- Escapes that produce an accentable character, such as `\x61` or `\u00e9`.
-- Characters inside character classes (such as the `a` in `[a-z]`), including nested classes and class strings with the `v` flag.
+Each accentable character is replaced with a character class of the letter and all of its precomposed forms, followed by any number of combining marks (`\p{M}*` with the `u` or `v` flag, `[\u0300-\u036f]*` without them), so text written with combining marks (such as `e` followed by U+0301) matches too. For example, `é` becomes `[eèéêëēĕėęěȅȇȩḕḗḙḛḝẹẻẽếềểễệ][\u0300-\u036f]*`. Combining marks written in the pattern right after an accentable character are removed, since the replacement already matches them. When the character is quantified, the replacement is wrapped in a non-capturing group, so the quantifier applies to all of it (`ó+` becomes `(?:[oò…]\p{M}*)+`).
+
+Characters are replaced by value, so escapes that produce an accentable character (such as `\x61` or `\u00e9`) are covered. Characters that are part of other syntax, such as escapes (the `u` in `\u0025`), flag modifiers (the `i` in `(?i:a)`), group names (`(?<value>...)` and `\k<value>`) and property escapes (`\p{Script=Latin}`), are left as they are.
+
+A character class can only match one character, so the combining marks can't be added to it. A class containing accentable characters is split instead, into a non-capturing group with one alternative for the class without its accentable characters (left out when nothing is left), and one replacement per letter they belong to. Ranges are split around the accentable characters they contain, with their new ends written by value. For example, `[a-cx_]` becomes `(?:[_]|[aà…]\p{M}*|[bḃ…]\p{M}*|[cç…]\p{M}*|[xẋ…]\p{M}*)` (shortened here). Only characters and ranges count: character sets such as `\w`, `\d` and `\p{L}` are kept as they are, since characters can't be removed from them without set operations.
+- A negated class (such as `[^a-c]`) can't be split into alternatives, so it becomes a negative lookahead for the replacements of its letters, followed by the class as it was (such as `(?![aà…]\p{M}*|[bḃ…]\p{M}*|[cç…]\p{M}*)[^a-c]`). It matches the same characters as the class without its accentable characters, since the lookahead rules them out.
+- With the `v` flag, a class using set operations (`&&` or `--`) or containing nested classes or class strings is checked against every accentable character, so the set operations are applied (and characters from sets such as `\w` inside it count too). The class without them is written with a subtraction (such as `[[[a-e]--[b]]--[acde]]`), which keeps any class strings it contains.
 
 ## beginningFlagTransformer
 A pre-built `RegExpFlagTransformer` that makes a regex pattern match only at the beginning of the string. It wraps the pattern in a non-capturing group and anchors it with `^`, so that the pattern must match from the start of the string. For example, the pattern `a|b` becomes `^(?:a|b)` (the non-capturing group ensures that the anchor applies to the entire alternation, not just the first branch).

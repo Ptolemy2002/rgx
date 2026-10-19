@@ -1,5 +1,34 @@
 import { accentInsensitiveFlagTransformer, registerCustomFlagTransformers, unregisterCustomFlagTransformers } from "src/flag-transformer";
 import { ExtRegExp } from "src/ExtRegExp";
+import { accentBaseOf, accentVariantClass } from "src/internal";
+
+// The combining marks allowed after each letter, with and without the u or v flag.
+const marks = "[\\u0300-\\u036f]*";
+const unicodeMarks = "\\p{M}*";
+const letter = (base: string, after = marks) => accentVariantClass(base) + after;
+
+function transform(source: string, flags = "") {
+    return accentInsensitiveFlagTransformer(new ExtRegExp(source, flags))[0];
+}
+
+function transformed(source: string, flags = "") {
+    return new RegExp(transform(source, flags), flags);
+}
+
+describe("accent variant data", () => {
+    it("finds the precomposed variants of letters from their decompositions", () => {
+        expect(accentVariantClass("e")).toMatch(/^\[eèéêë/);
+        for (const variant of "ñçāőęů") expect(accentVariantClass(variant.normalize("NFD")[0]!)).toContain(variant);
+        expect(accentBaseOf("Ő".codePointAt(0)!)).toBe("O");
+        expect(accentBaseOf("e".codePointAt(0)!)).toBe("e");
+    });
+
+    it("leaves out characters that don't decompose into a letter and combining marks", () => {
+        expect(accentBaseOf("æ".codePointAt(0)!)).toBeNull();
+        expect(accentBaseOf("q".codePointAt(0)!)).toBeNull();
+        expect(accentBaseOf("1".codePointAt(0)!)).toBeNull();
+    });
+});
 
 describe("accentInsensitiveFlagTransformer", () => {
     it("preserves the original flags", () => {
@@ -9,107 +38,109 @@ describe("accentInsensitiveFlagTransformer", () => {
     });
 
     it("leaves patterns without accentable characters unchanged", () => {
-        const regex = new ExtRegExp("tst", "g");
-        const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe(regex.source);
+        expect(transform("1q_", "g")).toBe("1q_");
     });
 
-    it("transforms patterns with one accentable character correctly", () => {
-        const regex = new ExtRegExp("tést", "g");
-        const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("t[eéèëê]st");
+    it("replaces each accentable character with its letter's class followed by combining marks", () => {
+        expect(transform("té", "g")).toBe(letter("t") + letter("e"));
+        expect(transform("TÉ", "g")).toBe(letter("T") + letter("E"));
     });
 
-    it("transforms patterns with multiple accentable characters correctly", () => {
-        const regex = new ExtRegExp("tésting", "g");
-        const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("t[eéèëê]st[iíìïî]ng");
+    it("uses property escapes for the combining marks with the u or v flag", () => {
+        expect(transform("é", "u")).toBe(letter("e", unicodeMarks));
+        expect(transform("é", "v")).toBe(letter("e", unicodeMarks));
     });
 
-    it("works with uppercase characters", () => {
-        const regex = new ExtRegExp("TÉST", "g");
-        const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("T[EÉÈËÊ]ST");
+    it("replaces characters by value, so escapes are covered", () => {
+        expect(transform("\\x61\\u00e9", "g")).toBe(letter("a") + letter("e"));
+        expect(transform("\\u0025", "g")).toBe("\\u0025");
     });
 
-    it("does not transform escaped characters", () => {
-        const regex = new ExtRegExp("\\u0025", "g"); // The u is escaped, so it should not be transformed
-        const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("\\u0025");
+    it("removes combining marks written after an accentable character", () => {
+        expect(transform("é̂x", "u")).toBe(letter("e", unicodeMarks) + letter("x", unicodeMarks));
+        // Marks that don't follow a replaced element are kept.
+        expect(transform("́1́", "u")).toBe("́1́");
     });
 
-    it("does not transform characters part of a localized flag pattern", () => {
-        const regex = new ExtRegExp("(?mi:y)tst", "g"); // The i is part of a localized flag pattern, so it should not be transformed
-        const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("(?mi:y)tst");
-    });
-
-    it("does not transform characters part of a localized flag pattern with a dash", () => {
-        const regex = new ExtRegExp("(?m-i:y)tst", "g"); // The i is part of a localized flag pattern, so it should not be transformed
-        const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("(?m-i:y)tst");
-    });
-
-    it("does not transform characters part of a character class", () => {
-        const regex = new ExtRegExp("[0-9a-z]", "g"); // Characters inside a character class should not be transformed
-        const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("[0-9a-z]");
-    });
-
-    it("does transform characters following a character class", () => {
-        const regex = new ExtRegExp("[0-9a-z]tést", "g"); // Characters after a character class should be transformed
-        const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("[0-9a-z]t[eéèëê]st");
-    });
-
-    it("does not transform escapes that produce accentable characters", () => {
-        const regex = new ExtRegExp("\\x61\\u00e9", "g");
-        const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("\\x61\\u00e9");
-    });
-
-    it("does not transform characters part of group names or named backreferences", () => {
-        const regex = new ExtRegExp("(?<value>x)\\k<value>", "g");
-        const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("(?<value>x)\\k<value>");
-    });
-
-    it("does not transform characters part of property escapes", () => {
-        const regex = new ExtRegExp("\\p{Script=Latin}", "gu");
-        const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("\\p{Script=Latin}");
-    });
-
-    it("does not transform characters part of nested character classes or class strings", () => {
-        const regex = new ExtRegExp("[[a-e]--[\\q{ou}]]", "gv");
-        const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("[[a-e]--[\\q{ou}]]");
+    it("does not transform characters part of other syntax", () => {
+        expect(transform("(?mi:1)", "g")).toBe("(?mi:1)");
+        expect(transform("(?m-i:1)", "g")).toBe("(?m-i:1)");
+        expect(transform("(?<value>1)\\k<value>", "g")).toBe("(?<value>1)\\k<value>");
+        expect(transform("\\p{Script=Latin}", "gu")).toBe("\\p{Script=Latin}");
     });
 
     it("transforms quantified characters so the quantifier applies to the whole replacement", () => {
-        const regex = new ExtRegExp("ó+", "g");
-        const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("[oóòöôõ]+");
-        expect(new RegExp(transformed[0], transformed[1]).exec("xoóö")?.[0]).toBe("oóö");
+        expect(transform("ó+", "g")).toBe(`(?:${letter("o")})+`);
+        expect(transformed("ó+").exec("xoóö")?.[0]).toBe("oóö");
     });
 
     it("transforms characters inside groups and lookarounds", () => {
-        const regex = new ExtRegExp("(?<n>a)(?<=u)", "g");
-        const transformed = accentInsensitiveFlagTransformer(regex);
-        expect(transformed[0]).toBe("(?<n>[aáàäâã])(?<=[uúùüû])");
+        expect(transform("(?<n>a)(?<=u)", "g")).toBe(`(?<n>${letter("a")})(?<=${letter("u")})`);
     });
 
-    it("matches every accented variant of the transformed characters", () => {
-        const [source, flags] = accentInsensitiveFlagTransformer(new ExtRegExp("^tést$"));
-        const regex = new RegExp(source, flags);
-        for (const variant of ["test", "tést", "tèst", "tëst", "têst"]) expect(regex.test(variant)).toBe(true);
+    it("splits character classes into the other characters and one alternative per letter", () => {
+        expect(transform("[a-dx_]", "g")).toBe(`(?:[_]|${["a", "b", "c", "d", "x"].map(base => letter(base)).join("|")})`);
+        expect(transform("[à-é]", "g")).toBe(`(?:[\\u00e6]|${letter("a")}|${letter("c")}|${letter("e")})`);
+        expect(transform("[ae]", "g")).toBe(`(?:${letter("a")}|${letter("e")})`);
+    });
+
+    it("splits ranges around the accentable characters they contain, writing their ends by value", () => {
+        const source = transform("[\\u0000-\\u{10000}]", "u");
+        expect(source.startsWith("(?:[\\u0000-\\u0040Q\\u005b-\\u0060q\\u007b-")).toBe(true);
+        expect(source).toContain("-\\u{10000}]|");
+        expect(new RegExp(source, "u").test("\u{10000}")).toBe(true);
+    });
+
+    it("leaves character classes without accentable characters, and character sets, alone", () => {
+        expect(transform("[0-9_]", "g")).toBe("[0-9_]");
+        expect(transform("[\\w.]", "g")).toBe("[\\w.]");
+        expect(transform("[\\d1a]", "g")).toBe(`(?:[\\d1]|${letter("a")})`);
+    });
+
+    it("turns negated character classes into a negative lookahead for their letters", () => {
+        expect(transform("[^a-d]", "g")).toBe(`(?!${["a", "b", "c", "d"].map(base => letter(base)).join("|")})[^a-d]`);
+        expect(transform("[^a]+", "g")).toBe(`(?:(?!${letter("a")})[^a])+`);
+
+        const regex = transformed("^[^a-d]$");
+        for (const character of ["á", "b", "ḃ"]) expect(regex.test(character)).toBe(false);
+        expect(regex.test("x")).toBe(true);
+    });
+
+    it("wraps a replaced character class only once when it is quantified", () => {
+        expect(transform("[a]{2}", "g")).toBe(`(?:${letter("a")}){2}`);
+    });
+
+    it("applies set operations and nested classes with the v flag before splitting", () => {
+        const subtraction = transform("[[a-e]--[\\q{ou}b]]", "v");
+        expect(subtraction).toBe(`(?:[[[a-e]--[\\q{ou}b]]--[acde]]|${["a", "c", "d", "e"].map(base => letter(base, unicodeMarks)).join("|")})`);
+
+        expect(transform("[[a]x]", "v")).toBe(`(?:[[[a]x]--[ax]]|${letter("a", unicodeMarks)}|${letter("x", unicodeMarks)})`);
+        expect(transform("[^[a]&&[a-b]]", "v")).toBe(`(?!${letter("a", unicodeMarks)})[^[a]&&[a-b]]`);
+
+        // Without set operations or nested classes, the class is split the same way as without the v flag.
+        expect(transform("[ab]", "v")).toBe(`(?:${letter("a", unicodeMarks)}|${letter("b", unicodeMarks)})`);
+        expect(transform("[\\q{ou}1]", "v")).toBe("[\\q{ou}1]");
+    });
+
+    it("does not transform characters part of nested character classes on their own", () => {
+        // Only the outermost class is replaced.
+        expect(transform("[[1]]", "v")).toBe("[[1]]");
+    });
+
+    it("matches every accented and decomposed variant of the transformed characters", () => {
+        const regex = transformed("^tést$", "u");
+        for (const variant of ["test", "tést", "tèst", "tęst", "tést", "ţệst"]) expect(regex.test(variant)).toBe(true);
         expect(regex.test("tast")).toBe(false);
+
+        const plain = transformed("^ñ$");
+        expect(plain.test("ñ")).toBe(true);
+        expect(plain.test("ń")).toBe(true);
     });
 
     it("works when applied as a flag", () => {
         registerCustomFlagTransformers(); // Ensure the "a" flag is registered
         const regex = new ExtRegExp("tést", "ga");
-        expect(regex.source).toBe("t[eéèëê]st");
+        expect(regex.source).toBe(letter("t") + letter("e") + letter("s") + letter("t"));
         unregisterCustomFlagTransformers(); // Clean up after the test
     });
 });
