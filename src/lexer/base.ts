@@ -1,4 +1,4 @@
-import { RGXToken } from "src/types";
+import { RGXToken, ValidRegexFlags } from "src/types";
 import { resolveRGXToken } from "src/resolve";
 import { 
     assertInRange, RGXInvalidLexerModeError,
@@ -6,6 +6,8 @@ import {
     isLexemeNotMatchedCauseError, RGXInvalidLexerError
 } from "src/errors";
 import { RGXWalker, RGXWalkerOptions, RGXWalkerStep } from "src/walker";
+import { validateRGXWalkerSteps } from "src/walker/base";
+import { assertValidRegexReferences, collectRGXReferences, placeRGXToken, withRGXInsertionRoot } from "src/internal";
 import { assertRegexMatchesAtPosition, createRegex, regexMatchAtPosition } from "src/utils";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { rgxConstant } from "src/constants";
@@ -55,6 +57,19 @@ export function rgxLexemeLocationFromIndex(source: string, index: number): RGXLe
     return { index, line, column };
 }
 
+// Checks a lexeme definition the same way rgxa checks a pattern (for resolve definitions) or rgxwa checks its steps
+// (for walk definitions), so a definition that could never match what it means is rejected up front.
+export function validateRGXLexemeDefinition<Data, Share>(lexemeDefinition: RGXLexemeDefinition<Data, Share>) {
+    if (lexemeDefinition.type === "walk") {
+        validateRGXWalkerSteps(lexemeDefinition.tokens);
+        return;
+    }
+
+    // Lexeme patterns are matched without flags.
+    const [source, references] = collectRGXReferences(() => withRGXInsertionRoot("" as ValidRegexFlags, () => placeRGXToken([lexemeDefinition.token], 0, () => resolveRGXToken(lexemeDefinition.token))));
+    assertValidRegexReferences(source, references);
+}
+
 export class RGXLexer<Data, Share=unknown> {
     readonly source: string;
     _position: number;
@@ -86,6 +101,8 @@ export class RGXLexer<Data, Share=unknown> {
         lexemeDefinitionsCopy["default"] ??= [];
 
         this.source = source;
+
+        for (const defs of Object.values(lexemeDefinitionsCopy)) defs.forEach(validateRGXLexemeDefinition);
 
         this.lexemeDefinitions = Object.fromEntries(
             Object.entries(lexemeDefinitionsCopy).map(

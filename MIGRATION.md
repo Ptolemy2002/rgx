@@ -103,12 +103,13 @@ To update:
 - Each accentable character becomes a class of every precomposed form of its letter, followed by any number of combining marks, so decomposed text (such as `e` followed by U+0301) matches too. For example, `ñ` now matches `ń` and `n` followed by U+0303.
 - Escapes that produce an accentable character, such as `\u00e9`, are replaced too.
 - Character classes containing accentable characters are split into alternatives, and negated ones become a negative lookahead followed by the class. For example, `[a-c]` now matches `ç`, and `[^a]` no longer matches `á`.
+- Character sets that match letters, such as `\w` and `\p{L}`, inside or outside classes, also match those letters' accented forms, and negated ones such as `\W` rule them out. For example, `\w+` now matches all of `café`, and `\W` no longer matches `é`. This makes each such set about 1,000 to 1,500 characters long; call `setAccentInsensitiveSetExpansion(false)` to leave sets as they are.
 
 Patterns using the flag now match strings they didn't match before, and the transformed source is different and longer.
 
 To update:
 
-- If you relied on consonants, other accents, escapes or character classes being left alone, write those parts in a separate pattern without the flag, or with a literal token that doesn't have it.
+- If you relied on consonants, other accents, escapes, character classes or character sets being left alone, write those parts in a separate pattern without the flag, or with a literal token that doesn't have it.
 - If you compare the transformed source exactly, test what the pattern matches instead.
 
 ## `RGXNotDirectRegExpError` is removed
@@ -137,12 +138,13 @@ To update:
 - In walker steps that are unions, name the group and reference it by name.
 - If you catch `RGXInvalidRegexStringError` for duplicate group names, catch `RGXDuplicateGroupNameError` too.
 
-## Walker steps are checked when the walker is created
+## Walker steps and lexeme definitions are checked when they are created
 
 `rgxwa` and `rgxw` now check each step when the walker is created, and the walker checks each step again before matching it (see [Step validation](./docs/class/walker.md#step-validation)). Along with the backreference checks above:
 
 - A step with unbalanced parentheses throws `RGXInvalidWalkerStepError` when the walker is created. Before, it was accepted and threw `RGXInvalidRegexStringError` only when the walker reached it. This mostly affects `rgxw` with `verbatim: false`, where each literal part of the template is its own step.
 - A group name starting with `rgx_branch_` in a step throws `RGXReservedGroupNameError`. The walker uses these names to find out which branch of a union matched, so a step that used one could report the wrong branch.
+- `RGXLexer` checks every lexeme definition when it is created (see [validateRGXLexemeDefinition](./docs/class/lexer.md#validatergxlexemedefinition)). The steps of `"walk"` definitions are checked like the steps above, and the token of a `"resolve"` definition gets the same backreference checks as `rgxa`. Before, a bad `"walk"` definition only threw when it was tried, and a bad `"resolve"` definition was used as it was.
 
 To update:
 

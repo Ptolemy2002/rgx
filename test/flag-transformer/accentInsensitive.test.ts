@@ -1,4 +1,7 @@
-import { accentInsensitiveFlagTransformer, registerCustomFlagTransformers, unregisterCustomFlagTransformers } from "src/flag-transformer";
+import {
+    accentInsensitiveFlagTransformer, getAccentInsensitiveSetExpansion, registerCustomFlagTransformers, setAccentInsensitiveSetExpansion,
+    unregisterCustomFlagTransformers
+} from "src/flag-transformer";
 import { ExtRegExp } from "src/ExtRegExp";
 import { accentBaseOf, accentVariantClass } from "src/internal";
 
@@ -6,6 +9,9 @@ import { accentBaseOf, accentVariantClass } from "src/internal";
 const marks = "[\\u0300-\\u036f]*";
 const unicodeMarks = "\\p{M}*";
 const letter = (base: string, after = marks) => accentVariantClass(base) + after;
+// The letters with accented forms that \w matches, in the order the replacements list them.
+const wordLetters = [..."ABCDEFGHIJKLMNOPRSTUVWXYZabcdefghijklmnoprstuvwxyz"];
+const letters = (bases: string[], after = marks) => bases.map(base => letter(base, after)).join("|");
 
 function transform(source: string, flags = "") {
     return accentInsensitiveFlagTransformer(new ExtRegExp(source, flags))[0];
@@ -66,7 +72,7 @@ describe("accentInsensitiveFlagTransformer", () => {
         expect(transform("(?mi:1)", "g")).toBe("(?mi:1)");
         expect(transform("(?m-i:1)", "g")).toBe("(?m-i:1)");
         expect(transform("(?<value>1)\\k<value>", "g")).toBe("(?<value>1)\\k<value>");
-        expect(transform("\\p{Script=Latin}", "gu")).toBe("\\p{Script=Latin}");
+        expect(transform("\\p{Script=Greek}", "gu")).toBe("\\p{Script=Greek}");
     });
 
     it("transforms quantified characters so the quantifier applies to the whole replacement", () => {
@@ -79,22 +85,61 @@ describe("accentInsensitiveFlagTransformer", () => {
     });
 
     it("splits character classes into the other characters and one alternative per letter", () => {
-        expect(transform("[a-dx_]", "g")).toBe(`(?:[_]|${["a", "b", "c", "d", "x"].map(base => letter(base)).join("|")})`);
-        expect(transform("[à-é]", "g")).toBe(`(?:[\\u00e6]|${letter("a")}|${letter("c")}|${letter("e")})`);
+        expect(transform("[a-dx_]", "g")).toBe(`(?:${letters(["a", "b", "c", "d", "x"])}|[_])`);
+        expect(transform("[à-é]", "g")).toBe(`(?:${letters(["a", "c", "e"])}|[\\u00e6])`);
         expect(transform("[ae]", "g")).toBe(`(?:${letter("a")}|${letter("e")})`);
     });
 
     it("splits ranges around the accentable characters they contain, writing their ends by value", () => {
         const source = transform("[\\u0000-\\u{10000}]", "u");
-        expect(source.startsWith("(?:[\\u0000-\\u0040Q\\u005b-\\u0060q\\u007b-")).toBe(true);
-        expect(source).toContain("-\\u{10000}]|");
+        expect(source).toContain("|[\\u0000-\\u0040Q\\u005b-\\u0060q\\u007b-");
+        expect(source.endsWith("-\\u{10000}])")).toBe(true);
         expect(new RegExp(source, "u").test("\u{10000}")).toBe(true);
     });
 
-    it("leaves character classes without accentable characters, and character sets, alone", () => {
+    it("leaves character classes without accentable characters alone", () => {
         expect(transform("[0-9_]", "g")).toBe("[0-9_]");
-        expect(transform("[\\w.]", "g")).toBe("[\\w.]");
-        expect(transform("[\\d1a]", "g")).toBe(`(?:[\\d1]|${letter("a")})`);
+        expect(transform("[\\d1a]", "g")).toBe(`(?:${letter("a")}|[\\d1])`);
+    });
+
+    it("adds the letters character sets in a class match, keeping the sets whole", () => {
+        expect(transform("[\\w.]", "g")).toBe(`(?:${letters(wordLetters)}|[\\w.])`);
+        // Negated sets are kept as they are.
+        expect(transform("[\\W_]", "g")).toBe("[\\W_]");
+        expect(transform("[^\\w]", "g")).toBe(`(?!${letters(wordLetters)})[^\\w]`);
+    });
+
+    it("expands character sets outside classes", () => {
+        expect(transform("\\w", "g")).toBe(`(?:${letters(wordLetters)}|\\w)`);
+        expect(transform("\\w+", "u")).toBe(`(?:${letters(wordLetters, unicodeMarks)}|\\w)+`);
+        expect(transform("\\p{Lu}", "u")).toBe(`(?:${letters(wordLetters.slice(0, 25), unicodeMarks)}|\\p{Lu})`);
+        expect(transform("\\d\\s.", "g")).toBe("\\d\\s.");
+
+        const regex = transformed("^\\w+$", "u");
+        for (const word of ["cafe", "café", "cafe\u0301"]) expect(regex.test(word)).toBe(true);
+        expect(regex.test("caf!")).toBe(false);
+    });
+
+    it("turns negated character sets into a negative lookahead for the letters of their positive form", () => {
+        expect(transform("\\W", "g")).toBe(`(?!${letters(wordLetters)})\\W`);
+        expect(transform("\\P{Lu}+", "u")).toBe(`(?:(?!${letters(wordLetters.slice(0, 25), unicodeMarks)})\\P{Lu})+`);
+        expect(transform("\\D", "g")).toBe("\\D");
+
+        const regex = transformed("^\\W$");
+        expect(regex.test("é")).toBe(false);
+        expect(regex.test("!")).toBe(true);
+    });
+
+    it("can have set expansion turned off", () => {
+        expect(getAccentInsensitiveSetExpansion()).toBe(true);
+        setAccentInsensitiveSetExpansion(false);
+        try {
+            expect(getAccentInsensitiveSetExpansion()).toBe(false);
+            expect(transform("\\w\\W[\\w]", "u")).toBe("\\w\\W[\\w]");
+            expect(transform("[\\wa]", "u")).toBe(`(?:${letter("a", unicodeMarks)}|[\\w])`);
+        } finally {
+            setAccentInsensitiveSetExpansion(true);
+        }
     });
 
     it("turns negated character classes into a negative lookahead for their letters", () => {
@@ -112,9 +157,9 @@ describe("accentInsensitiveFlagTransformer", () => {
 
     it("applies set operations and nested classes with the v flag before splitting", () => {
         const subtraction = transform("[[a-e]--[\\q{ou}b]]", "v");
-        expect(subtraction).toBe(`(?:[[[a-e]--[\\q{ou}b]]--[acde]]|${["a", "c", "d", "e"].map(base => letter(base, unicodeMarks)).join("|")})`);
+        expect(subtraction).toBe(`(?:${letters(["a", "c", "d", "e"], unicodeMarks)}|[[[a-e]--[\\q{ou}b]]--[acde]])`);
 
-        expect(transform("[[a]x]", "v")).toBe(`(?:[[[a]x]--[ax]]|${letter("a", unicodeMarks)}|${letter("x", unicodeMarks)})`);
+        expect(transform("[[a]x]", "v")).toBe(`(?:${letters(["a", "x"], unicodeMarks)}|[[[a]x]--[ax]])`);
         expect(transform("[^[a]&&[a-b]]", "v")).toBe(`(?!${letter("a", unicodeMarks)})[^[a]&&[a-b]]`);
 
         // Without set operations or nested classes, the class is split the same way as without the v flag.

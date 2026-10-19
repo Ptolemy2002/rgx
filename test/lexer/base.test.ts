@@ -1,6 +1,8 @@
-import { RGXInvalidLexerError, RGXInvalidLexerModeError, RGXLexemeNotMatchedAtPositionError, RGXOutOfBoundsError, RGXPartValidationFailedError, RGXRegexNotMatchedAtPositionError } from "src/errors";
+import { RGXInvalidBackreferenceError, RGXInvalidWalkerStepError, RGXInvalidLexerError, RGXInvalidLexerModeError, RGXLexemeNotMatchedAtPositionError, RGXOutOfBoundsError, RGXPartValidationFailedError, RGXRegexNotMatchedAtPositionError } from "src/errors";
 import { RGXLexer, rgxLexer, RGXLexemeDefinitions, rgxLexemeLocationFromIndex, RGXLexeme } from "src/lexer";
 import { rgxPart } from "src/walker";
+import { rgxSubpattern } from "src/class";
+import { rgxInterpolation } from "src/resolve";
 import { expectError } from "../utils";
 
 function constructorTest<Data = unknown>(constructor: typeof rgxLexer<Data>) {
@@ -106,6 +108,39 @@ describe("RGXLexer", () => {
 
     describe("construct function", () => {
         constructorTest(rgxLexer);
+    });
+
+    describe("lexeme validation", () => {
+        it("rejects resolve definitions with invalid backreferences when the lexer is created", () => {
+            const definitions: RGXLexemeDefinitions<unknown> = { default: [{ id: "bad", type: "resolve", token: /\1(a)/ }] };
+            expectError(() => new RGXLexer("aa", definitions), RGXInvalidBackreferenceError, error => {
+                expect(error.reason).toBe("before-group");
+            });
+        });
+
+        it("rejects missing groups referenced by subpattern tokens in any mode", () => {
+            const definitions: RGXLexemeDefinitions<unknown> = { other: [{ id: "bad", type: "resolve", token: [rgxSubpattern("x")] }] };
+            expectError(() => new RGXLexer("x", definitions), RGXInvalidBackreferenceError, error => {
+                expect(error.reason).toBe("missing-group");
+            });
+        });
+
+        it("rejects walk definitions with invalid steps when the lexer is created", () => {
+            const definitions: RGXLexemeDefinitions<unknown> = { default: [{ id: "bad", type: "walk", tokens: [rgxInterpolation("(")] }] };
+            expect(() => new RGXLexer("(", definitions)).toThrow(RGXInvalidWalkerStepError);
+        });
+
+        it("accepts valid definitions", () => {
+            const definitions: RGXLexemeDefinitions<unknown> = {
+                default: [
+                    { id: "pair", type: "resolve", token: /(a)\1/ },
+                    { id: "walk", type: "walk", tokens: [/(?<b>b)\k<b>/] }
+                ]
+            };
+            const lexer = new RGXLexer("aabb", definitions);
+            expect(lexer.consume()?.id).toBe("pair");
+            expect(lexer.consume()?.id).toBe("walk");
+        });
     });
 
     describe("type guards", () => {

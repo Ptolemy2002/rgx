@@ -153,11 +153,29 @@ A pre-built `RegExpFlagTransformer` that makes a regex pattern accent-insensitiv
 
 Each accentable character is replaced with a character class of the letter and all of its precomposed forms, followed by any number of combining marks (`\p{M}*` with the `u` or `v` flag, `[\u0300-\u036f]*` without them), so text written with combining marks (such as `e` followed by U+0301) matches too. For example, `é` becomes `[eèéêëēĕėęěȅȇȩḕḗḙḛḝẹẻẽếềểễệ][\u0300-\u036f]*`. Combining marks written in the pattern right after an accentable character are removed, since the replacement already matches them. When the character is quantified, the replacement is wrapped in a non-capturing group, so the quantifier applies to all of it (`ó+` becomes `(?:[oò…]\p{M}*)+`).
 
-Characters are replaced by value, so escapes that produce an accentable character (such as `\x61` or `\u00e9`) are covered. Characters that are part of other syntax, such as escapes (the `u` in `\u0025`), flag modifiers (the `i` in `(?i:a)`), group names (`(?<value>...)` and `\k<value>`) and property escapes (`\p{Script=Latin}`), are left as they are.
+Characters are replaced by value, so escapes that produce an accentable character (such as `\x61` or `\u00e9`) are covered. Characters that are part of other syntax, such as escapes (the `u` in `\u0025`), flag modifiers (the `i` in `(?i:a)`), group names (`(?<value>...)` and `\k<value>`) and the names in property escapes (`\p{Script=Latin}`), are left as they are. Property escapes themselves are character sets, which are expanded as described below.
 
-A character class can only match one character, so the combining marks can't be added to it. A class containing accentable characters is split instead, into a non-capturing group with one alternative for the class without its accentable characters (left out when nothing is left), and one replacement per letter they belong to. Ranges are split around the accentable characters they contain, with their new ends written by value. For example, `[a-cx_]` becomes `(?:[_]|[aà…]\p{M}*|[bḃ…]\p{M}*|[cç…]\p{M}*|[xẋ…]\p{M}*)` (shortened here). Only characters and ranges count: character sets such as `\w`, `\d` and `\p{L}` are kept as they are, since characters can't be removed from them without set operations.
+A character class can only match one character, so the combining marks can't be added to it. A class containing accentable characters is split instead, into a non-capturing group with one replacement per letter they belong to, followed by an alternative for the class without its accentable characters (left out when nothing is left). The letters come first, so they are matched together with their marks. Ranges are split around the accentable characters they contain, with their new ends written by value. For example, `[a-cx_]` becomes `(?:[aà…]\p{M}*|[bḃ…]\p{M}*|[cç…]\p{M}*|[xẋ…]\p{M}*|[_])` (shortened here). Character sets such as `\w` and `\p{L}` in a class are kept whole, since characters can't be removed from them without set operations, but the letters they match get replacements too (`[\w.]` becomes `(?:[AÀ…]\p{M}*|…|[zź…]\p{M}*|[\w.])`). Negated sets in a class, such as `\W`, are kept as they are and don't count.
 - A negated class (such as `[^a-c]`) can't be split into alternatives, so it becomes a negative lookahead for the replacements of its letters, followed by the class as it was (such as `(?![aà…]\p{M}*|[bḃ…]\p{M}*|[cç…]\p{M}*)[^a-c]`). It matches the same characters as the class without its accentable characters, since the lookahead rules them out.
+- Character sets outside classes are expanded the same way: `\w` becomes `(?:[AÀ…]\p{M}*|…|[zź…]\p{M}*|\w)`, so `\w+` matches `café` however it is written. A negated set is treated like a negated class of its positive form, so `\W` becomes a negative lookahead for every letter `\w` matches, followed by `\W`. Sets that match no letters with accented forms (such as `\d`, `\s` or `\p{Script=Greek}`) and `.` (which already matches every character but line terminators) are left as they are.
 - With the `v` flag, a class using set operations (`&&` or `--`) or containing nested classes or class strings is checked against every accentable character, so the set operations are applied (and characters from sets such as `\w` inside it count too). The class without them is written with a subtraction (such as `[[[a-e]--[b]]--[acde]]`), which keeps any class strings it contains.
+
+Expanding character sets makes patterns much longer (a single `\w` becomes about 1,000 to 1,500 characters), so it can be turned off with `setAccentInsensitiveSetExpansion` (see below). With it off, sets outside classes are left as they are, and sets inside classes don't count, except in `v`-flag classes using set operations or nested classes, which are always checked character by character.
+
+### setAccentInsensitiveSetExpansion
+```typescript
+function setAccentInsensitiveSetExpansion(value: boolean): void
+```
+Sets whether `accentInsensitiveFlagTransformer` expands character sets, as described above. This is a global setting, which defaults to `true`. It only affects patterns transformed after it is changed: an `ExtRegExp` that has already been created keeps its transformed source.
+
+#### Parameters
+- `value` (`boolean`): `true` to expand character sets, `false` to leave them as they are.
+
+### getAccentInsensitiveSetExpansion
+```typescript
+function getAccentInsensitiveSetExpansion(): boolean
+```
+Returns whether `accentInsensitiveFlagTransformer` currently expands character sets (see `setAccentInsensitiveSetExpansion`).
 
 ## beginningFlagTransformer
 A pre-built `RegExpFlagTransformer` that makes a regex pattern match only at the beginning of the string. It wraps the pattern in a non-capturing group and anchors it with `^`, so that the pattern must match from the start of the string. For example, the pattern `a|b` becomes `^(?:a|b)` (the non-capturing group ensures that the anchor applies to the entire alternation, not just the first branch).

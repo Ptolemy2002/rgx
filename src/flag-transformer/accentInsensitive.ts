@@ -3,6 +3,38 @@ import { RegExpFlagTransformer } from "src/ExtRegExp";
 import { accentableCodePoints, accentBaseOf, accentVariantClass, parseRegexSource, scanOptionsFromFlags } from "src/internal";
 
 type CharacterClassNode = AST.CharacterClass | AST.ExpressionCharacterClass;
+type ReplaceableNode = AST.Character | AST.CharacterSet | CharacterClassNode;
+
+let setExpansion = true;
+
+// Whether character sets such as \w and \p{L} are expanded to cover the accented forms of the letters they match.
+// Expanding them makes patterns much longer, so it can be turned off. Only patterns transformed afterwards are affected.
+export function setAccentInsensitiveSetExpansion(value: boolean) {
+    setExpansion = value;
+}
+
+export function getAccentInsensitiveSetExpansion(): boolean {
+    return setExpansion;
+}
+
+// The accentable characters a character set matches, found by testing each one. Cached, since it means testing every
+// accentable character, and the same sets (like \w) come up often.
+const setContentsCache = new Map<string, number[]>();
+function accentableInSet(raw: string, unicodeFlag: string): number[] {
+    const key = `${unicodeFlag}:${raw}`;
+    let result = setContentsCache.get(key);
+    if (result === undefined) {
+        const test = new RegExp(`^${raw}$`, unicodeFlag);
+        result = accentableCodePoints().filter(codePoint => test.test(String.fromCodePoint(codePoint)));
+        setContentsCache.set(key, result);
+    }
+    return result;
+}
+
+// The set without its negation (\W becomes \w, \P{L} becomes \p{L}).
+function positiveSetRaw(node: AST.EscapeCharacterSet | AST.UnicodePropertyCharacterSet) {
+    return node.negate ? `\\${node.raw[1]!.toLowerCase()}${node.raw.slice(2)}` : node.raw;
+}
 
 // Combining marks written after an accentable character in the pattern are covered by its replacement.
 function isCombiningMark(codePoint: number) {
@@ -22,13 +54,13 @@ function classRange(min: number, max: number) {
 }
 
 // The accentable characters the class contains, and the class without them (as the source of a class, or null when
-// nothing is left). Without the v flag, only characters and ranges count, since character sets like \w can't have
-// characters removed from them.
-function splitCharacterClass(node: CharacterClassNode, unicodeSets: boolean): { accentable: number[]; rest: string | null } {
+// nothing is left). Without the v flag, character sets like \w can't have characters removed from them, so they are
+// kept whole, and only count when set expansion is on.
+function splitCharacterClass(node: CharacterClassNode, unicodeFlag: string): { accentable: number[]; rest: string | null } {
     const elements = node.type === "CharacterClass" ? node.elements : null;
     const needsSetOperations = elements === null || elements.some(element => element.type === "CharacterClass" || element.type === "ClassStringDisjunction");
 
-    if (unicodeSets && needsSetOperations) {
+    if (unicodeFlag === "v" && needsSetOperations) {
         // Set operations and nested classes are applied by testing each accentable character against the class.
         const positive = node.negate ? `[${node.raw.slice(2)}` : node.raw;
         const test = new RegExp(`^${positive}$`, "v");
@@ -59,6 +91,9 @@ function splitCharacterClass(node: CharacterClassNode, unicodeSets: boolean): { 
             if (start <= max.value) rest.push(classRange(start, max.value));
             accentable.push(...inside);
         } else {
+            // Negated sets (such as \W) are kept as they are, since their accented forms can't be ruled out from
+            // inside a class.
+            if (setExpansion && element.type === "CharacterSet" && !element.negate) accentable.push(...accentableInSet(element.raw, unicodeFlag));
             rest.push(element.raw);
         }
     }
@@ -70,7 +105,7 @@ export const accentInsensitiveFlagTransformer: RegExpFlagTransformer = function 
     const source = exp.source;
     const flags = exp.flags;
     const unicode = flags.includes("u") || flags.includes("v");
-    const unicodeSets = flags.includes("v");
+    const unicodeFlag = flags.includes("v") ? "v" : unicode ? "u" : "";
 
     const ast = parseRegexSource(source, scanOptionsFromFlags(flags));
     // Flag transformers are only given valid regexes, so this only happens if the engine accepts syntax that is newer
@@ -88,30 +123,35 @@ export const accentInsensitiveFlagTransformer: RegExpFlagTransformer = function 
 
     // Only what is matched directly is replaced, not characters inside classes (which are handled with their class),
     // or that are part of other syntax.
-    const isElement = (node: AST.Character | CharacterClassNode) => node.parent.type === "Alternative" || node.parent.type === "Quantifier";
+    const isElement = (node: ReplaceableNode) => node.parent.type === "Alternative" || node.parent.type === "Quantifier";
 
     // grouped means the replacement is already a single group.
-    function replace(node: AST.Character | CharacterClassNode, replacement: string, grouped = false) {
+    function replace(node: ReplaceableNode, replacement: string, grouped = false) {
         // A quantifier applies to the whole replacement.
         if (node.parent.type === "Quantifier" && !grouped) replacement = `(?:${replacement})`;
         replacements.push({ start: node.start, end: node.end, replacement });
         replaced.add(node);
     }
 
-    function replaceCharacterClass(node: CharacterClassNode) {
-        if (!isElement(node)) return;
-
-        const { accentable, rest } = splitCharacterClass(node, unicodeSets);
+    // Replaces something matching one character with alternatives for the letters it contains, followed by what is
+    // left of it. The letters come first, so they are matched together with their marks. Something negated can't be
+    // split into alternatives, so it becomes a negative lookahead for the letters, followed by itself, whose other
+    // characters are left as they are.
+    function replaceMatcher(node: ReplaceableNode, accentable: number[], rest: string | null, negate: boolean) {
         if (accentable.length === 0) return;
 
-        // One alternative per letter, in the order the class contains them.
+        // One alternative per letter, in the order they are contained.
         const letters = [...new Set(accentable.map(codePoint => accentBaseOf(codePoint)!))];
         const alternatives = letters.map(replacementFor);
 
-        // A negated class can't be split into alternatives, so it becomes a negative lookahead for the letters, then
-        // the class itself, whose other characters are left as they are.
-        if (node.negate) replace(node, `(?!${alternatives.join("|")})${node.raw}`);
-        else replace(node, `(?:${[...(rest === null ? [] : [rest]), ...alternatives].join("|")})`, true);
+        if (negate) replace(node, `(?!${alternatives.join("|")})${node.raw}`);
+        else replace(node, `(?:${[...alternatives, ...(rest === null ? [] : [rest])].join("|")})`, true);
+    }
+
+    function replaceCharacterClass(node: CharacterClassNode) {
+        if (!isElement(node)) return;
+        const { accentable, rest } = splitCharacterClass(node, unicodeFlag);
+        replaceMatcher(node, accentable, rest, node.negate);
     }
 
     visitRegExpAST(ast, {
@@ -129,6 +169,13 @@ export const accentInsensitiveFlagTransformer: RegExpFlagTransformer = function 
                 const previous = elements[elements.indexOf(node) - 1];
                 if (previous !== undefined && replaced.has(previous)) replace(node, "");
             }
+        },
+        onCharacterSetEnter(node) {
+            // . already matches every letter, accented or not.
+            if (!setExpansion || node.kind === "any" || !isElement(node)) return;
+            // A negated set is treated like a negated class of its positive form, so \W rules out every form of the
+            // letters \w matches.
+            replaceMatcher(node, accentableInSet(positiveSetRaw(node), unicodeFlag), node.raw, node.negate);
         },
         onCharacterClassEnter: replaceCharacterClass,
         onExpressionCharacterClassEnter: replaceCharacterClass
