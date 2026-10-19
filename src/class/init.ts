@@ -2,7 +2,6 @@ import { RGXToken } from "src/types";
 import { RGXClassToken } from "./base";
 import { expandRgxUnionTokens, RGXClassUnionToken } from "./union";
 import { RGXGroupToken, RGXGroupTokenArgs } from "./group";
-import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
 import { RGXRepeatToken } from "./repeat";
 import { RGXLookaroundToken } from "./lookaround";
 import { RGXNotSupportedError } from "src/errors";
@@ -38,12 +37,11 @@ export function rgxClassInit() {
     // Patch RGXClassToken here, Since classes like RGXClassUnionToken are instances of RGXClassToken
     // themselves. If we tried to import RGXClassUnionToken in base.ts, it would cause a circular dependency.
     
-    RGXClassToken.prototype.or = function (this: RGXClassToken, ...others: RGXTokenCollectionInput[]): RGXClassUnionToken {
+    RGXClassToken.prototype.or = function (this: RGXClassToken, ...others: RGXToken[]): RGXClassUnionToken {
         if (others.length === 0) return new RGXClassUnionToken([this]);
 
-        const expandedOthers: RGXTokenCollection = expandRgxUnionTokens(...others);
         // Remove any instances of this token itself
-        const filteredOthers = expandedOthers.tokens.filter(token => token !== this);
+        const filteredOthers = expandRgxUnionTokens(...others).filter(token => token !== this);
 
         if (this instanceof RGXClassUnionToken) {
             return new RGXClassUnionToken([...this.tokens, ...filteredOthers]);
@@ -52,7 +50,7 @@ export function rgxClassInit() {
         }
     };
 
-    RGXClassToken.prototype.group = function (this: RGXClassToken, args: RGXGroupTokenArgs = {}, ...others: RGXTokenCollectionInput[]): RGXGroupToken {
+    RGXClassToken.prototype.group = function (this: RGXClassToken, args: RGXGroupTokenArgs = {}, ...others: RGXToken[]): RGXGroupToken {
         return new RGXGroupToken(args, [this, ...others]);
     }
 
@@ -89,7 +87,7 @@ export function rgxClassInit() {
     RGXClassToken.prototype.subtract = function (
         this: RGXClassToken,
         exclusionId: string,
-        exclusions: RGXTokenCollectionInput[] = [],
+        exclusions: RGXToken[] = [],
         terminal: RGXToken = null
     ): RGXExclusionToken {
         return new RGXExclusionToken(exclusionId, this, exclusions, terminal);

@@ -9,18 +9,31 @@ const flagTransformers: Record<string, RegExpFlagTransformer> = {};
 
 export class ExtRegExp extends RegExp {
     private extFlags: string;
+    // The pattern before any custom flag transformations, so it can be rebuilt with the same flags.
+    readonly originalSource: string;
 
     constructor(pattern: string | RegExp, flags='') {
         assertValidRegexFlags(flags);
 
         const vanillaFlags = extractVanillaRegexFlags(flags);
-        const customFlags = extractCustomRegexFlags(flags);
+        let customFlags = extractCustomRegexFlags(flags);
 
         const source = pattern instanceof RegExp ? pattern.source : pattern;
         const alreadyAppliedFlags = pattern instanceof RegExp ? pattern.flags : '';
 
         const { source: transformedSource, flags: transformedFlags } = applyFlagTransformers(createRegex(source, vanillaFlags), customFlags, alreadyAppliedFlags);
         super(transformedSource, transformedFlags);
+
+        if (pattern instanceof ExtRegExp) {
+            // The pattern's custom flags are already applied to the source, so they are still reported, which keeps
+            // originalSource and the flags enough to rebuild it.
+            for (const flag of extractCustomRegexFlags(pattern.flags)) {
+                if (!customFlags.includes(flag)) customFlags += flag;
+            }
+            this.originalSource = pattern.originalSource;
+        } else {
+            this.originalSource = source;
+        }
         this.extFlags = customFlags;
     }
 

@@ -10,3 +10,5 @@ export * from "./parseLookaroundJSONArgs";
 export * from "./nonConsumingToken";
 export * from "./insertionContext";
 export * from "./regexPiece";
+export * from "./validateReferences";
+export * from "./accentVariants";

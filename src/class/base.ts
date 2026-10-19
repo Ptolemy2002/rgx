@@ -1,5 +1,4 @@
 import { RGXConvertibleToken, RGXInsertionContext, RGXJSONClassToken, RGXJSONObjectToken, RGXToken, ValidRegexString } from "src/types";
-import { RGXTokenCollectionInput } from "src/collection";
 import { RGXInvalidTokenError, RGXNotImplementedError } from "src/errors";
 import { createRGXJSONLiteralToken } from "src/json";
 import { removeRedundantRegexGroups } from "src/internal/analyzeRegexSource";
@@ -53,11 +52,11 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
         return undefined;
     }
 
-    or(...others: RGXTokenCollectionInput[]): RGXClassUnionToken {
+    or(...others: RGXToken[]): RGXClassUnionToken {
         throw new RGXNotImplementedError('RGXClassToken.or(...others)', 'call rgxClassInit() first.');
     }
 
-    group(args: RGXGroupTokenArgs = {}, ...others: RGXTokenCollectionInput[]): RGXGroupToken {
+    group(args: RGXGroupTokenArgs = {}, ...others: RGXToken[]): RGXGroupToken {
         throw new RGXNotImplementedError('RGXClassToken.group(args)', 'call rgxClassInit() first.');
     }
 
@@ -77,7 +76,7 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
         throw new RGXNotImplementedError('RGXClassToken.asLookbehind(positive)', 'call rgxClassInit() first.');
     }
 
-    subtract(exclusionId: string, exclusions: RGXTokenCollectionInput=[], terminal: RGXToken = null): RGXExclusionToken {
+    subtract(exclusionId: string, exclusions: RGXToken=[], terminal: RGXToken = null): RGXExclusionToken {
         throw new RGXNotImplementedError('RGXClassToken.subtract(exclusionId, exclusions, terminal)', 'call rgxClassInit() first.');
     }
 

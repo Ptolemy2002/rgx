@@ -58,6 +58,14 @@ type LexemeNotMatchedCause = {
     id: string;
     error: LexemeNotMatchedCauseError;
 };
+
+type RGXInvalidBackreferenceReason =
+    | "missing-group"        // no group has the name, or there are fewer groups than the number
+    | "before-group"         // the reference is matched before its group
+    | "inside-group"         // the reference is inside its own group
+    | "other-branch"         // the reference and its group are in different alternatives
+    | "negative-lookaround"  // the group is inside a negative lookaround the reference isn't in
+    | "numeric-in-branches"; // a numeric reference in a walker step that is a union
 ```
 
 # RGXError
@@ -286,19 +294,6 @@ constructor(message: string, got: string)
 ### Properties
 - `got` (`string`): The conflicting key string.
 
-## RGXNotDirectRegExpError
-A specific error class for non-direct `RegExp` instances (i.e., instances whose prototype is not exactly `RegExp.prototype`, such as an `ExtRegExp`). The library no longer throws this error: `applyFlagTransformers` used to throw it for such instances, but now converts them to plain `RegExp` instances instead. It is still exported for compatibility and will be removed in the next major release. The error code is set to `NOT_DIRECT_REGEXP` on instantiation.
-
-### Constructor
-```typescript
-constructor(message: string, gotConstructorName: string)
-```
-- `message` (`string`): The error message.
-- `gotConstructorName` (`string`): The name of the actual constructor of the value that was passed.
-
-### Properties
-- `gotConstructorName` (`string`): The name of the actual constructor of the value that was passed. Its value is appended to the formatted error output.
-
 ## RGXInvalidConstantKeyError
 A specific error class for invalid constant keys. This error is thrown when attempting to access or assert an RGX constant with a name that does not exist. The error code is set to `INVALID_CONSTANT_KEY` on instantiation.
 
@@ -392,6 +387,68 @@ constructor(message: string, got: unknown, reason?: string | null)
 ### Properties
 - `got` (`unknown`): The token that could not be converted.
 - `reason` (`string | null`): An explanation of why the conversion failed, or `null`.
+
+## RGXInvalidBackreferenceError
+A specific error class thrown when a finished pattern (built with `rgx`, `rgxa`, or matched as a walker step) has a backreference that can never match what its group captured. See [Backreference validation](../general.md#backreference-validation) and [Step validation](./walker.md#step-validation). The error code is set to `INVALID_BACKREFERENCE` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, reference: string | number, reason: RGXInvalidBackreferenceReason, got: string)
+```
+- `message` (`string`): The error message.
+- `reference` (`string | number`): The name or number the backreference points to.
+- `reason` (`RGXInvalidBackreferenceReason`): Why the backreference can never match what its group captured.
+- `got` (`string`): The source of the pattern.
+
+### Properties
+- `reference` (`string | number`): The name or number the backreference points to.
+- `reason` (`RGXInvalidBackreferenceReason`): Why the backreference can never match what its group captured.
+- `got` (`string`): The source of the pattern.
+
+## RGXDuplicateGroupNameError
+A specific error class thrown when a finished pattern has two groups with the same name in the same alternative. It replaces the engine's syntax error, which doesn't say which name is repeated. The error code is set to `DUPLICATE_GROUP_NAME` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, groupName: string, got: string)
+```
+- `message` (`string`): The error message.
+- `groupName` (`string`): The repeated name.
+- `got` (`string`): The source of the pattern.
+
+### Properties
+- `groupName` (`string`): The repeated name.
+- `got` (`string`): The source of the pattern.
+
+## RGXReservedGroupNameError
+A specific error class thrown when a walker step has a group whose name starts with `rgx_branch_`, which walkers reserve for the groups they wrap union branches in. See [Step validation](./walker.md#step-validation). The error code is set to `RESERVED_GROUP_NAME` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, groupName: string, got: string)
+```
+- `message` (`string`): The error message.
+- `groupName` (`string`): The reserved name.
+- `got` (`string`): The source of the step.
+
+### Properties
+- `groupName` (`string`): The reserved name.
+- `got` (`string`): The source of the step.
+
+## RGXInvalidWalkerStepError
+A specific error class thrown when a walker step can't be matched on its own, because its parentheses are unbalanced. See [Step validation](./walker.md#step-validation). The error code is set to `INVALID_WALKER_STEP` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, index: number | null, got: string)
+```
+- `message` (`string`): The error message.
+- `index` (`number | null`): The step's position in the walker's tokens, or `null` if it isn't known (such as when the walker finds the problem while walking).
+- `got` (`string`): The source of the step.
+
+### Properties
+- `index` (`number | null`): The step's position in the walker's tokens, or `null` if it isn't known.
+- `got` (`string`): The source of the step.
 
 ## RGXNotImplementedError
 A specific error class for unimplemented functionality. This error is thrown when a feature or method has not been implemented yet. The error code is set to `NOT_IMPLEMENTED` on instantiation.

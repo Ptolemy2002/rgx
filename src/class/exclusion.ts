@@ -2,7 +2,6 @@ import { RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken } from "src/typ
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
 import { RGXClassToken } from "./base";
 import { RGXClassUnionToken } from "./union";
-import { RGXTokenCollectionInput } from "src/collection";
 import { resolveRGXToken } from "src/resolve";
 import { assertValidIdentifier, isRGXJSONToken } from "src/typeGuards";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
@@ -41,7 +40,7 @@ export class RGXExclusionToken extends RGXClassToken {
         this._exclusionId = value;
     }
 
-    constructor(exclusionId: string, token: RGXToken, exclusions: RGXTokenCollectionInput=[], terminal: RGXToken = null) {
+    constructor(exclusionId: string, token: RGXToken, exclusions: RGXToken=[], terminal: RGXToken = null) {
         super();
         this.exclusionId = exclusionId;
         this.token = token;
@@ -93,7 +92,7 @@ export class RGXExclusionToken extends RGXClassToken {
         return createRGXJSONClassToken("RGXExclusionToken", [
             this.exclusionId,
             rgxTokenToJSON(this.token),
-            rgxTokenToJSON(this.exclusions.tokens.tokens),
+            rgxTokenToJSON(this.exclusions.tokens),
             rgxTokenToJSON(this.terminal)
         ]);
     }

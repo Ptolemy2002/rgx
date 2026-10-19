@@ -1,8 +1,8 @@
-import { createConstructFunction } from "src/internal";
+import { createConstructFunction, createRegexPiece } from "src/internal";
 import { RGXJSONToken, RGXToken } from "src/types";
-import { RGXTokenCollection, RGXTokenCollectionInput } from "src/collection";
+import { resolveRGXToken } from "src/resolve";
 import { RGXClassToken } from "./base";
-import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
+import { CloneDepth, depthDecrement, extClone } from "@ptolemy2002/immutability-utils";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { RGXJSONClassToken, RGXJSONValue } from "src/types";
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
@@ -17,15 +17,15 @@ function parseUnionJSONArgs(args: RGXJSONValue[]): [RGXJSONToken?] | string {
 }
 
 export class RGXClassUnionToken extends RGXClassToken {
-    tokens: RGXTokenCollection;
+    tokens: RGXToken[];
     
     static check = createRGXClassGuardFunction(RGXClassUnionToken);
     static assert = createAssertRGXClassGuardFunction(RGXClassUnionToken);
 
-    constructor(tokens: RGXTokenCollectionInput = []) {
+    // An array or another union lists the alternatives. Anything else is a single alternative.
+    constructor(tokens: RGXToken = []) {
         super();
-        if (tokens instanceof RGXTokenCollection && tokens.mode === 'concat') this.tokens = new RGXTokenCollection([tokens], 'union');
-        else this.tokens = new RGXTokenCollection(tokens, 'union');
+        this.tokens = [tokens];
         this.cleanTokens();
     }
 
@@ -35,9 +35,7 @@ export class RGXClassUnionToken extends RGXClassToken {
     }
 
     add(token: RGXToken, pos: RGXUnionInsertionPosition = 'suffix') {
-        if (token instanceof RGXTokenCollection && token.mode === 'union') return this.concat(pos, ...token);
-        if (token instanceof RGXClassUnionToken) return this.concat(pos, ...token.tokens);
-
+        // Arrays and unions are expanded into their alternatives by cleanTokens.
         if (pos === 'prefix') {
             this.tokens.unshift(token);
         } else {
@@ -47,23 +45,24 @@ export class RGXClassUnionToken extends RGXClassToken {
         return this.cleanTokens();
     }
 
-    concat(pos: RGXUnionInsertionPosition = 'suffix', ...others: RGXTokenCollectionInput[]) {
+    concat(pos: RGXUnionInsertionPosition = 'suffix', ...others: RGXToken[]) {
         if (pos === 'suffix') {
-            this.tokens = this.tokens.clone().concat(...others);
+            this.tokens = [...this.tokens, ...others];
         } else {
-            this.tokens = new RGXTokenCollection([...others, ...this.tokens], 'union');
+            this.tokens = [...others, ...this.tokens];
         }
 
         return this.cleanTokens();
     }
 
     toRgx(currentFlags: string = '') {
-        return this.tokens.toRgx(currentFlags);
+        // The pattern will already be wrapped by resolveRGXToken, so it doesn't need to be wrapped again here.
+        return createRegexPiece(resolveRGXToken(this.tokens, { groupWrap: false, currentFlags }), currentFlags);
     }
 
     clone(depth: CloneDepth="max") {
         if (depth === 0) return this;
-        return new RGXClassUnionToken(this.tokens.clone(depthDecrement(depth, 1)));
+        return new RGXClassUnionToken(extClone(this.tokens, depthDecrement(depth, 1)));
     }
 
     static fromJSON(json: RGXJSONClassToken): RGXClassUnionToken {
@@ -72,17 +71,15 @@ export class RGXClassUnionToken extends RGXClassToken {
     }
 
     toJSON(): RGXJSONClassToken {
-        return createRGXJSONClassToken("RGXClassUnionToken", [rgxTokenToJSON(this.tokens.tokens)]);
+        return createRGXJSONClassToken("RGXClassUnionToken", [rgxTokenToJSON(this.tokens)]);
     }
 }
 
-export function expandRgxUnionTokens(...tokens: RGXTokenCollectionInput[]): RGXTokenCollection {
-    const result = new RGXTokenCollection();
+export function expandRgxUnionTokens(...tokens: RGXToken[]): RGXToken[] {
+    const result: RGXToken[] = [];
 
     for (const token of tokens) {
-        if (token instanceof RGXTokenCollection && token.mode === 'union') {
-            result.push(...expandRgxUnionTokens(...token));
-        } else if (Array.isArray(token)) {
+        if (Array.isArray(token)) {
             result.push(...expandRgxUnionTokens(...token));
         } else if (token instanceof RGXClassUnionToken) {
             result.push(...expandRgxUnionTokens(...token.tokens));
@@ -94,7 +91,7 @@ export function expandRgxUnionTokens(...tokens: RGXTokenCollectionInput[]): RGXT
     return result;
 }
 
-export function removeRgxUnionDuplicates(...tokens: RGXTokenCollectionInput[]): RGXTokenCollection {
+export function removeRgxUnionDuplicates(...tokens: RGXToken[]): RGXToken[] {
     let uniqueTokens = [...new Set<RGXToken>(tokens)];
 
     // Handle RegExp objects separately since they are not considered equal even if they have the same pattern and flags.
@@ -125,7 +122,7 @@ export function removeRgxUnionDuplicates(...tokens: RGXTokenCollectionInput[]): 
         return true;
     });
 
-    return new RGXTokenCollection(uniqueTokens, 'union');
+    return uniqueTokens;
 }
 
 export const rgxClassUnion = createConstructFunction(RGXClassUnionToken);

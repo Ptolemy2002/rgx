@@ -1,5 +1,4 @@
-import { RGXClassToken, RGXGroupToken, rgxGroup } from "src/class";
-import { RGXTokenCollection } from "src/collection";
+import { RGXClassToken, RGXClassUnionToken, RGXGroupToken, rgxGroup } from "src/class";
 import { RGXInvalidIdentifierError, RGXInvalidRegexLocalizableFlagsError, RGXInvalidTokenError } from "src/errors";
 import { ConstructFunction } from "src/internal";
 
@@ -26,21 +25,21 @@ function constructionTest(constructor: ConstructFunction<typeof RGXGroupToken>) 
         const instance = constructor();
         expect(instance.name).toBeNull();
         expect(instance.capturing).toBe(true);
-        expect(instance.flags).toBe("");
+        expect(instance.flags).toBeNull();
     });
 
     it("correctly initializes with only a name", () => {
         const instance = constructor({ name: "test" });
         expect(instance.name).toBe("test");
         expect(instance.capturing).toBe(true);
-        expect(instance.flags).toBe("");
+        expect(instance.flags).toBeNull();
     });
 
     it("correctly initializes with only capturing set to false", () => {
         const instance = constructor({ capturing: false });
         expect(instance.name).toBeNull();
         expect(instance.capturing).toBe(false);
-        expect(instance.flags).toBe("");
+        expect(instance.flags).toBeNull();
     });
 
     it("correctly initializes with only flags", () => {
@@ -54,21 +53,21 @@ function constructionTest(constructor: ConstructFunction<typeof RGXGroupToken>) 
         const instance = constructor({ capturing: true });
         expect(instance.name).toBeNull();
         expect(instance.capturing).toBe(true);
-        expect(instance.flags).toBe("");
+        expect(instance.flags).toBeNull();
     });
 
     it("correctly initializes with both name and capturing set to false", () => {
         const instance = constructor({ name: "test", capturing: false });
         expect(instance.name).toBeNull(); // Name should be null because non-capturing groups cannot have names
         expect(instance.capturing).toBe(false);
-        expect(instance.flags).toBe("");
+        expect(instance.flags).toBeNull();
     });
 
     it("correctly initializes with both name and capturing set to true", () => {
         const instance = constructor({ name: "test", capturing: true });
         expect(instance.name).toBe("test");
         expect(instance.capturing).toBe(true);
-        expect(instance.flags).toBe("");
+        expect(instance.flags).toBeNull();
     });
 
     it("correctly initializes with name, capturing, and flags", () => {
@@ -100,24 +99,22 @@ function constructionTest(constructor: ConstructFunction<typeof RGXGroupToken>) 
         const token = new TestClassToken1();
         const instance = constructor({}, [token]);
 
-        expect(instance.tokens.toArray()).toEqual([token]);
+        expect(instance.tokens).toEqual([token]);
     });
 
-    it("correctly initializes with a token collection in concat mode", () => {
+    it("correctly initializes with a single token", () => {
         const token = new TestClassToken1();
-        const collection = new RGXTokenCollection([token], 'concat');
-        const instance = constructor({}, collection);
+        const instance = constructor({}, token);
 
-        expect(instance.tokens.toArray()).toEqual([token]);
+        expect(instance.tokens).toEqual([token]);
     });
 
-    it("correctly initializes with a token collection in union mode", () => {
-        const collection = new RGXTokenCollection(["a", "b"], 'union');
-        const instance = constructor({}, collection);
+    it("correctly initializes with a union", () => {
+        const union = new RGXClassUnionToken(["a", "b"]);
+        const instance = constructor({}, union);
 
         // The union is kept as a single element rather than being flattened into the concat.
-        expect(instance.tokens.mode).toBe('concat');
-        expect(instance.tokens.toArray()).toEqual([collection]);
+        expect(instance.tokens).toEqual([union]);
         expect(instance.toRgx().source).toBe("((?:a|b))");
     });
 }
@@ -181,12 +178,12 @@ describe("RGXGroupToken", () => {
 
         it("resolves correctly with flags only", () => {
             const instance = new RGXGroupToken({ flags: "i" }, [new TestClassToken1()]);
-            expect(instance.resolve()).toEqual("(?i-ms:(test))");
+            expect(instance.resolve()).toEqual("(?i:(test))");
         });
 
         it("resolves correctly with a name and flags", () => {
             const instance = new RGXGroupToken({ name: "test", flags: "i" }, [new TestClassToken1()]);
-            expect(instance.resolve()).toEqual("(?i-ms:(?<test>test))");
+            expect(instance.resolve()).toEqual("(?i:(?<test>test))");
         });
 
         it("resolves correctly with aliases, nested inside the name in order", () => {
@@ -196,12 +193,29 @@ describe("RGXGroupToken", () => {
 
         it("resolves correctly with aliases and flags, keeping the flags outermost", () => {
             const instance = new RGXGroupToken({ name: "test", aliases: ["a"], flags: "i" }, [new TestClassToken1()]);
-            expect(instance.resolve()).toEqual("(?i-ms:(?<test>(?<a>test)))");
+            expect(instance.resolve()).toEqual("(?i:(?<test>(?<a>test)))");
         });
 
         it("resolves correctly with capturing false and flags", () => {
             const instance = new RGXGroupToken({ capturing: false, flags: "i" }, [new TestClassToken1()]);
-            expect(instance.resolve()).toEqual("(?i-ms:test)");
+            expect(instance.resolve()).toEqual("(?i:test)");
+        });
+
+        it("only outputs the flags that change where the group is placed", () => {
+            const instance = new RGXGroupToken({ capturing: false, flags: "i" }, [new TestClassToken1()]);
+            expect(instance.toRgx("i").source).toBe("(?:test)");
+            expect(instance.toRgx("ms").source).toBe("(?i-ms:test)");
+            expect(new RGXGroupToken({ flags: "i" }, ["a"]).toRgx("i").source).toBe("(a)");
+        });
+
+        it("turns off every localizable flag when flags is empty", () => {
+            const instance = new RGXGroupToken({ capturing: false, flags: "" }, ["a"]);
+            expect(instance.toRgx("is").source).toBe("(?-is:a)");
+            expect(instance.toRgx("").source).toBe("(?:a)");
+        });
+
+        it("inherits the surrounding flags when flags is null", () => {
+            expect(new RGXGroupToken({ capturing: false }, ["a"]).toRgx("i").source).toBe("(?:a)");
         });
     });
 
@@ -346,7 +360,7 @@ describe("RGXGroupToken", () => {
             expect(clone).not.toBe(instance);
             expect(clone.name).toBe(instance.name);
             expect(clone.capturing).toBe(instance.capturing);
-            expect(clone.tokens.toArray()).toEqual(instance.tokens.toArray());
+            expect(clone.tokens).toEqual(instance.tokens);
         });
     });
 });

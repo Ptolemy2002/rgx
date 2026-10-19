@@ -1,6 +1,6 @@
 import { RGXInvalidRegexStringError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
-import { rgxa, rgxInterpolation, rgxGroup, rgxRepeat, rgxLookahead, RGXClassUnionToken, RGXSubpatternToken, RGXTokenCollection } from "src/index";
+import { rgxa, rgxInterpolation, rgxGroup, rgxRepeat, rgxLookahead, RGXClassUnionToken, RGXGroupToken, RGXSubpatternToken } from "src/index";
 
 describe('resolveRGXToken', () => {
     it('resolves a single literal token', () => {
@@ -163,7 +163,7 @@ describe('flags in effect', () => {
             rgxRepeat('x', 2),
             new RGXClassUnionToken(['x', 'y']),
             rgxGroup({ capturing: false }, [rgxLookahead(['x']), 'x']),
-            new RGXTokenCollection(['x'], 'concat')
+            new RGXGroupToken({ capturing: false }, ['x'])
         ];
 
         for (const token of tokens) {
@@ -186,7 +186,7 @@ describe('flags in effect', () => {
     });
 
     it('resolves the contents of groups with flags against the group\'s flags', () => {
-        expect(rgxa([rgxGroup({ capturing: false, flags: 'i' }, [/x/i])]).source).toBe('(?i-ms:x)');
+        expect(rgxa([rgxGroup({ capturing: false, flags: 'i' }, [/x/i])]).source).toBe('(?i:x)');
     });
 
     it('checks each token with the u and v flags in effect', () => {

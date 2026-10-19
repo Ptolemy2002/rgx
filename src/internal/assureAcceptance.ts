@@ -1,5 +1,4 @@
 import { RGXClassToken } from "src/class";
-import { RGXTokenCollection } from "src/collection";
 import { RGXInsertionRejectedError, RGXInvalidTokenError } from "src/errors";
 import { isRGXArrayToken, isRGXConvertibleToken, isRGXJSONClassToken } from "src/typeGuards";
 import { rgxTokenFromJSON } from "src/json";
@@ -8,7 +7,6 @@ import { withoutRGXInsertionChecks } from "./insertionContext";
 
 function describeRGXContainer(token: RGXToken): string {
     if (RGXClassToken.check(token)) return token.constructor.name;
-    if (RGXTokenCollection.check(token)) return "RGXTokenCollection";
     if (isRGXArrayToken(token, false)) return "array";
     return "convertible token";
 }

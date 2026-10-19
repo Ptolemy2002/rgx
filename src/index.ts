@@ -2,13 +2,14 @@ import * as t from "./types";
 import { rgxClassInit } from "./class";
 import { registerCustomFlagTransformers } from "./flag-transformer";
 import { rgxConcat } from "./concat";
-import { placeRGXToken, withRGXInsertionRoot } from "./internal/insertionContext";
-import { resolveRGXToken } from "./resolve";
+import { collectRGXReferences, withRGXInsertionRoot } from "./internal/insertionContext";
 import { removeRedundantRegexGroups } from "./internal/analyzeRegexSource";
 import { scanOptionsFromFlags } from "./internal/scanRegexSource";
+import { assertValidRegexReferences } from "./internal/validateReferences";
 import { rgxTaggedTemplateToArray } from "./internal/taggedTemplateToArray";
 import { assertValidRegexFlags, ExtRegExp } from "./ExtRegExp";
-import { RGXPart, RGXTokenOrPart, RGXWalker } from "./walker";
+import { RGXWalker, RGXWalkerStep } from "./walker";
+import { validateRGXWalkerSteps } from "./walker/base";
 import { createRegex } from "./utils/createRegex";
 
 // Call this for certain class methods to work correctly
@@ -19,9 +20,12 @@ registerCustomFlagTransformers();
 export function rgxa(tokens: t.RGXToken[], flags: string = ''): ExtRegExp {
     assertValidRegexFlags(flags);
     // Insertions are checked while the pattern is built.
-    const concatenated = withRGXInsertionRoot(flags, () => rgxConcat(tokens, true, flags));
+    const [concatenated, references] = collectRGXReferences(() => withRGXInsertionRoot(flags, () => rgxConcat(tokens, true, flags)));
     // Nothing else is added to the final pattern, so groups at its edges can be removed too.
-    const pattern = removeRedundantRegexGroups(concatenated, { ...scanOptionsFromFlags(flags), isolated: true });
+    const scanOptions = scanOptionsFromFlags(flags);
+    const pattern = removeRedundantRegexGroups(concatenated, { ...scanOptions, isolated: true });
+    // The pattern is finished, so every group a backreference could point to is in it.
+    assertValidRegexReferences(pattern, references, scanOptions);
     return createRegex(pattern, flags, true);
 }
 
@@ -33,21 +37,16 @@ export default function rgx(flags: string = '', {multiline=true, verbatim=true}:
 }
 
 export function rgxwa<R = unknown, S = unknown, T = unknown>(
-    source: string, tokens: RGXTokenOrPart<R, S, T>[],
+    source: string, tokens: RGXWalkerStep<R, S, T>[],
     options: Omit<t.RGXWOptions<R, S>, "multiline"> = {}
 ) {
-    // The walker matches each token on its own, without flags, so each one is checked at its position by resolving it
-    // as the top level of a pattern with no flags.
-    const plainTokens = tokens.map(t => RGXPart.check(t) ? t.token : t);
-    withRGXInsertionRoot('' as t.ValidRegexFlags, () => {
-        plainTokens.forEach((token, i) => placeRGXToken(plainTokens, i, () => resolveRGXToken(token)));
-    });
-
+    // Steps are checked when the walker is created, so problems are found before walking starts.
+    validateRGXWalkerSteps(tokens);
     return new RGXWalker<R, S>(source, tokens, options);
 }
 
 export function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {multiline=true, verbatim=true, ...options}: t.RGXWOptions<R, S> = {}) {
-    return (strings: TemplateStringsArray, ...tokens: RGXTokenOrPart<R, S, T>[]) => {
+    return (strings: TemplateStringsArray, ...tokens: RGXWalkerStep<R, S, T>[]) => {
         return rgxwa<R, S, T>(source, rgxTaggedTemplateToArray(strings, tokens, multiline, verbatim), options);
     };
 }
@@ -56,7 +55,6 @@ export function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {mul
 export * from "./errors";
 export * from "./types";
 export * from "./typeGuards";
-export * from "./collection";
 export * from "./class";
 export * from "./resolve";
 export * from "./json";

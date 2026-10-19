@@ -1,4 +1,4 @@
-import { rgxa, rgxParse, RGXClassUnionToken, RGXClassWrapperToken, RGXGroupToken, RGXLookaheadToken, RGXLookbehindToken, RGXRepeatToken, RGXSubpatternToken, RGXTokenCollection, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError, RGXNotSupportedError, isRGXInterpolationToken } from "src/index";
+import { rgxa, rgxParse, RGXClassUnionToken, RGXClassWrapperToken, RGXGroupToken, RGXLookaheadToken, RGXLookbehindToken, RGXRepeatToken, RGXSubpatternToken, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError, RGXNotSupportedError, isRGXInterpolationToken } from "src/index";
 
 function expectSameMatches(original: RegExp, texts: string[]) {
     const parsed = rgxa([rgxParse(original)], original.flags);
@@ -16,19 +16,20 @@ describe("rgxParse", () => {
             expect(result).toBeInstanceOf(RGXGroupToken);
             expect((result as RGXGroupToken).capturing).toBe(true);
             expect((result as RGXGroupToken).name).toBeNull();
-            expect((result as RGXGroupToken).tokens.toArray()).toEqual(["a"]);
+            expect((result as RGXGroupToken).tokens).toEqual(["a"]);
 
             const named = rgxParse(/(?<word>ab)/) as RGXGroupToken;
             expect(named.name).toBe("word");
-            expect(named.tokens.toArray()).toEqual(["ab"]);
+            expect(named.tokens).toEqual(["ab"]);
         });
 
-        it("merges nested named groups into aliases only when asked to", () => {
-            expect((rgxParse(/(?<a>(?<b>x))/) as RGXGroupToken).allNames()).toEqual(["a"]);
+        it("merges nested named groups into aliases unless asked not to", () => {
+            expect((rgxParse(/(?<a>(?<b>x))/, { mergeAliases: false }) as RGXGroupToken).allNames()).toEqual(["a"]);
+            expect((rgxParse(/(?<a>(?<b>x))/) as RGXGroupToken).allNames()).toEqual(["a", "b"]);
 
             const merged = rgxParse(/(?<a>(?:(?<b>(?<c>x))))/, { mergeAliases: true }) as RGXGroupToken;
             expect(merged.allNames()).toEqual(["a", "b", "c"]);
-            expect(merged.tokens.toArray()).toEqual(["x"]);
+            expect(merged.tokens).toEqual(["x"]);
             expect(rgxa([merged]).source).toBe("(?<a>(?<b>(?<c>x)))");
 
             // Anything else between them, or an unnamed group, keeps them apart.
@@ -39,7 +40,7 @@ describe("rgxParse", () => {
 
             // The options can also follow the flags.
             const withFlags = rgxParse("(?<a>(?<b>x))", "i", { mergeAliases: true }) as RGXGroupToken;
-            expect((withFlags.tokens.at(0) as RGXGroupToken).allNames()).toEqual(["a", "b"]);
+            expect((withFlags.tokens[0] as RGXGroupToken).allNames()).toEqual(["a", "b"]);
         });
 
         it("accepts the options in place of the flags", () => {
@@ -69,16 +70,16 @@ describe("rgxParse", () => {
         it("converts alternatives into union tokens", () => {
             const result = rgxParse(/ab|c|/) as RGXClassUnionToken;
             expect(result).toBeInstanceOf(RGXClassUnionToken);
-            expect(result.tokens.toArray()).toEqual(["ab", "c", null]);
+            expect(result.tokens).toEqual(["ab", "c", null]);
         });
 
         it("keeps sequences inside alternatives together", () => {
             const result = rgxParse(/a(b)|c/) as RGXClassUnionToken;
-            const first = result.tokens.at(0) as RGXTokenCollection;
-            expect(first).toBeInstanceOf(RGXTokenCollection);
-            expect(first.mode).toBe("concat");
-            expect(first.toArray()[0]).toBe("a");
-            expect(first.toArray()[1]).toBeInstanceOf(RGXGroupToken);
+            const first = result.tokens[0] as RGXGroupToken;
+            expect(first).toBeInstanceOf(RGXGroupToken);
+            expect(first.capturing).toBe(false);
+            expect(first.tokens[0]).toBe("a");
+            expect(first.tokens[1]).toBeInstanceOf(RGXGroupToken);
         });
 
         it("converts lookarounds into lookaround tokens", () => {
@@ -93,18 +94,18 @@ describe("rgxParse", () => {
                 const result = rgxParse(regex);
                 expect(result).toBeInstanceOf(Class);
                 expect((result as RGXLookaheadToken).positive).toBe(positive);
-                expect((result as RGXLookaheadToken).tokens.toArray()).toEqual(["a"]);
+                expect((result as RGXLookaheadToken).tokens).toEqual(["a"]);
             }
         });
 
         it("puts lookarounds and groups with several alternatives around a union", () => {
             const result = rgxParse(/(?=a|b)/) as RGXLookaheadToken;
-            expect(result.tokens.at(0)).toBeInstanceOf(RGXClassUnionToken);
+            expect(result.tokens[0]).toBeInstanceOf(RGXClassUnionToken);
         });
 
         it("converts backreferences into subpattern tokens", () => {
             const result = rgxParse(/(?<n>a)\1\k<n>/) as RGXGroupToken;
-            const [, numbered, named] = result.tokens.toArray() as [unknown, RGXSubpatternToken, RGXSubpatternToken];
+            const [, numbered, named] = result.tokens as [unknown, RGXSubpatternToken, RGXSubpatternToken];
             expect(numbered).toBeInstanceOf(RGXSubpatternToken);
             expect(numbered.pattern).toBe(1);
             expect(named.pattern).toBe("n");
@@ -137,7 +138,7 @@ describe("rgxParse", () => {
             const sequence = rgxParse(/a\d/) as RGXGroupToken;
             expect(sequence).toBeInstanceOf(RGXGroupToken);
             expect(sequence.capturing).toBe(false);
-            expect(sequence.tokens.toArray()[0]).toBe("a");
+            expect(sequence.tokens[0]).toBe("a");
 
             const empty = rgxParse(/(?:)/) as RGXClassWrapperToken;
             expect(empty.token).toBeNull();
@@ -154,18 +155,18 @@ describe("rgxParse", () => {
 
         it("converts flag-modifier groups into groups with the flags in effect inside them", () => {
             const result = rgxParse(/(?i:a)/m) as RGXGroupToken;
-            const inner = result.tokens.at(0) as RGXGroupToken;
+            const inner = result.tokens[0] as RGXGroupToken;
             expect(inner).toBeInstanceOf(RGXGroupToken);
             expect(inner.capturing).toBe(false);
             expect(inner.flags).toBe("im");
         });
 
-        it("keeps the delimiters of groups that turn off every flag in effect as interpolations", () => {
+        it("converts groups that turn off every flag in effect into groups with empty flags", () => {
             const result = rgxParse(/(?-i:a)/i) as RGXGroupToken;
-            const inner = (result.tokens.at(0) as RGXTokenCollection).toArray();
-            expect(isRGXInterpolationToken(inner[0])).toBe(true);
-            expect(inner[1]).toBe("a");
-            expect(isRGXInterpolationToken(inner[2])).toBe(true);
+            const inner = result.tokens[0] as RGXGroupToken;
+            expect(inner).toBeInstanceOf(RGXGroupToken);
+            expect(inner.flags).toBe("");
+            expect(inner.tokens).toEqual(["a"]);
             expectSameMatches(/(?-i:a)b/i, ["ab", "AB", "aB", "Ab"]);
         });
 
@@ -175,36 +176,36 @@ describe("rgxParse", () => {
         });
 
         it("gives literal tokens the localizable flags in effect", () => {
-            const flagsOf = (regex: RegExp) => ((rgxParse(regex) as RGXGroupToken).tokens.at(0) as RegExp).flags;
+            const flagsOf = (regex: RegExp) => ((rgxParse(regex) as RGXGroupToken).tokens[0] as RegExp).flags;
             expect(flagsOf(/\d/ms)).toBe("ms");
             expect(flagsOf(/\p{L}/iu)).toBe("iu");
             expect(flagsOf(new RegExp("[\\p{L}--[a-z]]", "gmv"))).toBe("mv");
 
             // Inside a flag-modifier group, the flags in effect are the group's.
-            const group = (rgxParse(/(?-i:\d)/im) as RGXGroupToken).tokens.at(0) as RGXGroupToken;
-            expect((group.tokens.at(0) as RegExp).flags).toBe("m");
+            const group = (rgxParse(/(?-i:\d)/im) as RGXGroupToken).tokens[0] as RGXGroupToken;
+            expect((group.tokens[0] as RegExp).flags).toBe("m");
         });
 
         it("adds nothing for literal tokens when used with the same flags", () => {
-            expect(rgxa([rgxParse(/[a-z]+\d$/im)], "im").source).toBe("(?im-s:[a-z]+\\d$)");
+            expect(rgxa([rgxParse(/[a-z]+\d$/im)], "im").source).toBe("[a-z]+\\d$");
         });
 
         it("keeps characters affected by the i flag as literal tokens when it is in effect", () => {
-            expect((rgxParse(/12/i) as RGXGroupToken).tokens.at(0)).toBe("12");
+            expect((rgxParse(/12/i) as RGXGroupToken).tokens[0]).toBe("12");
 
-            const letters = (rgxParse(/a\.b/i) as RGXGroupToken).tokens.at(0) as RegExp;
+            const letters = (rgxParse(/a\.b/i) as RGXGroupToken).tokens[0] as RegExp;
             expect(letters).toBeInstanceOf(RegExp);
             expect(letters.flags).toBe("i");
             expect(letters.test("A.B")).toBe(true);
 
-            const unicode = (rgxParse(/é😀/iu) as RGXGroupToken).tokens.at(0) as RegExp;
+            const unicode = (rgxParse(/é😀/iu) as RGXGroupToken).tokens[0] as RegExp;
             expect(unicode.flags).toBe("iu");
             expect(unicode.test("É😀")).toBe(true);
         });
 
         it("escapes characters by value in literal tokens, so they read the same anywhere", () => {
             // Without groups, "\1" is an octal escape for the character with code 1.
-            const result = (rgxParse(new RegExp("\\1a", "i")) as RGXGroupToken).tokens.at(0) as RegExp;
+            const result = (rgxParse(new RegExp("\\1a", "i")) as RGXGroupToken).tokens[0] as RegExp;
             expect(result.source).toBe("\\u0001a");
         });
 
@@ -215,7 +216,7 @@ describe("rgxParse", () => {
 
         it("matches the same as the original when used with the same flags", () => {
             const texts = ["", "a", "A", "ab", "AB", "a\nb", "A\nB", "aaa", "x-y", "é", "É"];
-            for (const regex of [/a+b?/, /(a)|b\1/i, /^b$/m, /a.b/s, /(?i:a)b/, /(?<n>a)(?-i:b)/i, /\w-\w/u, /é/iu, /(?=a)*a/, /(?:^)+a/m]) {
+            for (const regex of [/a+b?/, /(a)b?\1/i, /^b$/m, /a.b/s, /(?i:a)b/, /(?<n>a)(?-i:b)/i, /\w-\w/u, /é/iu, /(?=a)*a/, /(?:^)+a/m]) {
                 expectSameMatches(regex, texts);
             }
         });
@@ -234,7 +235,7 @@ describe("rgxParse", () => {
             // The sequence of interpolations and the element becomes a non-capturing group, like any other sequence.
             const result = rgxParse(/(?=a)*/) as RGXGroupToken;
             expect(result).toBeInstanceOf(RGXGroupToken);
-            const [open, element, close] = result.tokens.toArray();
+            const [open, element, close] = result.tokens;
             expect(open).toEqual({ rgxInterpolation: "(?:" });
             expect(element).toBeInstanceOf(RGXLookaheadToken);
             expect(close).toEqual({ rgxInterpolation: ")*" });
@@ -253,7 +254,7 @@ describe("rgxParse", () => {
 
         it("keeps quantifiers that allow no repetitions, since their capture groups still count", () => {
             const result = rgxParse(/(?=(a)){0,2}/) as RGXGroupToken;
-            expect(result.tokens.toArray()[2]).toEqual({ rgxInterpolation: "){0,2}" });
+            expect(result.tokens[2]).toEqual({ rgxInterpolation: "){0,2}" });
         });
 
         it("matches the same as the original", () => {
@@ -273,7 +274,7 @@ describe("rgxParse", () => {
 
         it("uses the given flags instead of the regex's own", () => {
             expect(rgxParse(/a$/m, "")).toBeInstanceOf(RGXGroupToken);
-            expect((rgxParse(/a$/m, "") as RGXGroupToken).flags).toBe("");
+            expect((rgxParse(/a$/m, "") as RGXGroupToken).flags).toBeNull();
         });
 
         it("throws for invalid sources and flags", () => {

@@ -7,7 +7,7 @@ import {
     RGXClassToken,
     isValidIdentifier, assertValidIdentifier,
     RGXInvalidIdentifierError, ExtRegExp,
-    RGXTokenCollection, isRGXSingletonToken, assertRGXSingletonToken, RGXGroupToken, RGXLookaheadToken,
+    isRGXSingletonToken, assertRGXSingletonToken, RGXGroupToken, RGXLookaheadToken,
     isValidRegexLocalizableFlagDiff, assertValidRegexLocalizableFlagDiff,
     isValidRegexLocalizableFlags, assertValidRegexLocalizableFlags,
     RGXInvalidRegexLocalizableFlagsError,
@@ -701,12 +701,6 @@ describe('Type Guards', () => {
             expect(() => assertRGXToken(token, ExtRegExp)).not.toThrow();
         });
 
-        it('accepts the RGXTokenCollection constructor', () => {
-            const token = new RGXTokenCollection(['foo', { toRgx: () => 14 }, null]);
-            expect(isRGXToken(token, RGXTokenCollection)).toBe(true);
-            expect(() => assertRGXToken(token, RGXTokenCollection)).not.toThrow();
-        });
-
         it('Recognizes ExtRegexp instances as literal tokens', () => {
             const token = new ExtRegExp('foo');
             expect(isRGXToken(token, 'literal')).toBe(true);
@@ -753,10 +747,6 @@ describe('Type Guards', () => {
         it('returns "literal" for RegExp constructors', () => {
             expect(rgxTokenTypeGuardInputToFlat(RegExp)).toBe('literal');
             expect(rgxTokenTypeGuardInputToFlat(ExtRegExp)).toBe('literal');
-        });
-
-        it('returns "convertible" for RGXTokenCollection constructor', () => {
-            expect(rgxTokenTypeGuardInputToFlat(RGXTokenCollection)).toBe('convertible');
         });
 
         it('returns "class" for class token constructors', () => {

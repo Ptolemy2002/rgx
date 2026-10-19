@@ -10,6 +10,7 @@ A change is breaking if it changes what a pattern matches, or changes the public
 
 | Version | Main changes |
 | --- | --- |
+| [15.0.0](#1500) | `RGXTokenCollection` removed, group flags inherit by default, backreferences and walker steps are validated, part tokens can be functions, walker steps can be unions of parts, `rgxParse` merges aliases by default, `ExtRegExp` JSON keeps custom flags, the accent-insensitive flag covers all accents, `RGXNotDirectRegExpError` removed |
 | [14.0.0](#1400) | `rgxIsGroup`, `rgxGroupWrap` and `rgxInterpolate` removed, repeatability detected automatically, new `rgxAcceptInsertion` signature, single-step JSON class construction |
 | [13.0.0](#1300) | `resolveRGXToken` takes an options object, `rgxConstant` always returns a class token, word bounds match at the edges of the string |
 | [12.0.0](#1200) | `rgx` takes an options object |
@@ -19,6 +20,159 @@ A change is breaking if it changes what a pattern matches, or changes the public
 | [7.0.0](#700) | `namedCaptures` stores arrays |
 
 Version 10.0.0 isn't covered. It made validation stricter (invalid flags and invalid resolved patterns now throw `RGXError`s) and added interpolation, which 14.0.0 then reworked.
+
+---
+
+# 15.0.0
+
+## `RGXTokenCollection` is removed
+
+`RGXTokenCollection` did nothing a group or union token couldn't do: a concat-mode collection resolved the same as a non-capturing `RGXGroupToken`, and a union-mode collection the same as an array or an `RGXClassUnionToken`.
+
+Removed:
+
+- `RGXTokenCollection`, `rgxTokenCollection`, `RGXTokenCollectionMode` and `RGXTokenCollectionInput`.
+- `RGXTokenCollection` as an input to `isRGXToken`, `assertRGXToken` and `rgxTokenTypeGuardInputToFlat`.
+
+Changed:
+
+- The `tokens` property of `RGXGroupToken`, `RGXClassUnionToken`, `RGXLookaroundToken`, `RGXLookaheadToken` and `RGXLookbehindToken` is a plain `RGXToken[]`. Collection members such as `mode`, `asUnion()`, `asConcat()`, `toArray()`, `getTokens()`, `toRgx()` and `resolve()` are gone, and array methods like `filter`, `slice` and `concat` return arrays.
+- Parameters typed `RGXTokenCollectionInput` are typed `RGXToken`: the constructors of those classes and of `RGXExclusionToken`, `or()`, `group()` and `subtract()` on class tokens, and `expandRgxUnionTokens` and `removeRgxUnionDuplicates`, which also return an `RGXToken[]`.
+- For groups and lookarounds, an array lists the tokens to concatenate, and any other token (including an `RGXClassUnionToken`) is the only token. For unions, an array or another `RGXClassUnionToken` lists the alternatives, and any other token is one alternative.
+- `rgxParse` returns a non-capturing `RGXGroupToken` where it returned a concat-mode collection, for sequences inside alternatives and at the top level.
+
+Resolved patterns don't change.
+
+To update:
+
+- Replace `new RGXTokenCollection(tokens, "concat")` with `new RGXGroupToken({ capturing: false }, tokens)`, and `new RGXTokenCollection(tokens, "union")` with the array itself or `new RGXClassUnionToken(tokens)`.
+- Replace `token.tokens.toArray()`, `token.tokens.tokens` and `token.tokens.getTokens()` with `token.tokens` (use `cloneRGXToken(token.tokens)` if you relied on getting a copy), and `token.tokens.at(i)` with `token.tokens[i]` or `token.tokens.at(i)`, which arrays also have.
+- To put a union-mode collection inside a group or lookaround, pass an `RGXClassUnionToken`, or put the array inside another array (`[["a", "b"]]`).
+- If you walk the tree `rgxParse` returns, check for non-capturing `RGXGroupToken`s where you checked for collections.
+
+```ts
+// Before
+const group = new RGXGroupToken({}, new RGXTokenCollection(["a", "b"], "union"));
+const first = group.tokens.toArray()[0];
+
+// After
+const group = new RGXGroupToken({}, new RGXClassUnionToken(["a", "b"]));
+const first = group.tokens[0];
+```
+
+## Group flags are the flags in effect inside the group, and inherit by default
+
+`RGXGroupToken.flags` used to list the localizable flags (`i`, `m`, `s`) to turn on, with `''` meaning "no modifier", and a non-empty value always turned off the flags it didn't list. It now works like the flags of literal tokens: it is the set of localizable flags in effect inside the group, and `null`, the new default, means "inherit the flags around the group". The modifier is computed from the flags in effect where the group is placed, so it only appears when something changes.
+
+- `flags: ''` now turns off `i`, `m` and `s` inside the group, instead of meaning "no modifier".
+- `flags` defaults to `null`, and `group.flags` reads `null` for groups without flags.
+- JSON group tokens with `flags: ""` now deserialize as groups that turn off every localizable flag. JSON from `toJSON()` stores `flags: null` for groups without flags.
+- Groups that set flags may output a shorter modifier (for example, `(?i:...)` instead of `(?i-ms:...)` when `m` and `s` are already off), which matches the same strings.
+- `rgxParse` converts a modifier group that turns off every flag in effect (such as `(?-i:x)` in an `/i` pattern) into an `RGXGroupToken` with `flags: ''`, instead of interpolation tokens around its contents.
+
+To update:
+
+- Replace `flags: ''` with `flags: null` (or leave it out) where you meant "no modifier", including in stored JSON.
+- Where you check `group.flags === ''` or `!group.flags` for "no flags", check `group.flags === null`.
+
+## `rgxParse` merges nested named groups into aliases by default
+
+The `mergeAliases` option of `rgxParse` now defaults to `true`, so a named group whose only contents are another named group (such as `(?<a>(?<b>x))`) becomes a single `RGXGroupToken` with the name `a` and the alias `b`. The resolved pattern is the same, but the tree has one group where it had two.
+
+To update:
+
+- Pass `{ mergeAliases: false }` to keep one `RGXGroupToken` per named group, or read the inner names from `group.aliases`.
+
+## `ExtRegExp` JSON keeps the original source and custom flags
+
+`ExtRegExp` has a new `originalSource` property, which holds the pattern before any custom flag transformations (and is carried over when an `ExtRegExp` is built from another `ExtRegExp`). `rgxTokenToJSON` now stores `originalSource` and the full flags, custom ones included, for `ExtRegExp` literals, and `rgxTokenFromJSON` applies the transformers again when reconstructing them. Before, the JSON stored the transformed source and only the vanilla flags, so the custom flags were lost, and adding one back applied its transformation twice.
+
+- JSON for an `ExtRegExp` with custom flags changes shape. For example, with a transformer `x` that prepends `a`, `new ExtRegExp("b", "gx")` serializes as `{ $rgx: true, source: "b", flags: "gx" }` instead of `{ $rgx: true, source: "ab", flags: "g" }`.
+- Deserializing such JSON needs the custom flag transformers to be registered first. Otherwise, it throws `RGXInvalidJSONTokenError`.
+- JSON produced by older versions deserializes the same way as before, since it contains no custom flags.
+
+To update:
+
+- Register your custom flag transformers before calling `rgxTokenFromJSON` (or any `fromJSON`) on JSON that may contain them.
+- If you compare or store serialized output exactly, update the expected values.
+
+## The accent-insensitive flag covers all accents
+
+`accentInsensitiveFlagTransformer` (the `a` flag when registered with `registerCustomFlagTransformers`) used to cover only a fixed list of accented vowels, written as themselves outside character classes. It now covers every Latin letter with accented forms, using their Unicode decompositions, and also applies to escapes, combining marks and character classes (see [accentInsensitiveFlagTransformer](./docs/ExtRegExp.md#accentinsensitiveflagtransformer)):
+
+- Each accentable character becomes a class of every precomposed form of its letter, followed by any number of combining marks, so decomposed text (such as `e` followed by U+0301) matches too. For example, `ñ` now matches `ń` and `n` followed by U+0303.
+- Escapes that produce an accentable character, such as `\u00e9`, are replaced too.
+- Character classes containing accentable characters are split into alternatives, and negated ones become a negative lookahead followed by the class. For example, `[a-c]` now matches `ç`, and `[^a]` no longer matches `á`.
+- Character sets that match letters, such as `\w` and `\p{L}`, inside or outside classes, also match those letters' accented forms, and negated ones such as `\W` rule them out. For example, `\w+` now matches all of `café`, and `\W` no longer matches `é`. This makes each such set about 1,000 to 1,500 characters long; call `setAccentInsensitiveSetExpansion(false)` to leave sets as they are.
+
+Patterns using the flag now match strings they didn't match before, and the transformed source is different and longer.
+
+To update:
+
+- If you relied on consonants, other accents, escapes, character classes or character sets being left alone, write those parts in a separate pattern without the flag, or with a literal token that doesn't have it.
+- If you compare the transformed source exactly, test what the pattern matches instead.
+
+## `RGXNotDirectRegExpError` is removed
+
+Nothing threw `RGXNotDirectRegExpError` anymore, since `applyFlagTransformers` converts `RegExp` subclasses into plain `RegExp`s instead. The class and the `NOT_DIRECT_REGEXP` error code are removed.
+
+To update:
+
+- Remove imports of `RGXNotDirectRegExpError`, and checks for it or for the `NOT_DIRECT_REGEXP` code.
+
+## Backreferences are validated
+
+Patterns built with `rgx` and `rgxa`, and every walker step, now have their backreferences checked once they're finished (see [Backreference validation](./docs/general.md#backreference-validation)). The patterns that now throw used to compile, but could never match what their group captured. They matched the empty string or literal text instead, so they were almost certainly bugs.
+
+Now throwing `RGXInvalidBackreferenceError`:
+
+- An `RGXSubpatternToken` whose group doesn't exist. Before, `\k<x>` in a pattern with no named groups matched the literal text `k<x>`, and `\5` in a pattern with fewer than 5 groups matched the character `\x05`.
+- A backreference matched before its group (`\1(a)`), inside its own group (`(a\1)`), in a different alternative than its group (`(a)|\1`), or pointing into a negative lookaround it isn't in (`(?!(a))\1`). This includes backreferences written directly in `RegExp` literals and interpolations.
+- A numeric backreference in a walker step that is a union. The walker wraps each branch in a group, so the number pointed at the wrong group.
+
+When two groups with the same name in the same alternative only meet in the finished pattern (for example, two named group tokens next to each other), they now throw `RGXDuplicateGroupNameError`, which names the group, instead of `RGXInvalidRegexStringError`.
+
+To update:
+
+- Fix or remove the backreference. If you meant to match the text `k<x>`, write it without the backslash.
+- In walker steps that are unions, name the group and reference it by name.
+- If you catch `RGXInvalidRegexStringError` for duplicate group names, catch `RGXDuplicateGroupNameError` too.
+
+## Walker steps and lexeme definitions are checked when they are created
+
+`rgxwa` and `rgxw` now check each step when the walker is created, and the walker checks each step again before matching it (see [Step validation](./docs/class/walker.md#step-validation)). Along with the backreference checks above:
+
+- A step with unbalanced parentheses throws `RGXInvalidWalkerStepError` when the walker is created. Before, it was accepted and threw `RGXInvalidRegexStringError` only when the walker reached it. This mostly affects `rgxw` with `verbatim: false`, where each literal part of the template is its own step.
+- A group name starting with `rgx_branch_` in a step throws `RGXReservedGroupNameError`. The walker uses these names to find out which branch of a union matched, so a step that used one could report the wrong branch.
+- `RGXLexer` checks every lexeme definition when it is created (see [validateRGXLexemeDefinition](./docs/class/lexer.md#validatergxlexemedefinition)). The steps of `"walk"` definitions are checked like the steps above, and the token of a `"resolve"` definition gets the same backreference checks as `rgxa`. Before, a bad `"walk"` definition only threw when it was tried, and a bad `"resolve"` definition was used as it was.
+
+To update:
+
+- Make each literal part of a `verbatim: false` template balanced on its own, or move the whole group into a single token.
+- Rename groups that start with `rgx_branch_`.
+
+## `RGXPart.token` can be a function
+
+A part's token can now be a function that produces it from the walker's state each time the part is captured (see [Dynamic Parts](./docs/class/walker.md#dynamic-parts)). The `token` property is typed `RGXPartToken<R, S, T>` instead of `RGXToken`, so code that reads `part.token` and passes it on as a token no longer type-checks.
+
+To update:
+
+- To get the token to match a part with, call `part.resolveToken(walker)` instead of reading `part.token`.
+- If you only handle static parts, check `part.isDynamic()` first. When it's `false`, `part.token` is an `RGXToken`.
+
+## Walker steps can be unions of parts, and nested unions are flattened
+
+A walker step can now be an array of parts and tokens, nested to any depth (see [Unions of Parts](./docs/class/walker.md#unions-of-parts)). Along with that:
+
+- **Branch numbers count the flattened union.** Every union in a step that is only reachable through other unions (nested arrays and `RGXClassUnionToken`s) is flattened, and `capture.branch` is the position in the flattened list. Before, only the top level was split into branches. For example, in `[["a", "b"], "c"]`, `"c"` used to be branch `1` and is now branch `2`. The same applies to the token of a single part. Steps whose unions aren't nested keep their numbers.
+- **Branch groups are hidden from `capture.groups`.** The walker's `rgx_branch_<index>` groups no longer appear in `groups`, and `groups` is `null` when they were the only ones.
+- **Types.** The walker's steps are typed `RGXWalkerStep<R, S>` instead of `RGXTokenOrPart<R, S>`. This applies to `walker.tokens`, `currentToken()`, the predicates of `hasNextToken`, `stepToToken` and `stepToTokenAsync`, the token passed to `capture`, `rgxwa`, `rgxw`, and the `tokens` of a `"walk"` lexeme definition. A step you read back from the walker can now be an array that contains parts, so it isn't always an `RGXToken` or an `RGXPart`.
+
+To update:
+
+- If you compare `capture.branch` for a step with nested unions, renumber the branches by their position in the flattened union.
+- If you read `rgx_branch_<index>` from `capture.groups`, use `capture.branch` instead.
+- Where you typed steps as `RGXTokenOrPart`, use `RGXWalkerStep`, and handle arrays if you read steps back from the walker.
 
 ---
 

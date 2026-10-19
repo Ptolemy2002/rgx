@@ -38,7 +38,7 @@ type ValidIdentifier = Branded<string, [ValidIdentifierBrandSymbol]>;
 ```
 
 # RGXSubpatternToken
-A class representing a backreference to a previously captured group, either by name or by group number. Named backreferences produce `\k<name>` and numbered backreferences produce `\N` (where N is the group number). This is useful for matching the same text that was captured by a previous group.
+A class representing a backreference to a previously captured group, either by name or by group number. Named backreferences produce `\k<name>` and numbered backreferences produce `\N` (where N is the group number). This is useful for matching the same text that was captured by a previous group. When a finished pattern is built with `rgx`, `rgxa`, or as a walker step, the group the token points to must exist and be usable from where the token is placed, or an `RGXInvalidBackreferenceError` is thrown (see [Backreference validation](../../general.md#backreference-validation)).
 
 A function `rgxSubpattern` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
 

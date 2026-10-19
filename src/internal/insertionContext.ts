@@ -37,8 +37,10 @@ export function withRGXInsertionRoot<T>(flags: ValidRegexFlags, fn: () => T): T 
     return withFrame({ flags, parent: null, container: null, pending: false }, fn);
 }
 
+// Also suspends recording backreferences (see collectRGXReferences), since the same resolutions aren't part of the
+// pattern being built either.
 export function withoutRGXInsertionChecks<T>(fn: () => T): T {
-    return withFrame(null, fn);
+    return withReferenceCollector(null, () => withFrame(null, fn));
 }
 
 // Runs fn with the flags of the current level changed, for containers that change the flags of their contents
@@ -70,4 +72,33 @@ export function claimRGXInsertionPlacement(token: RGXToken): boolean {
 
     frame.pending = false;
     return true;
+}
+
+// A group a backreference token points to, by name or by number.
+export type RGXRecordedReference = string | number;
+
+// Backreferences are recorded separately from insertion checks, since the walker records them while resolving each
+// step without checking insertions. A null entry suspends recording.
+const referenceCollectors: (RGXRecordedReference[] | null)[] = [];
+
+function withReferenceCollector<T>(collector: RGXRecordedReference[] | null, fn: () => T): T {
+    referenceCollectors.push(collector);
+    try {
+        return fn();
+    } finally {
+        referenceCollectors.pop();
+    }
+}
+
+// Runs fn, returning its result along with every backreference token resolved while it ran. Without this,
+// backreferences that the engine reads as literal text (such as "\k<x>" in a pattern with no named groups) can't be
+// found in the final source.
+export function collectRGXReferences<T>(fn: () => T): [T, RGXRecordedReference[]] {
+    const references: RGXRecordedReference[] = [];
+    const result = withReferenceCollector(references, fn);
+    return [result, references];
+}
+
+export function recordRGXReference(reference: RGXRecordedReference) {
+    referenceCollectors[referenceCollectors.length - 1]?.push(reference);
 }

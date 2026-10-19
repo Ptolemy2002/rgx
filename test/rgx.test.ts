@@ -1,4 +1,4 @@
-import rgx, { rgxa, rgxw, RGXClassToken, RGXClassWrapperToken, rgxConcat, rgxConstant, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXToken, RGXTokenCollection, ValidRegexFlags, RGXPart, RGXSubpatternToken } from 'src/index';
+import rgx, { rgxa, rgxw, rgxwa, RGXClassToken, RGXClassWrapperToken, RGXGroupToken, rgxConcat, rgxConstant, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXToken, ValidRegexFlags, RGXPart, RGXSubpatternToken, RGXInvalidBackreferenceError, RGXDuplicateGroupNameError, RGXReservedGroupNameError, RGXInvalidWalkerStepError, rgxGroup, rgxSubpattern, rgxPart } from 'src/index';
 import { RGXWalker } from 'src/walker';
 import { expectError } from './utils';
 
@@ -264,19 +264,10 @@ describe('rgx', () => {
         expect(() => rgxa(['bar', token, 'baz'])).toThrow(RGXInsertionRejectedError);
     });
 
-    it('Handles an RGXTokenCollection in union mode correctly', () => {
-        const collection = new RGXTokenCollection(['foo', 'bar', 'baz'], "union");
-        const regex1 = rgx()`qux${collection}quux`;
-        const regex2 = rgxa(['qux', collection, 'quux']);
-
-        expectRegexpEqual(regex1, 'qux(?:foo|bar|baz)quux');
-        expectRegexpEqual(regex2, 'qux(?:foo|bar|baz)quux');
-    });
-
-    it('Handles an RGXTokenCollection in concat mode correctly', () => {
-        const collection = new RGXTokenCollection(['foo', 'bar', 'baz'], "concat");
-        const regex1 = rgx()`qux${collection}quux`;
-        const regex2 = rgxa(['qux', collection, 'quux']);
+    it('Handles a non-capturing group token correctly', () => {
+        const group = new RGXGroupToken({ capturing: false }, ['foo', 'bar', 'baz']);
+        const regex1 = rgx()`qux${group}quux`;
+        const regex2 = rgxa(['qux', group, 'quux']);
 
         expectRegexpEqual(regex1, 'quxfoobarbazquux');
         expectRegexpEqual(regex2, 'quxfoobarbazquux');
@@ -658,5 +649,102 @@ describe('redundant group removal', () => {
         const regex = rgx('', {verbatim: false})`(a)${new RGXSubpatternToken(1)}${/0/}`;
         expectRegexpEqual(regex, '(a)\\1(?:0)');
         expect(regex.test('aa0')).toBe(true);
+    });
+});
+
+describe('backreference validation', () => {
+    it('accepts valid backreferences in rgx', () => {
+        const regex = rgxa([rgxGroup({ name: "q" }, /['"]/), /.*/, rgxSubpattern("q")]);
+        expect(regex.test(`"abc"`)).toBe(true);
+        expect(regex.test(`"abc'`)).toBe(false);
+    });
+
+    it('rejects backreference tokens with no matching group in rgx', () => {
+        // Without the check, both of these compile and match literal text.
+        expect(() => rgx()`${rgxSubpattern("x")}a`).toThrow(RGXInvalidBackreferenceError);
+        expect(() => rgx()`(a)${rgxSubpattern(5)}`).toThrow(RGXInvalidBackreferenceError);
+    });
+
+    it('rejects useless backreferences written directly in rgx', () => {
+        expect(() => rgx("", { verbatim: false })`\1(a)`).toThrow(RGXInvalidBackreferenceError);
+        expect(() => rgxa([/(a)|\1/])).toThrow(RGXInvalidBackreferenceError);
+    });
+
+    it('allows a fragment to reference a group that is only added later', () => {
+        const fragment = rgxConcat([rgxSubpattern("x")]);
+        expect(() => rgxa([rgxGroup({ name: "x" }, "a"), { rgxInterpolation: fragment }])).not.toThrow();
+    });
+
+    it('throws a clear error for duplicate group names in rgx', () => {
+        expect(() => rgx()`${rgxGroup({ name: "a" }, "x")}${rgxGroup({ name: "a" }, "y")}`).toThrow(RGXDuplicateGroupNameError);
+        // The same name in different alternatives is allowed.
+        expect(() => rgxa([[rgxGroup({ name: "a" }, "x"), rgxGroup({ name: "a" }, "y")]])).not.toThrow();
+    });
+
+    it('checks the pattern with the unicode reading when the u or v flag is given', () => {
+        expect(() => rgx("v")`${rgxGroup({ name: "a" }, "x")}${rgxGroup({ name: "a" }, "y")}`).toThrow(RGXDuplicateGroupNameError);
+    });
+
+    it('validates each walker step when the walker is created', () => {
+        expect(() => rgxwa("a", [rgxSubpattern("x")])).toThrow(RGXInvalidBackreferenceError);
+        // References between steps were never possible, since each step is matched on its own.
+        expect(() => rgxwa("aa", [rgxGroup({ name: "x" }, "a"), rgxSubpattern("x")])).toThrow(RGXInvalidBackreferenceError);
+        expect(() => rgxwa("aa", [rgxPart(/(a)\1/)])).not.toThrow();
+    });
+
+    it('rejects unbalanced interpolation steps when the walker is created', () => {
+        const call = () => rgxw("(a)", { verbatim: false })`(${"a"})`;
+        expect(call).toThrow(RGXInvalidWalkerStepError);
+        expect(call).toThrow(/Step index: 0/);
+        expect(() => rgxwa("a", [rgxPart({ rgxInterpolation: "(?:a" })])).toThrow(RGXInvalidWalkerStepError);
+        expect(() => rgxw("aa", { verbatim: false })`(a)\1`).not.toThrow();
+    });
+
+    it('reserves the branch group names in walker steps', () => {
+        expect(() => rgxwa("a", [rgxGroup({ name: "rgx_branch_0" }, "a")])).toThrow(RGXReservedGroupNameError);
+        expect(() => rgxwa("a", [/(?<rgx_branch_x>a)/])).toThrow(RGXReservedGroupNameError);
+        // Outside walkers, the names are allowed.
+        expect(() => rgxa([rgxGroup({ name: "rgx_branch_0" }, "a")])).not.toThrow();
+    });
+
+    it('rejects numeric backreferences in walker steps that are unions', () => {
+        expect(() => rgxwa("aa", [[/(a)\1/, "b"]])).toThrow(RGXInvalidBackreferenceError);
+        // A recorded reference is rejected even when the engine would read it as a character escape.
+        expect(() => rgxwa("aa", [[rgxSubpattern(1), "b"]])).toThrow(RGXInvalidBackreferenceError);
+
+        const walker = rgxwa("aa", [[/(?<x>a)\k<x>/, "b"]]);
+        walker.walk();
+        expect(walker.captures[0]!.raw).toBe("aa");
+    });
+
+    it('validates steps at capture time for walkers created directly', () => {
+        const walker = new RGXWalker("a", [rgxSubpattern("x")]);
+        expect(() => walker.walk()).toThrow(RGXInvalidBackreferenceError);
+        expect(() => new RGXWalker("a", ["b"]).capture({ rgxInterpolation: "(" })).toThrow(RGXInvalidWalkerStepError);
+    });
+});
+
+describe('dynamic parts in rgxwa', () => {
+    it("skips dynamic parts when checking steps at creation, since their token isn't known yet", () => {
+        const fn = jest.fn(() => "a");
+        expect(() => rgxwa("a", [rgxPart(fn)])).not.toThrow();
+        expect(fn).not.toHaveBeenCalled();
+    });
+
+    it('passes dynamic parts as no-op tokens to the insertion checks of other steps', () => {
+        const siblings: unknown[] = [];
+        const token = { toRgx: () => "a", rgxAcceptInsertion: (context: { siblings: readonly unknown[] }) => { siblings.push(...context.siblings); return true; } };
+        rgxwa("ab", [token, rgxPart(() => "b")]);
+        expect(siblings).toEqual([token, null]);
+    });
+});
+
+describe('unions of parts in rgxw', () => {
+    it('accepts a union of parts as a template value', () => {
+        const word = rgxPart(/[a-z]+/, { id: "word" });
+        const number = rgxPart(/\d+/, { id: "number", transform: Number });
+        const walker = rgxw("12 ab", { looping: true })`${[word, number]}${/ ?/}`;
+        walker.walk();
+        expect(walker.captures.filter(c => c.ownerId !== null).map(c => [c.ownerId, c.value])).toEqual([["number", 12], ["word", "ab"]]);
     });
 });

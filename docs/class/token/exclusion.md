@@ -31,7 +31,6 @@ type RGXJSONInterpolationToken = { $rgx: true, interpolation: string };
 type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInterpolationToken;
 type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXInterpolationToken | RGXJSONObjectToken | RGXToken[];
-type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
 ```
 
 # RGXExclusionToken
@@ -50,17 +49,17 @@ A function `rgxExclusion` is provided with the same parameters as this class' co
 
 ## Constructor
 ```typescript
-constructor(exclusionId: string, token: RGXToken, exclusions: RGXTokenCollectionInput = [], terminal: RGXToken = null)
+constructor(exclusionId: string, token: RGXToken, exclusions: RGXToken = [], terminal: RGXToken = null)
 ```
 - `exclusionId` (`string`): A valid JavaScript identifier used as the named capture group for the lookahead. Must be unique across the branch. Throws `RGXInvalidIdentifierError` if the value is not a valid identifier.
 - `token` (`RGXToken`): The main token to match.
-- `exclusions` (`RGXTokenCollectionInput`, optional): A token or collection of tokens representing the patterns to exclude. These are combined into an `RGXClassUnionToken` internally. Defaults to `[]`.
+- `exclusions` (`RGXToken`, optional): The patterns to exclude: an array or `RGXClassUnionToken` of alternatives, or a single token. These are combined into an `RGXClassUnionToken` internally. Defaults to `[]`.
 - `terminal` (`RGXToken`, optional): A zero-width anchor appended to both the lookahead and the negative lookahead, used to ensure exclusions are evaluated at a word or token boundary. Should not consume characters. Defaults to `null`.
 
 ## Properties
 - `exclusionId` (`string`): The named capture group identifier. The setter validates that the new value is a valid identifier and throws `RGXInvalidIdentifierError` if it is not.
 - `token` (`RGXToken`): The main token whose match is being filtered.
-- `exclusions` (`RGXClassUnionToken`): The union of exclusion patterns, built from the `exclusions` token or collection passed to the constructor.
+- `exclusions` (`RGXClassUnionToken`): The union of exclusion patterns, built from the `exclusions` token passed to the constructor.
 - `terminal` (`RGXToken`): The zero-width terminal anchor, or `null` if none was provided.
 
 ## Methods

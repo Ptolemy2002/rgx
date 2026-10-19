@@ -1,11 +1,11 @@
-import { RGXTokenOrPart } from "src/walker";
+import { RGXWalkerStep } from "src/walker";
 
 export function rgxTaggedTemplateToArray<R = unknown, S = unknown, T = unknown>(
-    _strings: TemplateStringsArray, tokens: RGXTokenOrPart<R, S, T>[], multiline: boolean, verbatim: boolean
-): RGXTokenOrPart<R, S, T>[] {
+    _strings: TemplateStringsArray, tokens: RGXWalkerStep<R, S, T>[], multiline: boolean, verbatim: boolean
+): RGXWalkerStep<R, S, T>[] {
     // Process the strings with escape sequences left alone.
     const strings = _strings.raw;
-    const array: RGXTokenOrPart<R, S, T>[] = [];
+    const array: RGXWalkerStep<R, S, T>[] = [];
 
     for (let i = 0; i < Math.max(strings.length, tokens.length); i++) {
         const isTokensEnd = i >= tokens.length;

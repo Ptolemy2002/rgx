@@ -1,5 +1,4 @@
-import { RGXClassUnionToken, rgxClassInit, rgxClassUnion, expandRgxUnionTokens, removeRgxUnionDuplicates, RGXClassToken } from "src/class";
-import { RGXTokenCollection } from "src/collection";
+import { RGXClassUnionToken, RGXGroupToken, rgxClassInit, rgxClassUnion, expandRgxUnionTokens, removeRgxUnionDuplicates, RGXClassToken } from "src/class";
 import { RGXInvalidTokenError } from "src/errors";
 import { ConstructFunction } from "src/internal";
 
@@ -24,32 +23,30 @@ function constructionTest(constructor: ConstructFunction<typeof RGXClassUnionTok
 
     it("correctly initializes with no parameters", () => {
         const instance = constructor();
-        expect(instance.tokens.toArray()).toEqual([]);
+        expect(instance.tokens).toEqual([]);
     });
 
     it("correctly initializes with an empty array", () => {
         const instance = constructor([]);
-        expect(instance.tokens.toArray()).toEqual([]);
+        expect(instance.tokens).toEqual([]);
     });
 
     it("correctly initializes with an array of tokens", () => {
         const tokens = ["a", "b", "c"];
         const instance = constructor(tokens);
-        expect(instance.tokens.toArray()).toEqual(tokens);
+        expect(instance.tokens).toEqual(tokens);
     });
 
-    it("expands an RGXTokenCollection in union mode", () => {
+    it("expands another union", () => {
         const tokens = ["a", "b", "c"];
-        const tokenCollection = new RGXTokenCollection(tokens, 'union');
-        const instance = constructor(tokenCollection);
-        expect(instance.tokens.toArray()).toEqual(tokens);
+        const instance = constructor(new RGXClassUnionToken(tokens));
+        expect(instance.tokens).toEqual(tokens);
     });
 
-    it("does not expand a RGXTokenCollection in concat mode", () => {
-        const tokens = ["a", "b", "c"];
-        const tokenCollection = new RGXTokenCollection(tokens, 'concat');
-        const instance = constructor(tokenCollection);
-        expect(instance.tokens.tokens).toEqual([tokenCollection]);
+    it("keeps a single non-union token as one alternative", () => {
+        const group = new RGXGroupToken({ capturing: false }, ["a", "b", "c"]);
+        const instance = constructor(group);
+        expect(instance.tokens).toEqual([group]);
     });
 }
 
@@ -97,67 +94,66 @@ describe("RGXClassUnionToken", () => {
         it("adds a token to the union", () => {
             const instance = new RGXClassUnionToken(["a"]);
             instance.add("b");
-            expect(instance.tokens.toArray()).toEqual(["a", "b"]);
+            expect(instance.tokens).toEqual(["a", "b"]);
         });
 
         it("adds a token to the beginning of the union when pos is 'prefix'", () => {
             const instance = new RGXClassUnionToken(["a"]);
             instance.add("b", 'prefix');
-            expect(instance.tokens.toArray()).toEqual(["b", "a"]);
+            expect(instance.tokens).toEqual(["b", "a"]);
         });
 
         it("adds multiple tokens to the union", () => {
             const instance = new RGXClassUnionToken(["a"]);
             instance.add(["b", "c"]);
-            expect(instance.tokens.toArray()).toEqual(["a", "b", "c"]);
+            expect(instance.tokens).toEqual(["a", "b", "c"]);
         });
 
         it("adds multiple tokens to the union when pos is 'prefix'", () => {
             const instance = new RGXClassUnionToken(["a"]);
             instance.add("b", 'prefix');
             instance.add("c", 'prefix');
-            expect(instance.tokens.toArray()).toEqual(["c", "b", "a"]);
+            expect(instance.tokens).toEqual(["c", "b", "a"]);
         });
 
-        it("expands a collection in union mode", () => {
+        it("expands an array", () => {
             const instance = new RGXClassUnionToken(["a"]);
-            const otherCollection = new RGXTokenCollection(["b", "c"], 'union');
-            instance.add(otherCollection);
-            expect(instance.tokens.toArray()).toEqual(["a", "b", "c"]);
+            instance.add(["b", "c"]);
+            expect(instance.tokens).toEqual(["a", "b", "c"]);
         });
 
-        it("does not expand a collection in concat mode", () => {
+        it("does not expand a group", () => {
             const instance = new RGXClassUnionToken(["a"]);
-            const otherCollection = new RGXTokenCollection(["b", "c"], 'concat');
-            instance.add(otherCollection);
-            expect(instance.tokens.toArray()).toEqual(["a", otherCollection]);
+            const group = new RGXGroupToken({ capturing: false }, ["b", "c"]);
+            instance.add(group);
+            expect(instance.tokens).toEqual(["a", group]);
         });
 
         it("flattens nested unions when adding", () => {
             const instance = new RGXClassUnionToken(["a"]);
             const otherUnion = new RGXClassUnionToken(["b", "c"]);
             instance.add(otherUnion);
-            expect(instance.tokens.toArray()).toEqual(["a", "b", "c"]);
+            expect(instance.tokens).toEqual(["a", "b", "c"]);
         });
 
         it("removes direct repeats when adding", () => {
             const instance = new RGXClassUnionToken(["a"]);
             instance.add("a");
-            expect(instance.tokens.toArray()).toEqual(["a"]);
+            expect(instance.tokens).toEqual(["a"]);
         });
 
         it("removes nested repeats when adding", () => {
             const instance = new RGXClassUnionToken(["a"]);
             const otherUnion = new RGXClassUnionToken(["a", "b"]);
             instance.add(otherUnion);
-            expect(instance.tokens.toArray()).toEqual(["a", "b"]);
+            expect(instance.tokens).toEqual(["a", "b"]);
         });
 
         it("mutates the original instance", () => {
             const instance = new RGXClassUnionToken(["a"]);
             const result = instance.add("b");
             expect(result).toBe(instance);
-            expect(instance.tokens.toArray()).toEqual(["a", "b"]);
+            expect(instance.tokens).toEqual(["a", "b"]);
         });
     });
 
@@ -166,35 +162,34 @@ describe("RGXClassUnionToken", () => {
             const instance = new RGXClassUnionToken(["a"]);
             const otherUnion = new RGXClassUnionToken(["b", "c"]);
             instance.concat('suffix', otherUnion);
-            expect(instance.tokens.toArray()).toEqual(["a", "b", "c"]);
+            expect(instance.tokens).toEqual(["a", "b", "c"]);
         });
 
         it("concatenates another union to the beginning", () => {
             const instance = new RGXClassUnionToken(["a"]);
             const otherUnion = new RGXClassUnionToken(["b", "c"]);
             instance.concat('prefix', otherUnion);
-            expect(instance.tokens.toArray()).toEqual(["b", "c", "a"]);
+            expect(instance.tokens).toEqual(["b", "c", "a"]);
         });
 
-        it("expands collections in union mode when concatenating", () => {
+        it("expands arrays when concatenating", () => {
             const instance = new RGXClassUnionToken(["a"]);
-            const otherCollection = new RGXTokenCollection(["b", "c"], 'union');
-            instance.concat('suffix', otherCollection);
-            expect(instance.tokens.toArray()).toEqual(["a", "b", "c"]);
+            instance.concat('suffix', ["b", "c"]);
+            expect(instance.tokens).toEqual(["a", "b", "c"]);
         });
 
-        it("does not expand collections in concat mode when concatenating", () => {
+        it("does not expand groups when concatenating", () => {
             const instance = new RGXClassUnionToken(["a"]);
-            const otherCollection = new RGXTokenCollection(["b", "c"], 'concat');
-            instance.concat('suffix', otherCollection);
-            expect(instance.tokens.tokens).toEqual(["a", otherCollection]);
+            const group = new RGXGroupToken({ capturing: false }, ["b", "c"]);
+            instance.concat('suffix', group);
+            expect(instance.tokens).toEqual(["a", group]);
         });
 
         it("removes direct repeats when concatenating", () => {
             const instance = new RGXClassUnionToken(["a"]);
             const otherUnion = new RGXClassUnionToken(["a", "b"]);
             instance.concat('suffix', otherUnion);
-            expect(instance.tokens.toArray()).toEqual(["a", "b"]);
+            expect(instance.tokens).toEqual(["a", "b"]);
         });
 
         it("removes nested repeats when concatenating", () => {
@@ -202,7 +197,7 @@ describe("RGXClassUnionToken", () => {
             const otherUnion1 = new RGXClassUnionToken(["a", "b"]);
             const otherUnion2 = new RGXClassUnionToken(["b", "c"]);
             instance.concat('suffix', otherUnion1, otherUnion2);
-            expect(instance.tokens.toArray()).toEqual(["a", "b", "c"]);
+            expect(instance.tokens).toEqual(["a", "b", "c"]);
         });
 
         it("mutates the original instance", () => {
@@ -210,14 +205,14 @@ describe("RGXClassUnionToken", () => {
             const otherUnion = new RGXClassUnionToken(["b", "c"]);
             const result = instance.concat('suffix', otherUnion);
             expect(result).toBe(instance);
-            expect(instance.tokens.toArray()).toEqual(["a", "b", "c"]);
+            expect(instance.tokens).toEqual(["a", "b", "c"]);
         });
 
         it("defaults to suffix concatenation", () => {
             const instance = new RGXClassUnionToken(["a"]);
             const otherUnion = new RGXClassUnionToken(["b", "c"]);
             instance.concat(undefined, otherUnion);
-            expect(instance.tokens.toArray()).toEqual(["a", "b", "c"]);
+            expect(instance.tokens).toEqual(["a", "b", "c"]);
         });
     });
 
@@ -227,7 +222,7 @@ describe("RGXClassUnionToken", () => {
             // Directly modify tokens, since a clean call happens on creation.
             instance.tokens.push("a", "b", "a");
             instance.cleanTokens();
-            expect(instance.tokens.toArray()).toEqual(["a", "b"]);
+            expect(instance.tokens).toEqual(["a", "b"]);
         });
 
         it("removes nested repeats", () => {
@@ -235,25 +230,24 @@ describe("RGXClassUnionToken", () => {
             // Directly modify tokens, since a clean call happens on creation.
             instance.tokens.push("a", new RGXClassUnionToken(["a", "b"]));
             instance.cleanTokens();
-            expect(instance.tokens.toArray()).toEqual(["a", "b"]);
+            expect(instance.tokens).toEqual(["a", "b"]);
         });
 
-        it("expands nested collections in union mode", () => {
+        it("expands nested arrays", () => {
             const instance = new RGXClassUnionToken();
-            const otherCollection = new RGXTokenCollection(["a", "b"], 'union');
             // Directly modify tokens, since a clean call happens on creation.
-            instance.tokens.push(otherCollection);
+            instance.tokens.push(["a", "b"]);
             instance.cleanTokens();
-            expect(instance.tokens.toArray()).toEqual(["a", "b"]);
+            expect(instance.tokens).toEqual(["a", "b"]);
         });
 
-        it("does not expand nested collections in concat mode", () => {
+        it("does not expand nested groups", () => {
             const instance = new RGXClassUnionToken();
-            const otherCollection = new RGXTokenCollection(["a", "b"], 'concat');
+            const group = new RGXGroupToken({ capturing: false }, ["a", "b"]);
             // Directly modify tokens, since a clean call happens on creation.
-            instance.tokens.push(otherCollection);
+            instance.tokens.push(group);
             instance.cleanTokens();
-            expect(instance.tokens.tokens).toEqual([otherCollection]);
+            expect(instance.tokens).toEqual([group]);
         });
 
         it("mutates the original instance", () => {
@@ -262,7 +256,7 @@ describe("RGXClassUnionToken", () => {
             instance.tokens.push("a", "b", "a");
             const result = instance.cleanTokens();
             expect(result).toBe(instance);
-            expect(instance.tokens.toArray()).toEqual(["a", "b"]);
+            expect(instance.tokens).toEqual(["a", "b"]);
         }); 
     });
 
@@ -288,7 +282,7 @@ describe("RGXClassUnionToken", () => {
             const token2 = new RGXClassUnionToken(["b", "c"]);
             const result = token1.or(token2);
             expect(result).toBeInstanceOf(RGXClassUnionToken);
-            expect((result as RGXClassUnionToken).tokens.toArray()).toEqual(["a", "b", "c"]);
+            expect((result as RGXClassUnionToken).tokens).toEqual(["a", "b", "c"]);
         });
     });
 
@@ -303,62 +297,50 @@ describe("RGXClassUnionToken", () => {
             const instance = new RGXClassUnionToken(["a", "b"]);
             const clone = instance.clone();
             expect(clone).not.toBe(instance);
-            expect(clone.tokens.toArray()).toEqual(instance.tokens.toArray());
+            expect(clone.tokens).toEqual(instance.tokens);
         });
     });
 });
 
 describe("expandRgxUnionTokens", () => {
-    it("returns a flat collection from plain tokens", () => {
+    it("returns a flat array from plain tokens", () => {
         const result = expandRgxUnionTokens("a", "b", "c");
-        expect(result.toArray()).toEqual(["a", "b", "c"]);
+        expect(result).toEqual(["a", "b", "c"]);
     });
 
     it("expands nested arrays", () => {
         const result = expandRgxUnionTokens("a", ["b", "c"]);
-        expect(result.toArray()).toEqual(["a", "b", "c"]);
+        expect(result).toEqual(["a", "b", "c"]);
     });
 
-    it("expands RGXTokenCollection in union mode", () => {
-        const collection = new RGXTokenCollection(["b", "c"], "union");
-        const result = expandRgxUnionTokens("a", collection);
-        expect(result.toArray()).toEqual(["a", "b", "c"]);
-    });
-
-    it("does not expand RGXTokenCollection in concat mode", () => {
-        const collection = new RGXTokenCollection(["b", "c"], "concat");
-        const result = expandRgxUnionTokens("a", collection);
-        expect(result.toArray()).toEqual(["a", collection]);
+    it("does not expand groups", () => {
+        const group = new RGXGroupToken({ capturing: false }, ["b", "c"]);
+        const result = expandRgxUnionTokens("a", group);
+        expect(result).toEqual(["a", group]);
     });
 
     it("expands RGXClassUnionToken instances", () => {
         const union = new RGXClassUnionToken(["b", "c"]);
         const result = expandRgxUnionTokens("a", union);
-        expect(result.toArray()).toEqual(["a", "b", "c"]);
+        expect(result).toEqual(["a", "b", "c"]);
     });
 
     it("recursively expands deeply nested unions", () => {
         const innerUnion = new RGXClassUnionToken(["c", "d"]);
-        const outerCollection = new RGXTokenCollection(["b", innerUnion], "union");
-        const result = expandRgxUnionTokens("a", outerCollection);
-        expect(result.toArray()).toEqual(["a", "b", "c", "d"]);
+        const result = expandRgxUnionTokens("a", ["b", innerUnion]);
+        expect(result).toEqual(["a", "b", "c", "d"]);
     });
 });
 
 describe("removeRgxUnionDuplicates", () => {
     it("removes duplicate primitive tokens", () => {
         const result = removeRgxUnionDuplicates("a", "b", "a", "c", "b");
-        expect(result.toArray()).toEqual(["a", "b", "c"]);
-    });
-
-    it("returns a collection in union mode", () => {
-        const result = removeRgxUnionDuplicates("a", "b");
-        expect(result.mode).toBe("union");
+        expect(result).toEqual(["a", "b", "c"]);
     });
 
     it("removes duplicate RegExp tokens with same pattern and flags", () => {
         const result = removeRgxUnionDuplicates(/abc/, /def/, /abc/);
-        expect(result.toArray()).toEqual([/abc/, /def/]);
+        expect(result).toEqual([/abc/, /def/]);
     });
 
     it("preserves RegExp tokens with different flags", () => {
@@ -366,8 +348,8 @@ describe("removeRgxUnionDuplicates", () => {
         expect(result.length).toBe(2);
     });
 
-    it("returns an empty collection when given no tokens", () => {
+    it("returns an empty array when given no tokens", () => {
         const result = removeRgxUnionDuplicates();
-        expect(result.toArray()).toEqual([]);
+        expect(result).toEqual([]);
     });
 });

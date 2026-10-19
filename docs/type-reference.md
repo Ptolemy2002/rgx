@@ -36,6 +36,8 @@ type RGXNonJSONToken = Exclude<RGXToken, RGXJSONObjectToken>;
 const RGX_JSON_FLAG = "$rgx";
 type RGXJSONFlag = typeof RGX_JSON_FLAG;
 type RGXTokenOrPart<R, S = unknown, T = any> = RGXToken | RGXPart<R, S, T>;
+// A union of tokens and parts can be written as an array nested to any depth.
+type RGXWalkerStep<R, S = unknown, T = any> = RGXTokenOrPart<R, S, T> | RGXWalkerStep<R, S, T>[];
 
 type RGXClassTokenConstructor = new (...args: unknown[]) => RGXClassToken;
 // When rgxIsRepeatable is absent, the token is only repeatable if it isn't detected as consuming no characters, which types can't express.
@@ -75,7 +77,6 @@ type RGXTokenTypeGuardInput =
     // - null, which can be used to indicate any token type
     // - Constructors for class tokens
     // - The RegExp and ExtRegExp constructors, which can be used to indicate literal tokens
-    // - RGXTokenCollection, which can be used to indicate arrays of tokens
     // - "repeatable", which can be used to indicate any token that is repeatable (see isRGXToken in type-guards.md)
     // - "json", which can be used to indicate any JSON token (native, JSON object token, or array of JSON tokens)
     // - Arrays of any of the above, allowing for nested token type specifications
@@ -112,15 +113,12 @@ type ExpectedTokenType = {
     type: "custom";
     values: string[];
 };
-type RGXTokenCollectionMode = 'union' | 'concat';
-type RGXTokenCollectionInput = RGXToken | RGXTokenCollection;
-
 type RGXUnionInsertionPosition = 'prefix' | 'suffix';
 
 type RGXGroupTokenArgs = {
     name?: string | null;
     capturing?: boolean;
-    flags?: string;
+    flags?: string | null; // the localizable flags in effect inside the group, or null to inherit them
     aliases?: string[];
 };
 
@@ -130,6 +128,13 @@ type RGXParseOptions = {
 };
 
 type RGXPartControl = "skip" | "stop" | "silent" | "stop-silent" | void;
+type RGXPartLossControl = "stop" | "stop-silent" | void;
+type RGXPartLossReason = "no-match" | "not-reached";
+type RGXPartLoss<R, S = unknown> = {
+    reason: RGXPartLossReason;
+    winner: RGXTokenOrPart<R, S>; // The alternative that captured: a part, or a plain token
+    capture: RGXCapture;
+};
 type RGXWalkerStepDirective = "stop" | "skip" | "silent";
 
 type RGXCapture<T = unknown> = {
@@ -138,14 +143,17 @@ type RGXCapture<T = unknown> = {
     start: number;
     end: number;
     ownerId: string | null; // The id of the RGXPart that captured this, if any
-    branch: number; // The branch index of the token that captured this, or 0 if there is only one branch
-    groups: Record<string, string> | null; // The groups captured by the token that captured this, or null if the token didn't capture any groups
+    branch: number; // The position of the alternative that captured this in the step's flattened union, or 0 if the step isn't a union
+    groups: Record<string, string> | null; // The groups captured by the token that captured this (without the walker's branch groups), or null if it has none
 };
 
 type RGXPartContext<R, S = unknown, T = string> = {
     part: RGXPart<R, S, T>;
     walker: RGXWalker<R, S>;
 };
+
+// A token, or a function that produces one from the walker's current state each time the part is captured.
+type RGXPartToken<R, S = unknown, T = string> = RGXToken | ((context: RGXPartContext<R, S, T>) => RGXToken);
 
 type RGXPartOptions<R, S = unknown, T=string> = {
     id: string;
@@ -156,6 +164,7 @@ type RGXPartOptions<R, S = unknown, T=string> = {
     afterCapture: ((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
     afterFailure: ((e: RGXRegexNotMatchedAtPositionError | RGXRegexNotMatchedAfterPositionError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
     afterValidationFailure: ((e: RGXPartValidationFailedError, context: RGXPartContext<R, S, T>) => RGXPartControl) | null;
+    afterLoss: ((loss: RGXPartLoss<R, S>, context: RGXPartContext<R, S, T>) => RGXPartLossControl) | null;
 };
 
 type RGXWalkerOptions<R, S = unknown> = {
@@ -233,6 +242,14 @@ type LexemeNotMatchedCause = {
     error: LexemeNotMatchedCauseError;
 };
 
+type RGXInvalidBackreferenceReason =
+    | "missing-group"        // no group has the name, or there are fewer groups than the number
+    | "before-group"         // the reference is matched before its group
+    | "inside-group"         // the reference is inside its own group
+    | "other-branch"         // the reference and its group are in different alternatives
+    | "negative-lookaround"  // the group is inside a negative lookaround the reference isn't in
+    | "numeric-in-branches"; // a numeric reference in a walker step that is a union
+
 type RGXLexemeLocation = {
     index: number;
     line: number;
@@ -252,7 +269,7 @@ type RGXLexemeDefinition<Data, Share=unknown> = Readonly<({
     token: RGXToken;
 } | {
     type: "walk";
-    tokens: RGXTokenOrPart<Data, Share>[];
+    tokens: RGXWalkerStep<Data, Share>[];
     options?: Omit<RGXWalkerOptions<Data, Share>, "startingSourcePosition" | "reduced" | "share"> & {
         reduced?: (() => Data) | null;
         share?: (() => Share) | null;

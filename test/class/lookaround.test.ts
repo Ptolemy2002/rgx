@@ -1,5 +1,4 @@
-import { RGXLookaroundToken, RGXLookaheadToken, RGXLookbehindToken, rgxLookahead, rgxLookbehind, RGXClassToken } from "src/class";
-import { RGXTokenCollection } from "src/collection";
+import { RGXLookaroundToken, RGXLookaheadToken, RGXLookbehindToken, rgxLookahead, rgxLookbehind, RGXClassToken, RGXClassUnionToken } from "src/class";
 import { RGXInvalidTokenError } from "src/errors";
 import { isRGXToken } from "src/typeGuards";
 import { ConstructFunction } from "src/internal";
@@ -46,25 +45,22 @@ function constructionTest<T extends typeof RGXLookaroundToken>(constructor: Cons
         const token = new TestClassToken();
         const instance = constructor([token]) as RGXLookaroundToken;
 
-        expect(instance.tokens.toArray()).toEqual([token]);
+        expect(instance.tokens).toEqual([token]);
     });
 
-    it("correctly initializes with a token collection in concat mode", () => {
+    it("correctly initializes with a single token", () => {
         const token = new TestClassToken();
-        const tokenCollection = new RGXTokenCollection([token], 'concat');
-        const instance = constructor(tokenCollection) as RGXLookaroundToken;
+        const instance = constructor(token) as RGXLookaroundToken;
 
-        expect(instance.tokens.toArray()).toEqual([token]);
+        expect(instance.tokens).toEqual([token]);
     });
 
-    it("correctly initializes with a token collection in union mode", () => {
-        const tokenCollection = new RGXTokenCollection(["a", "b"], 'union');
-        const instance = constructor(tokenCollection) as RGXLookaroundToken;
+    it("correctly initializes with a union", () => {
+        const union = new RGXClassUnionToken(["a", "b"]);
+        const instance = constructor(union) as RGXLookaroundToken;
 
         // The union is kept as a single element rather than being flattened into the concat.
-        expect(instance.tokens.mode).toBe('concat');
-        expect(instance.tokens.toArray()).toEqual([tokenCollection]);
-        expect(instance.tokens.toRgx().source).toBe("(?:a|b)");
+        expect(instance.tokens).toEqual([union]);
     });
 }
 
@@ -82,7 +78,7 @@ function negateTest<T extends typeof RGXLookaroundToken>(constructor: ConstructF
         const instance = constructor([token]) as RGXLookaroundToken;
         const negated = instance.negate();
 
-        expect(negated.tokens.toArray()).toEqual([token]);
+        expect(negated.tokens).toEqual([token]);
     });
 }
 
@@ -153,7 +149,7 @@ describe("RGXLookaheadToken", () => {
             const instance = new RGXLookaheadToken([token1, token2]);
             const reversed = instance.reverse();
 
-            expect(reversed.tokens.toArray()).toEqual([token1, token2]);
+            expect(reversed.tokens).toEqual([token1, token2]);
         });
 
         it("preserves the original positivity", () => {
@@ -207,7 +203,7 @@ describe("RGXLookaheadToken", () => {
             expect(clone).not.toBe(instance);
             expect(clone.positive).toBe(instance.positive);
             expect(clone.negative).toBe(instance.negative);
-            expect(clone.tokens.toArray()).toEqual(instance.tokens.toArray());
+            expect(clone.tokens).toEqual(instance.tokens);
         });
     });
 });
@@ -249,7 +245,7 @@ describe("RGXLookbehindToken", () => {
             const instance = new RGXLookbehindToken([token1, token2]);
             const reversed = instance.reverse();
 
-            expect(reversed.tokens.toArray()).toEqual([token1, token2]);
+            expect(reversed.tokens).toEqual([token1, token2]);
         });
 
         it("preserves the original positivity", () => {
@@ -303,7 +299,7 @@ describe("RGXLookbehindToken", () => {
             expect(clone).not.toBe(instance);
             expect(clone.positive).toBe(instance.positive);
             expect(clone.negative).toBe(instance.negative);
-            expect(clone.tokens.toArray()).toEqual(instance.tokens.toArray());
+            expect(clone.tokens).toEqual(instance.tokens);
         });
     });
 });
