@@ -122,7 +122,7 @@ type RGXUnionInsertionPosition = 'prefix' | 'suffix';
 type RGXGroupTokenArgs = {
     name?: string | null;
     capturing?: boolean;
-    flags?: string;
+    flags?: string | null; // the localizable flags in effect inside the group, or null to inherit them
     aliases?: string[];
 };
 

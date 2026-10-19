@@ -20,7 +20,6 @@ export * from './lexemeNotMatchedAtPosition';
 export * from './invalidLexer';
 export * from './invalidWalker';
 export * from './invalidPart';
-export * from './notDirectRegexp';
 export * from './currentTokenNotFound';
 export * from './invalidRegexLocalizableFlagDiff';
 export * from './invalidRegexLocalizableFlags';

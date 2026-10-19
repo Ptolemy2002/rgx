@@ -103,14 +103,8 @@ function convertGroup(group: AST.Group, flags: LocalizableFlags, context: ParseC
     for (const flag of group.modifiers.remove?.raw ?? "") groupFlags.delete(flag);
     const contents = convertAlternatives(group.alternatives, groupFlags, context);
 
-    // A group's flags are the flags in effect inside it, and an empty value means the group sets none. So a group
-    // that turns off every localizable flag can't be an RGXGroupToken. Its delimiters are kept as interpolations instead,
-    // so its contents are still tokens.
-    if (groupFlags.size === 0) {
-        // When no flags were in effect around it either, the group changes nothing.
-        if (flags.size === 0) return sequenceToken(contents);
-        return new RGXTokenCollection([rgxInterpolation(`(?-${flagsString(flags)}:`), ...contents, rgxInterpolation(")")], "concat");
-    }
+    // When no flags were in effect around a group that turns them all off, it changes nothing.
+    if (groupFlags.size === 0 && flags.size === 0) return sequenceToken(contents);
 
     return new RGXGroupToken({ capturing: false, flags: flagsString(groupFlags) }, contents);
 }
@@ -184,7 +178,7 @@ function convertElement(element: Exclude<AST.Element, AST.Character>, flags: Loc
 // RGXRepeatToken, RGXClassUnionToken, RGXLookaheadToken/RGXLookbehindToken, and RGXSubpatternToken instances, runs of
 // characters become strings, and everything else (such as character classes, escapes like "\d", "." and anchors)
 // becomes a literal token.
-// With mergeAliases, nested named groups with nothing else between them become one RGXGroupToken with aliases.
+// Unless mergeAliases is false, nested named groups with nothing else between them become one RGXGroupToken with aliases.
 // The options can also be passed in place of the flags, with the flags among them.
 export function rgxParse(pattern: RegExp | string, flags?: string, options?: Omit<RGXParseOptions, "flags">): RGXClassToken;
 export function rgxParse(pattern: RegExp | string, options?: RGXParseOptions): RGXClassToken;
@@ -192,7 +186,7 @@ export function rgxParse(pattern: RegExp | string, flagsOrOptions?: string | RGX
     if (typeof flagsOrOptions === "object") options = flagsOrOptions;
     else options = { ...options, flags: flagsOrOptions };
 
-    const { mergeAliases = false } = options;
+    const { mergeAliases = true } = options;
     const source = typeof pattern === "string" ? pattern : pattern.source;
     const flags = options.flags ?? (typeof pattern === "string" ? "" : pattern.flags);
 

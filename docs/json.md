@@ -67,7 +67,7 @@ const token = rgxConstant("digit").repeat(1, 3).group({ name: "num" });
 const json = rgxTokenToJSON(token);
 // {
 //     $rgx: true, class: "RGXGroupToken",
-//     args: [{ name: "num", capturing: true, flags: "" }, [
+//     args: [{ name: "num", capturing: true, flags: null }, [
 //         { $rgx: true, class: "RGXRepeatToken", args: [
 //             { $rgx: true, class: "RGXClassWrapperToken", args: [{ $rgx: true, source: "\\d" }] },
 //             1, 3, false

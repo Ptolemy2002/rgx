@@ -186,7 +186,7 @@ describe('flags in effect', () => {
     });
 
     it('resolves the contents of groups with flags against the group\'s flags', () => {
-        expect(rgxa([rgxGroup({ capturing: false, flags: 'i' }, [/x/i])]).source).toBe('(?i-ms:x)');
+        expect(rgxa([rgxGroup({ capturing: false, flags: 'i' }, [/x/i])]).source).toBe('(?i:x)');
     });
 
     it('checks each token with the u and v flags in effect', () => {

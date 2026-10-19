@@ -12,7 +12,8 @@ import { isRGXJSONToken } from "src/typeGuards";
 export type RGXGroupTokenArgs = {
     name?: string | null;
     capturing?: boolean;
-    flags?: string;
+    // The localizable flags in effect inside the group, or null to inherit the flags around it.
+    flags?: string | null;
     aliases?: string[];
 };
 
@@ -24,7 +25,7 @@ function parseGroupJSONArgs(args: RGXJSONValue[]): [RGXGroupTokenArgs?, RGXJSONT
         if (typeof groupArgs !== "object" || groupArgs === null || Array.isArray(groupArgs)) return "Argument 0 (args) must be an object.";
         if (groupArgs.name !== undefined && groupArgs.name !== null && typeof groupArgs.name !== "string") return "Argument 0 (args) must have a string or null name, if present.";
         if (groupArgs.capturing !== undefined && typeof groupArgs.capturing !== "boolean") return "Argument 0 (args) must have a boolean capturing property, if present.";
-        if (groupArgs.flags !== undefined && typeof groupArgs.flags !== "string") return "Argument 0 (args) must have a string flags property, if present.";
+        if (groupArgs.flags !== undefined && groupArgs.flags !== null && typeof groupArgs.flags !== "string") return "Argument 0 (args) must have a string or null flags property, if present.";
         if (groupArgs.aliases !== undefined && (!Array.isArray(groupArgs.aliases) || groupArgs.aliases.some(alias => typeof alias !== "string"))) return "Argument 0 (args) must have an array of strings as its aliases property, if present.";
     }
 
@@ -36,7 +37,7 @@ export class RGXGroupToken extends RGXClassToken {
     tokens: RGXTokenCollection;
     _name: string | null = null;
     _aliases: string[] = [];
-    _flags: string = '';
+    _flags: string | null = null;
     _capturing: boolean = true;
 
     static check = createRGXClassGuardFunction(RGXGroupToken);
@@ -103,12 +104,12 @@ export class RGXGroupToken extends RGXClassToken {
         return this._flags;
     }
 
-    set flags(value: string) {
-        assertValidRegexLocalizableFlags(value);
+    set flags(value: string | null) {
+        if (value !== null) assertValidRegexLocalizableFlags(value);
         this._flags = value;
     }
 
-    constructor ({ name = null, capturing = true, flags = '', aliases = [] }: RGXGroupTokenArgs = {}, tokens: RGXTokenCollectionInput = []) {
+    constructor ({ name = null, capturing = true, flags = null, aliases = [] }: RGXGroupTokenArgs = {}, tokens: RGXTokenCollectionInput = []) {
         super();
         this.name = name;
         this.aliases = aliases;
@@ -120,8 +121,8 @@ export class RGXGroupToken extends RGXClassToken {
     }
 
     toRgx(currentFlags: string = '') {
-        // Modifier flags replace the localizable flags in effect for the tokens inside.
-        const innerFlags = (flags: string) => this.flags.length > 0 ? flags.replace(/[ims]/g, '') + this.flags : flags;
+        // The group's flags replace the localizable flags in effect for the tokens inside.
+        const innerFlags = (flags: string) => this.flags !== null ? flags.replace(/[ims]/g, '') + this.flags : flags;
 
         // The collection token doesn't group itself, so this is safe.
         let result: string = withRGXInsertionFlags(
@@ -129,21 +130,20 @@ export class RGXGroupToken extends RGXClassToken {
             () => this.tokens.toRgx(innerFlags(currentFlags)).source
         );
 
-        const hasFlags = this.flags.length > 0;
-        // This will return the flags that are not present in the flags variable, preceded by a "-" if there are any.
-        const flagsNotPresent = localizableVanillaRegexFlagDiff("ims", this.flags);
+        // Only the flags that change where the group is placed need a modifier.
+        const flagDiff = this.flags === null ? '' : localizableVanillaRegexFlagDiff(currentFlags, this.flags);
 
         if (this.name !== null) {
             // Each alias is another named group, nested inside the name in order.
             for (const name of this.allNames().reverse()) result = `(?<${name}>${result})`;
         } else if (!this.capturing) {
-            if (!hasFlags) result = `(?:${result})`;
-            else result = `(?${this.flags}${flagsNotPresent}:${result})`;
+            result = `(?${flagDiff}:${result})`;
+            return createRegexPiece(result, currentFlags);
         } else {
             result = `(${result})`;
         }
 
-        if ((this.name !== null || this.capturing) && hasFlags) result = `(?${this.flags}${flagsNotPresent}:${result})`;
+        if (flagDiff !== '') result = `(?${flagDiff}:${result})`;
 
         return createRegexPiece(result, currentFlags);
     }
