@@ -196,13 +196,13 @@ See [MIGRATION.md](./MIGRATION.md#1400) for details and update instructions.
 
 ### Changed
 
-- Interpolation tokens can contain unmatched closing parentheses, too.
+- Interpolation tokens can also close a group that an earlier token opened, so a token like `)` with no matching `(` of its own is accepted. 13.3.1 only allowed the opening half.
 
 ## 13.3.1 - 2026-03-31
 
 ### Changed
 
-- Interpolation tokens can leave groups unterminated, with the expectation that a later token closes them.
+- Interpolation tokens can open a group without closing it (such as `(?<word>`), with the expectation that a later token closes it. Before, the resolver rejected each token's source on its own if its parentheses weren't balanced.
 
 ## 13.3.0 - 2026-03-31
 
