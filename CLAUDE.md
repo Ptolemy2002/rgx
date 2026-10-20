@@ -34,3 +34,7 @@ The library generates regex modifier groups like `(?i:...)`, which need Node 23 
 N=$(dirname $(npx -y node@24 -e 'console.log(process.execPath)'))
 PATH=$N:$PATH npm run test
 ```
+
+## Changelog
+
+`./CHANGELOG.md` lists the changes in each released version from 10.0.0 onward. When you make a user-facing change, add it to the "Unreleased" section, under "Breaking", "Added", "Changed" or "Fixed". The user moves those entries under a version heading when they release.
