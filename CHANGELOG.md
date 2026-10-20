@@ -37,6 +37,7 @@ See [MIGRATION.md](./MIGRATION.md#1500) for details and update instructions.
 
 ### Fixed
 
+- `accentInsensitiveFlagTransformer` parses the pattern instead of scanning it with lookbehinds, so it no longer replaces letters that are part of other syntax, such as group names (`(?<value>...)`, `\k<value>`), property escapes (`\p{Script=Latin}`) and escapes like `\u0025`.
 - A walker snapshot can be restored more than once, since its values are cloned on restore.
 - `RGXClassToken.clone()` keeps the `validate` setting of parts.
 
