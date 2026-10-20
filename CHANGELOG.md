@@ -188,9 +188,9 @@ See [MIGRATION.md](./MIGRATION.md#1400) for details and update instructions.
 
 ## 13.3.3 - 2026-04-04
 
-### Changed
+### Fixed
 
-- `RGXWalker` accepts any `RGXPart` regardless of its type parameters.
+- Parts whose value type (`T`) isn't `unknown`, such as `RGXPart<R, S, number>`, can be passed to a walker without a type error. The default for `T` in `RGXTokenOrPart` changed from `unknown` to `any`. This only affects types, and a part's `R` and `S` still have to match the walker's.
 
 ## 13.3.2 - 2026-03-31
 
