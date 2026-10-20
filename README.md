@@ -43,6 +43,9 @@ Because there is so much to document, it has been broken up into multiple files.
       - [lookahead](./docs/class/token/lookaround/lookahead.md) - The `RGXLookaheadToken` class, which represents a lookahead assertion in a regular expression.
       - [lookbehind](./docs/class/token/lookaround/lookbehind.md) - The `RGXLookbehindToken` class, which represents a lookbehind assertion in a regular expression.
 
+## Changelog
+The changes in each released version, starting with 10.0.0, are listed in [CHANGELOG.md](./CHANGELOG.md).
+
 ## Migration
 Because this library has many major releases, a migration guide at [MIGRATION.md](./MIGRATION.md) is provided to help users upgrade between major versions. This only covers versions released in or after March 2026, as that is when the library was announced publicly.
 
