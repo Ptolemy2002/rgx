@@ -122,6 +122,16 @@ To update:
 
 - Remove imports of `RGXNotDirectRegExpError`, and checks for it or for the `NOT_DIRECT_REGEXP` code.
 
+## `rgxConstant` returns a reference to the constant
+
+`rgxConstant(name)` now returns a new `RGXConstantToken`, which refers to the constant by name and looks it up when it is used, instead of the token the constant is stored as. It resolves the same and has the same class methods, but its JSON form is `{ $rgx: true, class: "RGXConstantToken", args: [name, cache] }`, so the link to the constant survives serialization. Changes made to it no longer change the constant, and a reference made before a constant is deleted and defined again uses the new definition (pass `true` as the second argument to keep the first one).
+
+To update:
+
+- If you need the stored token itself (for example, to check `instanceof RGXClassWrapperToken`, read `.token`, compare objects with `===`, or define it again after deleting it), use `rgxConstantValue(name)`, or `rgxConstant(name).getConstant()`. `deleteRGXConstant` now also returns the deleted token.
+- If you stored JSON that contains resolved constants, it still works. Only new JSON uses the reference form, and converting it back needs the constant to be defined by the time the token is used.
+- Defining a constant as a reference to itself (for example, `defineRGXConstant(name, reference)` with a reference made before `name` was deleted) throws `RGXConstantConflictError`.
+
 ## Backreferences are validated
 
 Patterns built with `rgx` and `rgxa`, and every walker step, now have their backreferences checked once they're finished (see [Backreference validation](./docs/general.md#backreference-validation)). The patterns that now throw used to compile, but could never match what their group captured. They matched the empty string or literal text instead, so they were almost certainly bugs.

@@ -1,5 +1,5 @@
-import { RGXClassWrapperToken } from "src/class";
-import { rgxConstant, listRGXConstants, hasRGXConstant, assertHasRGXConstant, assertNotHasRGXConstant, defineRGXConstant, deleteRGXConstant, RGX_PREDEFINED_CONSTANTS } from "src/constants";
+import { RGXClassWrapperToken, RGXConstantToken } from "src/class";
+import { rgxConstant, rgxConstantValue, listRGXConstants, hasRGXConstant, assertHasRGXConstant, assertNotHasRGXConstant, defineRGXConstant, deleteRGXConstant, RGX_PREDEFINED_CONSTANTS } from "src/constants";
 import { RGXConstantConflictError, RGXInvalidConstantKeyError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
 
@@ -34,7 +34,7 @@ describe("defineRGXConstant", () => {
         const value = new RGXClassWrapperToken({toRgx() { return "test"; }});
 
         expect(() => defineRGXConstant(name, value)).not.toThrow();
-        expect(rgxConstant(name)).toBe(value);
+        expect(rgxConstantValue(name)).toBe(value);
         deleteRGXConstant(name);
     });
 
@@ -60,13 +60,40 @@ describe("defineRGXConstant", () => {
         const name = expectedConstantNames[0]!;
         expect(() => defineRGXConstant(name, "new value")).toThrow(RGXConstantConflictError);
     });
+
+    it("accepts references to other constants", () => {
+        defineRGXConstant("test-reference-constant", rgxConstant("digit"));
+        expect(resolveRGXToken(rgxConstant("test-reference-constant"))).toBe(resolveRGXToken(rgxConstant("digit")));
+        deleteRGXConstant("test-reference-constant");
+    });
+
+    it("throws an error when a constant would refer to itself", () => {
+        defineRGXConstant("test-cycle-a", "a");
+        const reference = rgxConstant("test-cycle-a");
+        deleteRGXConstant("test-cycle-a");
+        expect(() => defineRGXConstant("test-cycle-a", reference)).toThrow(RGXConstantConflictError);
+
+        // Through another constant
+        defineRGXConstant("test-cycle-a", "a");
+        defineRGXConstant("test-cycle-b", rgxConstant("test-cycle-a"));
+        deleteRGXConstant("test-cycle-a");
+        expect(() => defineRGXConstant("test-cycle-a", rgxConstant("test-cycle-b"))).toThrow(RGXConstantConflictError);
+
+        // References to constants that don't exist, or that refer to each other without this one, are allowed
+        defineRGXConstant("test-cycle-c", "c");
+        const missing = rgxConstant("test-cycle-c");
+        deleteRGXConstant("test-cycle-c");
+        expect(() => defineRGXConstant("test-cycle-a", missing)).not.toThrow();
+        deleteRGXConstant("test-cycle-a");
+        deleteRGXConstant("test-cycle-b");
+    });
 });
 
 describe("deleteRGXConstant", () => {
     it("deletes an existing constant", () => {
         const name = expectedConstantNames[0]!;
-        const prevToken = rgxConstant(name);
-        deleteRGXConstant(name);
+        const prevToken = rgxConstantValue(name);
+        expect(deleteRGXConstant(name)).toBe(prevToken);
 
         expect(() => rgxConstant(name)).toThrow(RGXInvalidConstantKeyError);
 
@@ -79,12 +106,30 @@ describe("deleteRGXConstant", () => {
     });
 });
 
+describe("rgxConstantValue", () => {
+    it("returns the token a constant is defined as", () => {
+        expect(rgxConstantValue("newline")).toBeInstanceOf(RGXClassWrapperToken);
+        expect((rgxConstantValue("newline") as RGXClassWrapperToken).token).toBe("\n");
+    });
+
+    it("throws an error for non-existing constants", () => {
+        expect(() => rgxConstantValue("non-existing-constant")).toThrow(RGXInvalidConstantKeyError);
+    });
+});
+
 describe("rgxConstant", () => {
-    it("returns a truthy value for existing constants", () => {
+    it("returns a reference to existing constants", () => {
         for (const name of expectedConstantNames) {
             const value = rgxConstant(name);
-            expect(value).toBeTruthy();
+            expect(value).toBeInstanceOf(RGXConstantToken);
+            expect(value.name).toBe(name);
+            expect(value.cache).toBe(false);
+            expect(value.getConstant()).toBe(rgxConstantValue(name));
         }
+    });
+
+    it("passes the cache setting to the reference", () => {
+        expect(rgxConstant("digit", true).cache).toBe(true);
     });
 
     it("throws an error for non-existing constants", () => {

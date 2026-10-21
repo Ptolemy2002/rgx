@@ -37,6 +37,8 @@ type RGXConstantName = RGXPredefinedConstant | (string & {});
 # Constants
 The library contains utilities for defining `RGXToken` constants, along with providing constants that are registered as soon as the module file is loaded (and thus when the main entry point is imported).
 
+`rgxConstant(name)` returns a reference to a constant (an `RGXConstantToken`, see [constant.md](./class/token/constant.md)) rather than the constant's token itself. The reference stores only the name, so it keeps pointing at the constant through JSON serialization, and changes made to it never affect the constant. Use `rgxConstantValue(name)` to get the token the constant is defined as.
+
 ## Variables
 ### RGX_PREDEFINED_CONSTANTS
 ```typescript
@@ -46,7 +48,7 @@ const RGX_PREDEFINED_CONSTANTS: Record<RGXPredefinedConstant, RGXToken>;
 A read-only object containing all of the library's built-in constant definitions, keyed by their `RGXPredefinedConstant` name. This is the source from which the predefined constants are registered at module load time. It can be used to inspect available constant names at compile time (via `keyof typeof RGX_PREDEFINED_CONSTANTS`) or to iterate over the predefined set without calling `listRGXConstants`.
 
 ## Built-in Constants
-The library defines the following built-in constants. Each can be retrieved via `rgxConstant(name)`.
+The library defines the following built-in constants. Each can be referenced with `rgxConstant(name)`.
 
 ### Control Characters
 Since these are defined as native tokens (strings), they are automatically wrapped in `RGXClassWrapperToken` by `defineRGXConstant`, ensuring they are preserved in multiline mode.
@@ -137,7 +139,7 @@ Asserts that an RGX constant with the given name does not exist. If the assertio
 function defineRGXConstant(name: RGXConstantName, value: RGXToken): RGXClassToken
 ```
 
-Defines a new RGX constant with the given name and value. If the value is not already an `RGXClassToken` (checked via `RGXClassToken.check()`), it is automatically wrapped in an `RGXClassWrapperToken` before being stored. This ensures that all stored constants expose the full class token API. Throws an `RGXConstantConflictError` if a constant with the same name already exists.
+Defines a new RGX constant with the given name and value. If the value is not already an `RGXClassToken` (checked via `RGXClassToken.check()`), it is automatically wrapped in an `RGXClassWrapperToken` before being stored. This ensures that all stored constants expose the full class token API. Throws an `RGXConstantConflictError` if a constant with the same name already exists, or if the value is a reference that leads back to the constant being defined, directly or through other constants defined as references (such as defining `"a"` as `rgxConstant("b")` while `"b"` is defined as `rgxConstant("a")`). Only references at the top of the value are followed, so a constant that refers to itself from inside another token, such as a group, isn't caught here, and overflows the stack when resolved.
 - `name` (`RGXConstantName`): The name for the constant.
 - `value` (`RGXToken`): The token value to associate with the name. Values that are not already `RGXClassToken` instances are automatically wrapped in `RGXClassWrapperToken`.
 
@@ -145,14 +147,25 @@ Defines a new RGX constant with the given name and value. If the value is not al
 
 ### rgxConstant
 ```typescript
-function rgxConstant(name: RGXConstantName): RGXClassToken
+function rgxConstant(name: RGXConstantName, cache?: boolean): RGXConstantToken
 ```
 
-Retrieves the value of an RGX constant by name. Throws an `RGXInvalidConstantKeyError` if no constant with the given name exists.
+Creates a reference to an RGX constant by name (see [constant.md](./class/token/constant.md)). It resolves like the constant, and its JSON form stores the name, so the link to the constant survives serialization. Throws an `RGXInvalidConstantKeyError` if no constant with the given name exists.
+- `name` (`RGXConstantName`): The name of the constant.
+- `cache` (`boolean`, optional): Whether the reference keeps the constant's token after looking it up the first time, instead of looking it up every time it is used. Defaults to `false`.
+
+**Returns:** `RGXConstantToken` - A new reference to the constant.
+
+### rgxConstantValue
+```typescript
+function rgxConstantValue(name: RGXConstantName): RGXClassToken
+```
+
+Retrieves the token an RGX constant is defined as (after wrapping, if applicable), rather than a reference to it. This is the same object every time, so changes made to it affect every use of the constant. Throws an `RGXInvalidConstantKeyError` if no constant with the given name exists.
 
 ### deleteRGXConstant
 ```typescript
-function deleteRGXConstant(name: RGXConstantName): void
+function deleteRGXConstant(name: RGXConstantName): RGXClassToken
 ```
 
-Deletes an existing RGX constant by name. Throws an `RGXInvalidConstantKeyError` if no constant with the given name exists.
+Deletes an existing RGX constant by name, and returns the token it was defined as, so it can be defined again later. References to the constant throw `RGXInvalidConstantKeyError` when used until a constant with the name is defined again, unless they cached it. Throws an `RGXInvalidConstantKeyError` if no constant with the given name exists.

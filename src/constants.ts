@@ -1,8 +1,7 @@
-import { RGXClassToken, rgxClassWrapper, rgxRepeat } from "./class";
+import { RGXClassToken, rgxClassWrapper, RGXConstantToken, rgxRepeat } from "./class";
 import { RGXConstantConflictError, RGXInvalidConstantKeyError } from "./errors";
+import { rgxConstantRegistry as rgxConstants } from "./internal/constantRegistry";
 import { RGXToken } from "./types";
-
-const rgxConstants: Record<string, RGXClassToken> = {};
 
 export const RGX_PREDEFINED_CONSTANTS = {
     // Control Characters
@@ -152,20 +151,44 @@ export function assertNotHasRGXConstant(name: RGXConstantName) {
     }
 }
 
+// Whether following the references starting at value leads back to name, so the constant would refer to itself.
+function refersToRGXConstant(value: RGXToken, name: RGXConstantName): boolean {
+    const seen = new Set<string>();
+    while (RGXConstantToken.check(value) && !seen.has(value.name)) {
+        if (value.name === name) return true;
+        seen.add(value.name);
+        if (!hasRGXConstant(value.name)) return false;
+        value = rgxConstants[value.name]!;
+    }
+    return false;
+}
+
 export function defineRGXConstant(name: RGXConstantName, value: RGXToken) {
     assertNotHasRGXConstant(name);
+    if (refersToRGXConstant(value, name)) {
+        throw new RGXConstantConflictError("A constant can't be defined as a reference to itself.", name);
+    }
     rgxConstants[name] = RGXClassToken.check(value) ? value : rgxClassWrapper(value);
     return rgxConstants[name];
 }
 
-export function rgxConstant(name: RGXConstantName): RGXClassToken {
+// A reference to the constant, which looks it up whenever it is used, or only the first time with caching on.
+export function rgxConstant(name: RGXConstantName, cache: boolean = false): RGXConstantToken {
+    assertHasRGXConstant(name);
+    return new RGXConstantToken(name, cache);
+}
+
+// The token the constant is defined as, rather than a reference to it.
+export function rgxConstantValue(name: RGXConstantName): RGXClassToken {
     assertHasRGXConstant(name);
     return rgxConstants[name]!;
 }
 
-export function deleteRGXConstant(name: RGXConstantName) {
-    assertHasRGXConstant(name);
+// Returns the deleted value, so it can be defined again later.
+export function deleteRGXConstant(name: RGXConstantName): RGXClassToken {
+    const value = rgxConstantValue(name);
     delete rgxConstants[name];
+    return value;
 }
 
 for (const [name, value] of Object.entries(RGX_PREDEFINED_CONSTANTS)) {

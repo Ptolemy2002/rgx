@@ -5,11 +5,11 @@ import {
     createRGXJSONClassToken, createRGXJSONLiteralToken, assertRGXJSONClassTokenOf, rgxJSONClassArgs,
     RGX_BUILTIN_JSON_CLASSES, registerBuiltinRGXJSONClasses,
     RGXClassToken, RGXClassWrapperToken, RGXClassUnionToken, RGXGroupToken, RGXRepeatToken,
-    RGXLookaheadToken, RGXLookbehindToken, RGXExclusionToken, RGXSubpatternToken,
+    RGXLookaheadToken, RGXLookbehindToken, RGXExclusionToken, RGXSubpatternToken, RGXConstantToken,
     ExtRegExp, registerFlagTransformer, unregisterFlagTransformer,
     RGXInvalidJSONClassKeyError, RGXJSONClassConflictError, RGXJSONClassArgsValidationFailedError,
-    RGXNotJSONSerializableError, RGXInvalidJSONTokenError, RGXInvalidTokenError, RGXNotImplementedError, RGXInvalidRegexStringError,
-    RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken, rgxConstant, isRGXSingletonToken, resolveRGXToken, rgxa, RGXInsertionRejectedError
+    RGXNotJSONSerializableError, RGXInvalidJSONTokenError, RGXInvalidTokenError, RGXInvalidConstantKeyError, RGXNotImplementedError, RGXInvalidRegexStringError,
+    RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken, rgxConstant, rgxConstantValue, isRGXSingletonToken, resolveRGXToken, rgxa, RGXInsertionRejectedError
 } from "src/index";
 import { expectError } from "./utils";
 
@@ -298,7 +298,7 @@ describe("rgxTokenToJSON", () => {
     it("resolves plain convertible tokens into literal tokens by default", () => {
         expect(rgxTokenToJSON({ toRgx: () => "abc" })).toEqual({ $rgx: true, source: "abc" });
         expect(rgxTokenToJSON({ toRgx: () => ["a", "b"] })).toEqual({ $rgx: true, source: "a|b" });
-        expect(rgxTokenToJSON(rgxConstant("start"))).toEqual({ $rgx: true, class: "RGXClassWrapperToken", args: [{ $rgx: true, source: "^" }] });
+        expect(rgxTokenToJSON(rgxConstantValue("start"))).toEqual({ $rgx: true, class: "RGXClassWrapperToken", args: [{ $rgx: true, source: "^" }] });
     });
 
     it("removes the groups that resolving adds around the source of a resolved convertible token", () => {
@@ -558,6 +558,23 @@ describe("built-in class token round trips", () => {
 
         expect(fromJSONRejection(RGXSubpatternToken, [])).toMatch(/exactly 1/);
         expect(fromJSONRejection(RGXSubpatternToken, [true])).toMatch(/string or number/);
+    });
+
+    it("RGXConstantToken", () => {
+        const reference = roundTrip(rgxConstant("digit", true)) as RGXConstantToken;
+        expect(reference).toBeInstanceOf(RGXConstantToken);
+        expect(reference.name).toBe("digit");
+        expect(reference.cache).toBe(true);
+        expect(rgxTokenToJSON(rgxConstant("digit"))).toEqual({ $rgx: true, class: "RGXConstantToken", args: ["digit", false] });
+
+        // The name is all that is stored, so the constant doesn't have to exist until the token is used.
+        const missing = RGXConstantToken.fromJSON({ $rgx: true, class: "RGXConstantToken", args: ["not-defined-yet"] });
+        expect(missing.cache).toBe(false);
+        expect(() => missing.resolve()).toThrow(RGXInvalidConstantKeyError);
+
+        expect(fromJSONRejection(RGXConstantToken, [])).toMatch(/between 1 and 2/);
+        expect(fromJSONRejection(RGXConstantToken, [1])).toMatch(/name/);
+        expect(fromJSONRejection(RGXConstantToken, ["digit", "yes"])).toMatch(/cache/);
     });
 
     it("rejects JSON for a different class", () => {

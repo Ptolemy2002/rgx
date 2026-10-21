@@ -39,7 +39,8 @@ type RGXJSONClassTokenConstructor = {
 };
 type RGXJSONBuiltinClassName =
     "RGXClassWrapperToken" | "RGXClassUnionToken" | "RGXGroupToken" | "RGXRepeatToken" |
-    "RGXLookaheadToken" | "RGXLookbehindToken" | "RGXExclusionToken" | "RGXSubpatternToken";
+    "RGXLookaheadToken" | "RGXLookbehindToken" | "RGXExclusionToken" | "RGXSubpatternToken" |
+    "RGXConstantToken";
 type RGXJSONClassName = RGXJSONBuiltinClassName | (string & {});
 type RGXTokenToJSONOptions = {
     resolveConvertible?: boolean;
@@ -69,7 +70,7 @@ const json = rgxTokenToJSON(token);
 //     $rgx: true, class: "RGXGroupToken",
 //     args: [{ name: "num", capturing: true, flags: null }, [
 //         { $rgx: true, class: "RGXRepeatToken", args: [
-//             { $rgx: true, class: "RGXClassWrapperToken", args: [{ $rgx: true, source: "\\d" }] },
+//             { $rgx: true, class: "RGXConstantToken", args: ["digit", false] },
 //             1, 3, false
 //         ] }
 //     ]]

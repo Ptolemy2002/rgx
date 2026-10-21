@@ -26,6 +26,7 @@ See [MIGRATION.md](./MIGRATION.md#1500) for details and update instructions.
 - `ExtRegExp` has an `originalSource` property. JSON for `ExtRegExp` literals stores the original source and custom flags, and building an `ExtRegExp` from another one (or calling `regexWithFlags` on one) rebuilds it from its original source, so custom flags can be removed.
 - The accent-insensitive flag covers every Latin letter with accented forms, including escapes, combining marks, character classes and character sets such as `\w`. Use `setAccentInsensitiveSetExpansion(false)` to leave character sets alone.
 - `RGXNotDirectRegExpError` and the `NOT_DIRECT_REGEXP` error code are removed.
+- `rgxConstant` returns an `RGXConstantToken` that refers to the constant by name, instead of the token the constant is stored as. Use `rgxConstantValue` for the stored token. Defining a constant as a reference to itself throws `RGXConstantConflictError`.
 
 ### Added
 
@@ -33,6 +34,9 @@ See [MIGRATION.md](./MIGRATION.md#1500) for details and update instructions.
 - Dynamic parts, whose token is produced from the walker's state each time they're captured (`part.isDynamic()`, `part.resolveToken(walker)`).
 - Walker steps that are unions of parts and tokens, nested to any depth.
 - `validateRGXLexemeDefinition`.
+- `RGXConstantToken`, a reference to a constant by name that keeps the link through JSON, with an option to cache the looked-up token.
+- `rgxConstantValue`, which returns the token a constant is stored as.
+- `deleteRGXConstant` returns the deleted token.
 - Documentation for the walker's `snapshot()` and `restore()` methods and their types.
 
 ### Fixed

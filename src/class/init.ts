@@ -10,6 +10,7 @@ import { RGXLookbehindToken } from "./lookbehind";
 import { RGXExclusionToken } from "./exclusion";
 import { RGXClassWrapperToken } from "./wrapper";
 import { RGXSubpatternToken } from "./subpattern";
+import { RGXConstantToken } from "./constant";
 import { hasRGXJSONClass, registerRGXJSONClassToken, RGXJSONBuiltinClassName, RGXJSONClassTokenConstructor } from "src/json";
 
 export const RGX_BUILTIN_JSON_CLASSES: Record<RGXJSONBuiltinClassName, RGXJSONClassTokenConstructor> = {
@@ -20,7 +21,8 @@ export const RGX_BUILTIN_JSON_CLASSES: Record<RGXJSONBuiltinClassName, RGXJSONCl
     RGXLookaheadToken,
     RGXLookbehindToken,
     RGXExclusionToken,
-    RGXSubpatternToken
+    RGXSubpatternToken,
+    RGXConstantToken
 };
 
 export function registerBuiltinRGXJSONClasses() {
