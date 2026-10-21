@@ -115,10 +115,11 @@ describe("insertion context", () => {
         ];
 
         rgxa(containers);
-        // The exclusion token places its token and terminal separately.
-        expect(contexts).toHaveLength(containers.length + 1);
-        for (const context of contexts) expect(context.parent).not.toBeNull();
-        expect(contexts.map(c => path(c)[0])).toEqual([0, 1, 2, 3, 4, 5, 6, 6, 7, 8, 9]);
+        // The exclusion token places its token and terminal separately, and the wrapper passes its own placement
+        // to the wrapped token before the wrapped token is placed inside it.
+        expect(contexts).toHaveLength(containers.length + 2);
+        expect(contexts.map(c => c.parent === null)).toEqual(contexts.map((_, i) => i === 5));
+        expect(contexts.map(c => path(c)[0])).toEqual([0, 1, 2, 3, 4, 5, 5, 6, 6, 7, 8, 9]);
     });
 
     it("checks JSON class tokens through the class tokens they convert to", () => {

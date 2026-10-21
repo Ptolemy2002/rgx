@@ -1,6 +1,9 @@
 import { RGXClassToken, RGXClassWrapperToken, rgxClassWrapper } from "src/class";
 import { ConstructFunction } from "src/internal";
-import { RGXInvalidTokenError } from "src/errors";
+import { RGXInsertionRejectedError, RGXInvalidTokenError } from "src/errors";
+import { defineRGXConstant, deleteRGXConstant, rgxConstant } from "src/constants";
+import { RGXInsertionContext } from "src/types";
+import { rgxa } from "src/index";
 
 class TestClassToken1 extends RGXClassToken {
     toRgx() {
@@ -113,6 +116,32 @@ describe("RGXClassWrapperToken", () => {
 
         it("keeps an explicit true preference of tokens that consume no characters", () => {
             expect(new RGXClassWrapperToken({ toRgx: () => /^/, rgxIsRepeatable: true }).rgxIsRepeatable).toBe(true);
+        });
+    });
+
+    describe("rgxAcceptInsertion", () => {
+        const startOnly = { toRgx: () => "x", rgxAcceptInsertion: (context: RGXInsertionContext) => context.index === 0 || "must be first" };
+
+        it("delegates to the wrapped token", () => {
+            const instance = new RGXClassWrapperToken(startOnly);
+            expect(rgxa([instance, "y"]).source).toBe("xy");
+            expect(() => rgxa(["y", instance])).toThrow(RGXInsertionRejectedError);
+        });
+
+        it("delegates to the token a JSON class token converts to", () => {
+            defineRGXConstant("test-wrapper-start-only", rgxClassWrapper(startOnly));
+            try {
+                const instance = new RGXClassWrapperToken(rgxConstant("test-wrapper-start-only").toJSON());
+                expect(rgxa([instance, "y"]).source).toBe("xy");
+                expect(() => rgxa(["y", instance])).toThrow(RGXInsertionRejectedError);
+            } finally {
+                deleteRGXConstant("test-wrapper-start-only");
+            }
+        });
+
+        it("accepts when the wrapped token has no insertion preference", () => {
+            expect(rgxa(["y", new RGXClassWrapperToken("a")]).source).toBe("ya");
+            expect(rgxa(["y", new RGXClassWrapperToken({ toRgx: () => "a" })]).source).toBe("ya");
         });
     });
 

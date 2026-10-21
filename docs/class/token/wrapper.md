@@ -34,7 +34,7 @@ type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXInte
 ```
 
 # RGXClassWrapperToken
-A class that wraps any `RGXToken` as an `RGXClassToken`, giving you access to the extended API class tokens provide. It delegates `rgxIsRepeatable` to the wrapped token where possible.
+A class that wraps any `RGXToken` as an `RGXClassToken`, giving you access to the extended API class tokens provide. It delegates `rgxIsRepeatable` and `rgxAcceptInsertion` to the wrapped token where possible.
 
 A function `rgxClassWrapper` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
 
@@ -56,6 +56,7 @@ These properties only have getters.
 - `rgxIsRepeatable` (`boolean`): If the wrapped token is an `RGXConvertibleToken` with an `rgxIsRepeatable` preference, delegates to it. If the wrapped token is an interpolation token, returns `false`. Otherwise (including convertible tokens without a preference and non-convertible tokens such as literals), returns whether the wrapped token is detected as consuming characters (see `isRGXToken` in [type-guards.md](../../type-guards.md)), which matches whether the wrapped token itself is repeatable. If the wrapped token is a JSON object token, it is first converted with `rgxTokenFromJSON` and the converted token is checked instead.
 
 ## Methods
+- `rgxAcceptInsertion(context: RGXInsertionContext) => string | boolean`: If the wrapped token is an `RGXConvertibleToken` with an `rgxAcceptInsertion` method, returns the result of calling it with `context`, so the wrapped token can accept or reject the wrapper's placement. Otherwise, returns `true`. If the wrapped token is a JSON object token, it is first converted with `rgxTokenFromJSON` and the converted token is checked instead. The wrapped token is still checked again at its own placement inside the wrapper when the pattern is built.
 - `unwrap() => RGXToken`: Returns the original wrapped token.
 - `toRgx() => RGXToken`: Returns the original wrapped token (alias for `unwrap()`).
 - `clone(depth: CloneDepth = "max") => ThisType<this>`: Creates a clone of this instance to a specified depth: `0` for no clone, `1` for a shallow clone of the top-level token, any other number for that many levels down, and `"max"` (the default) for a full deep clone.

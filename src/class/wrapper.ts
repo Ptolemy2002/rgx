@@ -1,4 +1,4 @@
-import { RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken } from "src/types";
+import { RGXInsertionContext, RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken } from "src/types";
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
 import { RGXClassToken } from "./base";
 import { isRGXJSONObjectToken, isRGXJSONToken, isRGXToken } from "src/typeGuards";
@@ -33,6 +33,13 @@ export class RGXClassWrapperToken extends RGXClassToken {
         if (isRGXToken(token, 'convertible', true, false) && token.rgxIsRepeatable !== undefined) return token.rgxIsRepeatable;
         // Otherwise, the wrapper is detected like any other convertible token.
         return !isNonConsumingRGXToken(token);
+    }
+
+    rgxAcceptInsertion(context: RGXInsertionContext): string | boolean {
+        // JSON class tokens become class tokens, which may have insertion preferences.
+        const token = isRGXJSONObjectToken(this.token, false) ? rgxTokenFromJSON(this.token) : this.token;
+        if (!isRGXToken(token, 'convertible', true, false) || !token.rgxAcceptInsertion) return true;
+        return token.rgxAcceptInsertion(context);
     }
 
     unwrap(): RGXToken {
