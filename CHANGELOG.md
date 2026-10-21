@@ -21,7 +21,7 @@ See [MIGRATION.md](./MIGRATION.md#1500) for details and update instructions.
 - Backreferences are validated in finished patterns and walker steps, and invalid ones throw `RGXInvalidBackreferenceError`. Duplicate group names that only meet in the finished pattern throw `RGXDuplicateGroupNameError`.
 - Walker steps are checked when the walker is created (`RGXInvalidWalkerStepError`), group names starting with `rgx_branch_` are reserved (`RGXReservedGroupNameError`), and `RGXLexer` validates its lexeme definitions when it is created.
 - `RGXPart.token` can be a function of the walker's state, so it's typed `RGXPartToken` instead of `RGXToken`. Use `part.resolveToken(walker)` to get the token.
-- Walker steps can be unions of parts. Nested unions are flattened, so `capture.branch` counts the flattened union, branch groups are hidden from `capture.groups`, and steps are typed `RGXWalkerStep`.
+- Walker steps can be unions of parts. Nested unions are flattened, so `capture.branch` counts the flattened union, the walker's internal `rgx_branch_*` groups are left out of `capture.groups` (your own named groups are kept), and steps are typed `RGXWalkerStep`.
 - `rgxParse` merges nested named groups into aliases by default (`mergeAliases: true`).
 - `ExtRegExp` has an `originalSource` property. JSON for `ExtRegExp` literals stores the original source and custom flags, and building an `ExtRegExp` from another one (or calling `regexWithFlags` on one) rebuilds it from its original source, so custom flags can be removed.
 - The accent-insensitive flag covers every Latin letter with accented forms, including escapes, combining marks, character classes and character sets such as `\w`. Use `setAccentInsensitiveSetExpansion(false)` to leave character sets alone.
