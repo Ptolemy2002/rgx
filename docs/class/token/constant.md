@@ -63,7 +63,7 @@ constructor(name: RGXConstantName, cache: boolean = false)
 - `clearCache() => void`: Forgets the cached token, so the next use looks the constant up again.
 - `toRgx() => RGXClassToken`: Returns `getConstant()`, which the resolver then resolves in place of this token.
 - `rgxIsRepeatable` (`boolean | undefined`): The `rgxIsRepeatable` of `getConstant()`. This property only has a getter.
-- `rgxAcceptInsertion(context: RGXInsertionContext) => string | boolean`: Returns the result of `getConstant().rgxAcceptInsertion(context)`.
+- `rgxAcceptInsertion(context: RGXInsertionContext) => string | boolean`: Returns the result of `getConstant().rgxAcceptInsertion(context)`. When the pattern is built, the constant's token is only checked through this method, at the reference's placement, and not again inside the reference.
 - `clone(depth: CloneDepth = "max") => RGXConstantToken`: Creates a clone of this token. When `depth` is `0`, returns `this`; otherwise, returns a new `RGXConstantToken` with the same `name` and `cache`. The cached token isn't copied, since it belongs to the constant, so the clone looks the constant up again.
 - `toJSON() => RGXJSONClassToken`: Returns a JSON class token with `class` set to `"RGXConstantToken"` and `args` set to `[name, cache]`. The cached token isn't stored, so a cached reference converted back from JSON caches whatever the constant is defined as when it is first used. The result is accepted by `fromJSON` and by `rgxTokenFromJSON` (see [../../json.md](../../json.md)).
 

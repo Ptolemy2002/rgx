@@ -52,14 +52,15 @@ export function withRGXInsertionFlags<T>(transform: (flags: ValidRegexFlags) => 
 }
 
 // Checks that siblings[index] accepts being inserted at the current level, then runs resolve with the token as the
-// container of a new level. resolve must resolve the token itself.
-export function placeRGXToken<T>(siblings: readonly RGXToken[], index: number, resolve: () => T): T {
+// container of a new level. resolve must resolve the token itself. With check set to false, the token is placed
+// without being checked, for tokens whose container already passed its own check along to them.
+export function placeRGXToken<T>(siblings: readonly RGXToken[], index: number, resolve: () => T, check: boolean = true): T {
     const frame = currentFrame();
     if (frame === null) return resolve();
 
     const token = siblings[index];
     const context: RGXInsertionContext = Object.freeze({ flags: frame.flags, siblings, index, parent: frame.parent, container: frame.container });
-    assureAcceptance(token, context);
+    if (check) assureAcceptance(token, context);
 
     return withFrame({ flags: frame.flags, parent: context, container: token, pending: true }, resolve);
 }

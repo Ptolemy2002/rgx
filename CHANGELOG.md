@@ -44,7 +44,8 @@ See [MIGRATION.md](./MIGRATION.md#1500) for details and update instructions.
 - `accentInsensitiveFlagTransformer` parses the pattern instead of scanning it with lookbehinds, so it no longer replaces letters that are part of other syntax, such as group names (`(?<value>...)`, `\k<value>`), property escapes (`\p{Script=Latin}`) and escapes like `\u0025`.
 - A walker snapshot can be restored more than once, since its values are cloned on restore.
 - `RGXClassToken.clone()` keeps the `validate` setting of parts.
-- `RGXClassWrapperToken` passes `rgxAcceptInsertion` to the wrapped token, so the wrapped token can reject the wrapper's placement instead of only being checked at its own placement inside the wrapper.
+- `RGXClassWrapperToken` passes `rgxAcceptInsertion` to the wrapped token, so the wrapped token can reject the wrapper's placement instead of only being checked at its own placement inside the wrapper. The wrapped token is checked once, at the wrapper's placement.
+- The token an `RGXConstantToken` refers to is checked for insertion once, at the reference's placement, instead of a second time inside the reference.
 
 ---
 

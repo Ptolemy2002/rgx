@@ -1,4 +1,4 @@
-import { removeRgxUnionDuplicates } from "./class";
+import { removeRgxUnionDuplicates, RGXClassWrapperToken, RGXConstantToken } from "./class";
 import * as e from "./errors";
 import { assertValidRegexFlags } from "./ExtRegExp";
 import * as tg from "./typeGuards";
@@ -76,7 +76,10 @@ export function resolveRGXToken(token: t.RGXToken, options: ResolveRGXTokenOptio
             // A single token returned by toRgx() (such as the token an RGXClassWrapperToken wraps) is placed inside
             // this one. Arrays place their own members.
             if (tg.isRGXArrayToken(result, false)) return resolveRGXToken(result, resultOptions);
-            return placeRGXToken([result], 0, () => resolveRGXToken(result, resultOptions));
+            // Wrappers and constant references pass their own check along to the token they return, so it isn't
+            // checked again.
+            const passesCheckAlong = RGXClassWrapperToken.check(token) || RGXConstantToken.check(token);
+            return placeRGXToken([result], 0, () => resolveRGXToken(result, resultOptions), !passesCheckAlong);
         }
 
         // Interpret arrays as unions

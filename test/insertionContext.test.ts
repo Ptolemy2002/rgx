@@ -2,7 +2,8 @@ import rgx, {
     rgxa, rgxwa, rgxConcat, resolveRGXToken, rgxTokenToJSON, isRGXSingletonToken, isRGXConvertibleToken,
     RGXClassToken, RGXClassWrapperToken, RGXGroupToken, RGXLookaheadToken, RGXRepeatToken, RGXExclusionToken,
     RGXClassUnionToken, RGXInsertionRejectedError, RGXInvalidTokenError, RGXPart,
-    RGXInsertionContext, RGXToken, registerRGXJSONClassToken, unregisterRGXJSONClass, createRGXJSONClassToken
+    RGXInsertionContext, RGXToken, registerRGXJSONClassToken, unregisterRGXJSONClass, createRGXJSONClassToken,
+    defineRGXConstant, deleteRGXConstant, rgxConstant
 } from "src/index";
 import { expectError } from "./utils";
 
@@ -99,6 +100,34 @@ describe("insertion context", () => {
         expect(contexts.map(c => c.flags)).toEqual(["gi", "gm"]);
     });
 
+    it("checks tokens returned by wrappers and constant references once, at the placement of the container", () => {
+        const { token, contexts } = recordingToken();
+        defineRGXConstant("test-recording", new RGXClassWrapperToken(token));
+        try {
+            const wrapper = new RGXClassWrapperToken(token);
+            const reference = rgxConstant("test-recording");
+            rgxa(["a", wrapper, reference]);
+
+            expect(contexts).toHaveLength(2);
+            expect(contexts.map(c => [c.index, c.parent])).toEqual([[1, null], [2, null]]);
+        } finally {
+            deleteRGXConstant("test-recording");
+        }
+    });
+
+    it("still places the contents of tokens returned by wrappers inside them", () => {
+        const { token, contexts } = recordingToken();
+        const group = new RGXGroupToken({}, [token]);
+        const wrapper = new RGXClassWrapperToken(group);
+        rgxa(["a", wrapper]);
+
+        expect(contexts).toHaveLength(1);
+        const [context] = contexts;
+        expect(context!.container).toBe(group);
+        expect(context!.parent).toMatchObject({ index: 0, container: wrapper });
+        expect(context!.parent!.parent).toMatchObject({ index: 1, container: null, parent: null });
+    });
+
     it("checks tokens nested in every kind of container", () => {
         const { token, contexts } = recordingToken();
         const containers: RGXToken[] = [
@@ -116,10 +145,10 @@ describe("insertion context", () => {
 
         rgxa(containers);
         // The exclusion token places its token and terminal separately, and the wrapper passes its own placement
-        // to the wrapped token before the wrapped token is placed inside it.
-        expect(contexts).toHaveLength(containers.length + 2);
+        // to the wrapped token instead of checking it inside the wrapper.
+        expect(contexts).toHaveLength(containers.length + 1);
         expect(contexts.map(c => c.parent === null)).toEqual(contexts.map((_, i) => i === 5));
-        expect(contexts.map(c => path(c)[0])).toEqual([0, 1, 2, 3, 4, 5, 5, 6, 6, 7, 8, 9]);
+        expect(contexts.map(c => path(c)[0])).toEqual([0, 1, 2, 3, 4, 5, 6, 6, 7, 8, 9]);
     });
 
     it("checks JSON class tokens through the class tokens they convert to", () => {
