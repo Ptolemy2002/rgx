@@ -48,6 +48,8 @@ See [MIGRATION.md](./MIGRATION.md#1500) for details and update instructions.
 - The token an `RGXConstantToken` refers to is checked for insertion once, at the reference's placement, instead of a second time inside the reference.
 - Resolving a convertible token calls its `toRgx()` once instead of twice (once was only to check the return value). Since this doubled the work at every level of nesting, resolving deeply nested class tokens is much faster (6 levels of `rgxRepeat(rgxGroup(...))` went from about 110ms to under 1ms). An invalid return value still throws `RGXInvalidTokenError`.
 - `RGXWalker` resolves a step that isn't a union once instead of twice, reusing the source it already resolved to check the step.
+- `isRGXConvertibleToken` no longer reads the `rgxIsRepeatable` getter of class tokens, and reads it once for other tokens. An `RGXClassWrapperToken` (or a constant reference to one) computes it by resolving the wrapped token, so every check of a wrapper resolved its token twice, and nested wrappers took exponential time (6 levels went from about 490ms to under 1ms).
+- `RGXClassWrapperToken`, `toRGXClassToken` and `isRGXSingletonToken` (with JSON tokens accepted) no longer call `toRgx()` just to check a token they resolve anyway. An invalid token still fails when it's resolved.
 
 ---
 

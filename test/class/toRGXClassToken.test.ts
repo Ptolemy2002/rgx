@@ -14,6 +14,12 @@ describe('toRGXClassToken', () => {
         expect((classToken as RGXClassUnionToken).tokens).toEqual(token);
     });
 
+    it("doesn't call the toRgx() of an array's members", () => {
+        const toRgx = jest.fn(() => 'a');
+        expect(toRGXClassToken([{ toRgx }, 'b'])).toBeInstanceOf(RGXClassUnionToken);
+        expect(toRgx).not.toHaveBeenCalled();
+    });
+
     it('wraps other tokens in a RGXClassWrapperToken', () => {
         const token = 'native';
         const classToken = toRGXClassToken(token);

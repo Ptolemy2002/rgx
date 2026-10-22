@@ -26,7 +26,8 @@ const warnedNonConsumingTokens = new WeakSet<object>();
 // Repeating a token explicitly marked as repeatable is allowed even if it consumes no characters, since it does no harm,
 // but it is almost certainly a mistake.
 function warnIfRepeatingNonConsuming(value: RGXToken) {
-    if (!isRGXToken(value, "convertible") || warnedNonConsumingTokens.has(value)) return;
+    // The value was already checked by the setter, so it only has to be an object to have been warned about.
+    if (typeof value !== "object" || value === null || warnedNonConsumingTokens.has(value)) return;
 
     // JSON class tokens become class tokens, which may be marked as repeatable.
     const token = isRGXJSONObjectToken(value, false) ? rgxTokenFromJSON(value) : value;

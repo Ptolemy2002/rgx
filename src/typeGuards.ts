@@ -47,8 +47,13 @@ export function assertRGXNativeToken(value: unknown): asserts value is t.RGXNati
 
 export function isRGXConvertibleToken(value: unknown, returnCheck: boolean = true, acceptJSON: boolean = true): value is t.RGXConvertibleToken {
     if (typeof value === 'object' && value !== null && 'toRgx' in value) {
-        // The rgxIsRepeatable property is optional, but if it is set it must be a boolean.
-        if ('rgxIsRepeatable' in value && value.rgxIsRepeatable !== undefined && typeof value.rgxIsRepeatable !== 'boolean') return false;
+        // The rgxIsRepeatable property is optional, but if it is set it must be a boolean. Class tokens define it as a
+        // getter typed to return one, and some (such as wrappers) resolve a token to compute it, so it isn't read for
+        // them. Otherwise, it's read once, in case it's a getter.
+        if (!RGXClassToken.check(value) && 'rgxIsRepeatable' in value) {
+            const rgxIsRepeatable = value.rgxIsRepeatable;
+            if (rgxIsRepeatable !== undefined && typeof rgxIsRepeatable !== 'boolean') return false;
+        }
 
         // If the rgxAcceptInsertion property exists, it must be a function. It is only called while a pattern is being
         // built, where its return value is checked, since calling it here would run it outside of any real placement.
@@ -338,10 +343,12 @@ export function assertRGXToken<
 // Whether the token resolves to a singleton: exactly one unit that a quantifier can apply to as a whole, such as a
 // single character, escape, character class, or (non-assertion) group.
 export function isRGXSingletonToken(value: unknown, acceptJSON: boolean = true): value is t.RGXToken {
-    if (!isRGXToken(value, null, true, acceptJSON)) return false;
+    // Resolving rejects anything that isn't a token, so the token only has to be checked first when JSON tokens aren't
+    // accepted, since resolving accepts them. Checking it otherwise would call each toRgx() once just for the check.
+    if (!acceptJSON && !isRGXToken(value, null, true, false)) return false;
 
     try {
-        return isSingletonRegexSource(withoutRGXInsertionChecks(() => resolveRGXToken(value)));
+        return isSingletonRegexSource(withoutRGXInsertionChecks(() => resolveRGXToken(value as t.RGXToken)));
     } catch (err) {
         // Tokens that can't be resolved on their own (such as unbalanced interpolations) aren't singletons.
         if (err instanceof e.RGXError) return false;

@@ -1,7 +1,7 @@
 import { RGXInsertionContext, RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken } from "src/types";
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
 import { RGXClassToken } from "./base";
-import { isRGXJSONObjectToken, isRGXJSONToken, isRGXToken } from "src/typeGuards";
+import { isRGXConvertibleToken, isRGXJSONObjectToken, isRGXJSONToken, isRGXToken } from "src/typeGuards";
 import { createConstructFunction, isNonConsumingRGXToken } from "src/internal";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
@@ -29,8 +29,9 @@ export class RGXClassWrapperToken extends RGXClassToken {
         // JSON tokens become literal, class, or interpolation tokens, so check the converted token instead.
         const token = isRGXJSONObjectToken(this.token, false) ? rgxTokenFromJSON(this.token) : this.token;
         if (isRGXToken(token, 'interpolation', true, false)) return false;
-        // Explicit preferences of convertible tokens are kept.
-        if (isRGXToken(token, 'convertible', true, false) && token.rgxIsRepeatable !== undefined) return token.rgxIsRepeatable;
+        // Explicit preferences of convertible tokens are kept. The return value of toRgx() isn't checked, since that would
+        // call it just for the check. An invalid one is caught when the wrapper is resolved.
+        if (isRGXConvertibleToken(token, false) && token.rgxIsRepeatable !== undefined) return token.rgxIsRepeatable;
         // Otherwise, the wrapper is detected like any other convertible token.
         return !isNonConsumingRGXToken(token);
     }
@@ -38,7 +39,7 @@ export class RGXClassWrapperToken extends RGXClassToken {
     rgxAcceptInsertion(context: RGXInsertionContext): string | boolean {
         // JSON class tokens become class tokens, which may have insertion preferences.
         const token = isRGXJSONObjectToken(this.token, false) ? rgxTokenFromJSON(this.token) : this.token;
-        if (!isRGXToken(token, 'convertible', true, false) || !token.rgxAcceptInsertion) return true;
+        if (!isRGXConvertibleToken(token, false) || !token.rgxAcceptInsertion) return true;
         return token.rgxAcceptInsertion(context);
     }
 

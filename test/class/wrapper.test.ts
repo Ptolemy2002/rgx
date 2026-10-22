@@ -139,6 +139,13 @@ describe("RGXClassWrapperToken", () => {
             }
         });
 
+        it("calls the wrapped token's toRgx() only to resolve it", () => {
+            const toRgx = jest.fn(() => "x");
+            const instance = new RGXClassWrapperToken({ toRgx, rgxAcceptInsertion: () => true });
+            rgxa([instance]);
+            expect(toRgx).toHaveBeenCalledTimes(1);
+        });
+
         it("accepts when the wrapped token has no insertion preference", () => {
             expect(rgxa(["y", new RGXClassWrapperToken("a")]).source).toBe("ya");
             expect(rgxa(["y", new RGXClassWrapperToken({ toRgx: () => "a" })]).source).toBe("ya");

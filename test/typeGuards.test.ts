@@ -7,7 +7,7 @@ import {
     RGXClassToken,
     isValidIdentifier, assertValidIdentifier,
     RGXInvalidIdentifierError, ExtRegExp,
-    isRGXSingletonToken, assertRGXSingletonToken, RGXGroupToken, RGXLookaheadToken,
+    isRGXSingletonToken, assertRGXSingletonToken, RGXGroupToken, RGXLookaheadToken, RGXClassWrapperToken,
     isValidRegexLocalizableFlagDiff, assertValidRegexLocalizableFlagDiff,
     isValidRegexLocalizableFlags, assertValidRegexLocalizableFlags,
     RGXInvalidRegexLocalizableFlagsError,
@@ -302,6 +302,20 @@ describe('Type Guards', () => {
             expect(() => assertRGXConvertibleToken(token)).toThrow(RGXInvalidTokenError);
         });
 
+        it('reads an rgxIsRepeatable getter once', () => {
+            const getter = jest.fn(() => true);
+            const token = { toRgx: () => 'foo', get rgxIsRepeatable() { return getter(); } };
+            expect(isRGXConvertibleToken(token, false)).toBe(true);
+            expect(getter).toHaveBeenCalledTimes(1);
+        });
+
+        it("doesn't read the rgxIsRepeatable getter of class tokens", () => {
+            const token = new RGXClassWrapperToken('foo');
+            const getter = jest.spyOn(token, 'rgxIsRepeatable', 'get');
+            expect(isRGXConvertibleToken(token, false)).toBe(true);
+            expect(getter).not.toHaveBeenCalled();
+        });
+
         it('rejects interpolation tokens', () => {
             expect(isRGXConvertibleToken({ rgxInterpolation: 'foo' })).toBe(false);
         });
@@ -401,6 +415,14 @@ describe('Type Guards', () => {
         it('rejects values that are not tokens', () => {
             expect(isRGXSingletonToken({ invalid: true })).toBe(false);
             expect(() => assertRGXSingletonToken({ invalid: true })).toThrow(RGXInvalidTokenError);
+            expect(isRGXSingletonToken({ toRgx: () => ({ invalid: true }) })).toBe(false);
+            expect(isRGXSingletonToken([{ invalid: true }])).toBe(false);
+        });
+
+        it('calls toRgx() once', () => {
+            const toRgx = jest.fn(() => 'a');
+            expect(isRGXSingletonToken({ toRgx })).toBe(true);
+            expect(toRgx).toHaveBeenCalledTimes(1);
         });
     });
 
