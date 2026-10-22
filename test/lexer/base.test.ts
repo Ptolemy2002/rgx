@@ -1514,4 +1514,51 @@ describe("RGXLexer", () => {
             ]);
         });
     });
+
+    describe("branchErrors", () => {
+        const failing = (raw: string) => rgxPart(raw, { id: raw, validate: () => `no ${raw}` });
+
+        it("collects the branch errors of every step of a walk definition", () => {
+            const lexer = new RGXLexer("ab", {
+                default: [{ id: "walk", type: "walk", tokens: [[failing("a"), "a"], [failing("b"), "b"]] }]
+            });
+
+            expect(lexer.consume()).toMatchObject({ id: "walk", raw: "ab" });
+            expect(lexer.branchErrors).toEqual([
+                expect.objectContaining({ id: "walk", tokenPosition: 0, capture: expect.objectContaining({ ownerId: "a" }) }),
+                expect.objectContaining({ id: "walk", tokenPosition: 1, capture: expect.objectContaining({ ownerId: "b" }) })
+            ]);
+            expect(lexer.branchErrors[0]!.error).toBeInstanceOf(RGXPartValidationFailedError);
+        });
+
+        it("collects the branch errors of walk definitions that failed, including the thrown error", () => {
+            const lexer = new RGXLexer("a", {
+                default: [
+                    { id: "walk", type: "walk", tokens: [[failing("a"), rgxPart("a", { id: "other", validate: () => false })]], priority: 1 },
+                    { id: "resolve", type: "resolve", token: "a" }
+                ]
+            });
+
+            expect(lexer.consume()).toMatchObject({ id: "resolve" });
+            expect(lexer.branchErrors.map(({ id, capture }) => [id, capture.ownerId])).toEqual([["walk", "a"], ["walk", "other"]]);
+        });
+
+        it("only keeps the branch errors of the latest attempt", () => {
+            const lexer = new RGXLexer("aa", {
+                default: [{ id: "walk", type: "walk", tokens: [[failing("a"), "a"]] }]
+            });
+
+            lexer.consume();
+            const first = lexer.branchErrors;
+            expect(first).toHaveLength(1);
+
+            lexer.consume();
+            expect(lexer.branchErrors).toHaveLength(1);
+            expect(lexer.branchErrors).not.toBe(first);
+
+            expect(lexer.consume()).toBe(null);
+            expect(lexer.branchErrors).toEqual([]);
+            expect(first).toHaveLength(1);
+        });
+    });
 });

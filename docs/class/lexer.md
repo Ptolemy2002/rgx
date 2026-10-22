@@ -79,6 +79,17 @@ type RGXLexemeDefinitions<Data, Share=unknown> = Readonly<Record<string, Readonl
 type RGXLexerOptions = {
     resolveOnce?: boolean;
 };
+
+// A validation error from a branch of a union step, whether the branch was dropped or the error was thrown.
+// See walker.md for RGXCapture.
+type RGXWalkerBranchError = {
+    error: RGXPartValidationFailedError;
+    capture: RGXCapture; // The capture that failed validation
+    tokenPosition: number; // The position of the step in the walker's tokens
+};
+
+// A branch error from a "walk" definition, with the id of that definition.
+type RGXLexerBranchError = RGXWalkerBranchError & { id: string };
 ```
 
 # Lexeme Definition
@@ -147,6 +158,7 @@ Every lexeme definition, in every mode, is checked with `validateRGXLexemeDefini
 - `lexemeDefinitions` (`RGXLexemeDefinitions<Data, Share>`): The finalized, priority-sorted map of mode names to lexeme definition arrays (readonly).
 - `resolveOnce` (`boolean`): Whether definitions are resolved once (see the constructor) (readonly).
 - `matched` (`RGXLexeme<Data>[]`): The array of lexemes that have been consumed and logged so far (i.e., produced by `consume` or `expectConsume` with `log` enabled).
+- `branchErrors` (`RGXLexerBranchError[]`): The validation errors of union branches in the `"walk"` definitions tried by the latest attempt to match a lexeme (`consume`, `peek`, `expectConsume`, `expectPeek`, and each lexeme `skip`, `consumeAll`, `consumeWhile` and `consumeUntil` match), in the order they happened. Unlike the walker's `branchErrors`, which only covers its latest step, this covers every step of each walk, including definitions that failed (with the error the walk threw) before another one matched. Each entry is the walker's `RGXWalkerBranchError` (see [walker.md](./walker.md#unions-of-parts)) with the `id` of the definition. Each attempt starts a new array, so an array read after one attempt keeps that attempt's errors. After an attempt throws `RGXLexemeNotMatchedAtPositionError`, it holds the errors of every definition that was tried.
 
 ## Methods
 ### validateMode

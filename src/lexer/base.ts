@@ -5,7 +5,7 @@ import {
     LexemeNotMatchedCause, RGXLexemeNotMatchedAtPositionError,
     isLexemeNotMatchedCauseError, RGXInvalidLexerError
 } from "src/errors";
-import { RGXWalker, RGXWalkerOptions, RGXWalkerStep } from "src/walker";
+import { RGXWalker, RGXWalkerBranchError, RGXWalkerOptions, RGXWalkerStep } from "src/walker";
 import { validateRGXWalkerSteps } from "src/walker/base";
 import { assertValidRegexReferences, collectRGXReferences, placeRGXToken, withRGXInsertionRoot } from "src/internal";
 import { assertRegexMatchesAtPosition, createRegex, regexMatchAtPosition } from "src/utils";
@@ -38,6 +38,9 @@ export type RGXLexeme<Data> = {
     end: RGXLexemeLocation,
     data?: Data
 };
+
+// A validation error from a branch of a union step in a "walk" definition, with the id of that definition.
+export type RGXLexerBranchError = RGXWalkerBranchError & { id: string };
 
 export type RGXLexemeDefinitions<Data, Share=unknown> = Readonly<Record<string, ReadonlyArray<RGXLexemeDefinition<Data, Share>>>>;
 type MutableRGXLexemeDefinitions<Data, Share=unknown> = Record<string, ReadonlyArray<RGXLexemeDefinition<Data, Share>>>;
@@ -85,6 +88,8 @@ export class RGXLexer<Data, Share=unknown> {
     // Map mode to the lexeme definitions for that mode.
     readonly lexemeDefinitions: RGXLexemeDefinitions<Data, Share>;
     readonly matched: RGXLexeme<Data>[] = [];
+    // The branch errors of every "walk" definition tried by the latest attempt to match a lexeme.
+    branchErrors: RGXLexerBranchError[] = [];
     readonly resolveOnce: boolean;
 
     // The regexes of resolve definitions and of skipped whitespace, when they are resolved once.
@@ -166,8 +171,18 @@ export class RGXLexer<Data, Share=unknown> {
                 startingSourcePosition: startPosition
             });
             
+            // The walker only keeps the branch errors of its latest step, so they're collected before each step (in the
+            // predicate) and after the last one. Otherwise, this is the same as walker.walk().
+            const collectBranchErrors = () => {
+                for (const branchError of walker.branchErrors) this.branchErrors.push({ ...branchError, id });
+            };
+
             // Since the walker will throw an error if it fails to match to the end of its tokens (assuming it isn't stopped before then), this is safe.
-            walker.walk();
+            try {
+                walker.stepToToken(() => { collectBranchErrors(); return false; });
+            } finally {
+                collectBranchErrors();
+            }
 
             raw = this.source.slice(startPosition, walker.sourcePosition);
             endPosition = walker.sourcePosition;
@@ -188,6 +203,8 @@ export class RGXLexer<Data, Share=unknown> {
     }
 
     private next(mode: string, advance: boolean, log: boolean): RGXLexeme<Data> | null {
+        // A new array, so one taken from an earlier attempt keeps that attempt's errors.
+        this.branchErrors = [];
         if (this.isAtEnd()) return null;
 
         this.validateMode(mode);

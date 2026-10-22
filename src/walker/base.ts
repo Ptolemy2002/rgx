@@ -734,6 +734,7 @@ export class RGXWalker<R, S = unknown> {
 
         clone._tokenPosition = this.tokenPosition;
         clone.captures = extClone(this.captures, depthDecrement(depth, 1));
+        clone.namedCaptures = extClone(this.namedCaptures, depthDecrement(depth, 1));
         clone.branchErrors = extClone(this.branchErrors, depthDecrement(depth, 1));
         clone._stopped = this._stopped;
 

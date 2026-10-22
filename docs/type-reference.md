@@ -292,4 +292,7 @@ type RGXLexemeDefinitions<Data, Share=unknown> = Readonly<Record<string, Readonl
 type RGXLexerOptions = {
     resolveOnce?: boolean;
 };
+
+// A branch error from a "walk" definition, with the id of that definition.
+type RGXLexerBranchError = RGXWalkerBranchError & { id: string };
 ```

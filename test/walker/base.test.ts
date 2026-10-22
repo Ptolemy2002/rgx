@@ -1552,6 +1552,15 @@ describe("RGXWalker", () => {
             expect(clone.branchErrors).not.toBe(instance.branchErrors);
             expect(clone.branchErrors[0]!.error).toBeInstanceOf(RGXPartValidationFailedError);
         });
+
+        it("copies the captures by id", () => {
+            const instance = rgxWalker("1", [new RGXPart(/\d/, { id: "digit" })]);
+            instance.step();
+            const clone = instance.clone();
+
+            expect(clone.namedCaptures).toEqual(instance.namedCaptures);
+            expect(clone.namedCaptures).not.toBe(instance.namedCaptures);
+        });
     });
 
     describe("unions of parts", () => {
