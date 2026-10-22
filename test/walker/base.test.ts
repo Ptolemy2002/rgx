@@ -434,6 +434,14 @@ describe("RGXWalker", () => {
             expect(instance.step()).toBe(null);
         });
 
+        it("resolves a single-branch step once", () => {
+            const toRgx = jest.fn(() => "t");
+            const instance = new RGXWalker("test", [{ toRgx }]);
+            toRgx.mockClear();
+            instance.step();
+            expect(toRgx).toHaveBeenCalledTimes(1);
+        });
+
         it("returns a capture result for plain tokens", () => {
             const instance = new RGXWalker("test", ["t", "e"]);
             const result = instance.step();

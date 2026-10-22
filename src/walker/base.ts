@@ -480,7 +480,10 @@ export class RGXWalker<R, S = unknown> {
         // In a union of parts, a branch whose capture fails validation is dropped, so the others get a chance.
         const canRetry = !RGXPart.check(step);
         const isUnion = (RGXPart.check(step) ? branches.length : alternatives.length) > 1;
-        this.checkStep(step, branches.length === 1 ? branches[0]!.token : branches.map(branch => branch.token), isUnion);
+        const checkedSource = this.checkStep(step, branches.length === 1 ? branches[0]!.token : branches.map(branch => branch.token), isUnion);
+        // A single branch is matched as the token that was just checked, so its source is reused instead of resolving
+        // it again. Branches are only dropped from unions, which add branch groups, so this stays valid while retrying.
+        const singleSource = branches.length === 1 ? checkedSource : null;
 
         // Snapshot the source position so validateCapture and handleAfterCapture
         // can restore it on skip/failure.
@@ -491,7 +494,7 @@ export class RGXWalker<R, S = unknown> {
         while (true) {
             let match: RegExpExecArray;
             try {
-                match = this.matchRegex(createRegex(resolveRGXToken(branchesToken(branches))));
+                match = this.matchRegex(createRegex(singleSource ?? resolveRGXToken(branchesToken(branches))));
             } catch (e) {
                 if (e instanceof RGXRegexNotMatchedAtPositionError || e instanceof RGXRegexNotMatchedAfterPositionError) {
                     const owners = [...new Set(branches.flatMap(branch => branch.owner === null ? [] : [branch.owner]))];
