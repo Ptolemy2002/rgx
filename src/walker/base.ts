@@ -27,6 +27,14 @@ export type RGXTryWalkOptions = {
     revertCaptures?: boolean;
 };
 
+// A validation error from a branch of a union step, whether it was dropped so the other branches could be tried or
+// thrown because no branch was left.
+export type RGXWalkerBranchError = {
+    error: RGXPartValidationFailedError;
+    capture: RGXCapture; // The capture that failed validation
+    tokenPosition: number; // The position of the step in the walker's tokens
+};
+
 export type RGXWalkerSnapshotKey =
     | "sourcePosition"
     | "tokenPosition"
@@ -147,6 +155,8 @@ export class RGXWalker<R, S = unknown> {
 
     captures: RGXCapture[] = [];
     namedCaptures: Record<string, RGXCapture[]> = {};
+    // The validation errors of the union branches that failed in the latest step.
+    branchErrors: RGXWalkerBranchError[] = [];
 
     infinite: boolean;
     looping: boolean;
@@ -359,10 +369,11 @@ export class RGXWalker<R, S = unknown> {
     }
 
     // Returns a directive on handled validation failure, "retry" if another branch should be tried, and null on
-    // success. Unhandled errors are rethrown.
+    // success. Unhandled errors are rethrown. In a union of parts, unhandled errors are recorded in branchErrors.
     private validateCapture(
         token: RGXPart<R, S, unknown>,
         captureResult: RGXCapture<unknown>,
+        isUnion: boolean,
         canRetry: boolean
     ): Exclude<RGXWalkerStepDirective, "silent"> | "retry" | null {
         try {
@@ -377,6 +388,7 @@ export class RGXWalker<R, S = unknown> {
                 if (control === "stop" || control === "stop-silent") return "stop";
                 if (control === "skip") return "skip";
                 // Handling silent is pointless here since it won't add a capture in either case, so we don't check for it.
+                if (isUnion) this.branchErrors.push({ error: e, capture: captureResult, tokenPosition: this.tokenPosition });
                 if (canRetry) return "retry";
             }
             throw e;
@@ -460,6 +472,8 @@ export class RGXWalker<R, S = unknown> {
     }
 
     step(): RGXCapture | null {
+        // A new array, so one taken from an earlier step keeps that step's errors.
+        this.branchErrors = [];
         if (!this.infinite && !this.looping && this.atTokenEnd()) {
             this._stopped = true;
             return null;
@@ -533,7 +547,7 @@ export class RGXWalker<R, S = unknown> {
             };
 
             if (owner === null) break;
-            const dir = this.validateCapture(owner, captureResult, canRetry && branches.length > 1);
+            const dir = this.validateCapture(owner, captureResult, canRetry, canRetry && branches.length > 1);
             if (dir === "stop") { this._stopped = true; return null; }
             if (dir === "skip") { this.advanceToken(); return null; }
             if (dir === null) break;
@@ -708,10 +722,10 @@ export class RGXWalker<R, S = unknown> {
     clone(depth: CloneDepth="max") {
         if (depth === 0) return this;
         const clone = new RGXWalker(
-            this.source, extClone(this.tokens, depthDecrement(1)), {
+            this.source, extClone(this.tokens, depthDecrement(depth, 1)), {
                 startingSourcePosition: this.sourcePosition,
-                reduced: extClone(this.reduced, depthDecrement(1)),
-                share: extClone(this.share, depthDecrement(1)),
+                reduced: extClone(this.reduced, depthDecrement(depth, 1)),
+                share: extClone(this.share, depthDecrement(depth, 1)),
                 infinite: this.infinite,
                 looping: this.looping,
                 contiguous: this.contiguous
@@ -719,7 +733,9 @@ export class RGXWalker<R, S = unknown> {
         );
 
         clone._tokenPosition = this.tokenPosition;
-        clone.captures = extClone(this.captures, depthDecrement(1));
+        clone.captures = extClone(this.captures, depthDecrement(depth, 1));
+        clone.namedCaptures = extClone(this.namedCaptures, depthDecrement(depth, 1));
+        clone.branchErrors = extClone(this.branchErrors, depthDecrement(depth, 1));
         clone._stopped = this._stopped;
 
         return clone;

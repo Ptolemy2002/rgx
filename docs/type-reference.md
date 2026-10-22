@@ -182,6 +182,13 @@ type RGXTryWalkOptions = {
     revertCaptures?: boolean;
 };
 
+// A validation error from a branch of a union step, whether the branch was dropped or the error was thrown.
+type RGXWalkerBranchError = {
+    error: RGXPartValidationFailedError;
+    capture: RGXCapture; // The capture that failed validation
+    tokenPosition: number; // The position of the step in the walker's tokens
+};
+
 type RGXWalkerSnapshotKey =
     | "sourcePosition"
     | "tokenPosition"
@@ -285,4 +292,7 @@ type RGXLexemeDefinitions<Data, Share=unknown> = Readonly<Record<string, Readonl
 type RGXLexerOptions = {
     resolveOnce?: boolean;
 };
+
+// A branch error from a "walk" definition, with the id of that definition.
+type RGXLexerBranchError = RGXWalkerBranchError & { id: string };
 ```
