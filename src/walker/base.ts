@@ -27,6 +27,13 @@ export type RGXTryWalkOptions = {
     revertCaptures?: boolean;
 };
 
+// A validation error from a branch of a union step that was dropped so the other branches could be tried.
+export type RGXWalkerBranchError = {
+    error: RGXPartValidationFailedError;
+    capture: RGXCapture; // The capture that failed validation
+    tokenPosition: number; // The position of the step in the walker's tokens
+};
+
 export type RGXWalkerSnapshotKey =
     | "sourcePosition"
     | "tokenPosition"
@@ -147,6 +154,7 @@ export class RGXWalker<R, S = unknown> {
 
     captures: RGXCapture[] = [];
     namedCaptures: Record<string, RGXCapture[]> = {};
+    branchErrors: RGXWalkerBranchError[] = [];
 
     infinite: boolean;
     looping: boolean;
@@ -377,7 +385,10 @@ export class RGXWalker<R, S = unknown> {
                 if (control === "stop" || control === "stop-silent") return "stop";
                 if (control === "skip") return "skip";
                 // Handling silent is pointless here since it won't add a capture in either case, so we don't check for it.
-                if (canRetry) return "retry";
+                if (canRetry) {
+                    this.branchErrors.push({ error: e, capture: captureResult, tokenPosition: this.tokenPosition });
+                    return "retry";
+                }
             }
             throw e;
         }
@@ -708,10 +719,10 @@ export class RGXWalker<R, S = unknown> {
     clone(depth: CloneDepth="max") {
         if (depth === 0) return this;
         const clone = new RGXWalker(
-            this.source, extClone(this.tokens, depthDecrement(1)), {
+            this.source, extClone(this.tokens, depthDecrement(depth, 1)), {
                 startingSourcePosition: this.sourcePosition,
-                reduced: extClone(this.reduced, depthDecrement(1)),
-                share: extClone(this.share, depthDecrement(1)),
+                reduced: extClone(this.reduced, depthDecrement(depth, 1)),
+                share: extClone(this.share, depthDecrement(depth, 1)),
                 infinite: this.infinite,
                 looping: this.looping,
                 contiguous: this.contiguous
@@ -719,7 +730,8 @@ export class RGXWalker<R, S = unknown> {
         );
 
         clone._tokenPosition = this.tokenPosition;
-        clone.captures = extClone(this.captures, depthDecrement(1));
+        clone.captures = extClone(this.captures, depthDecrement(depth, 1));
+        clone.branchErrors = extClone(this.branchErrors, depthDecrement(depth, 1));
         clone._stopped = this._stopped;
 
         return clone;

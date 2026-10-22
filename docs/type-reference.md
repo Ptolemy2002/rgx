@@ -182,6 +182,12 @@ type RGXTryWalkOptions = {
     revertCaptures?: boolean;
 };
 
+type RGXWalkerBranchError = {
+    error: RGXPartValidationFailedError;
+    capture: RGXCapture; // The capture that failed validation
+    tokenPosition: number; // The position of the step in the walker's tokens
+};
+
 type RGXWalkerSnapshotKey =
     | "sourcePosition"
     | "tokenPosition"

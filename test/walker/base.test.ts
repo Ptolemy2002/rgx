@@ -1,4 +1,4 @@
-import { rgxPart, RGXPart, rgxWalker, RGXWalker } from "src/walker";
+import { rgxPart, RGXPart, rgxWalker, RGXWalker, RGXWalkerBranchError } from "src/walker";
 import { RGXInsertionRejectedError, RGXInvalidWalkerError, RGXInvalidWalkerStepError, RGXOutOfBoundsError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError, RGXRegexNotMatchedAtPositionError } from "src/errors";
 import { RGXClassToken, RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { rgxInterpolation, rgxSubpattern, rgxwa, RGXInvalidBackreferenceError } from "src/index";
@@ -1542,6 +1542,16 @@ describe("RGXWalker", () => {
             expect(clone.captures).toEqual(instance.captures);
             expect(clone.namedCaptures).toEqual(instance.namedCaptures);
         });
+
+        it("copies the branch errors", () => {
+            const instance = rgxWalker("1", [[new RGXPart(/\d/, { validate: () => false }), /\d/]]);
+            instance.step();
+            const clone = instance.clone();
+
+            expect(clone.branchErrors).toEqual(instance.branchErrors);
+            expect(clone.branchErrors).not.toBe(instance.branchErrors);
+            expect(clone.branchErrors[0]!.error).toBeInstanceOf(RGXPartValidationFailedError);
+        });
     });
 
     describe("unions of parts", () => {
@@ -1617,10 +1627,34 @@ describe("RGXWalker", () => {
             expect(afterValidationFailure).toHaveBeenCalledTimes(1);
         });
 
+        it("records the validation errors of the branches it dropped", () => {
+            const walker = new RGXWalker("12", ["", [
+                new RGXPart(/\d+/, { id: "a", validate: () => "too long" }),
+                new RGXPart(/\d/, { id: "b" })
+            ]]);
+            walker.step();
+            walker.step();
+
+            expect(walker.branchErrors).toHaveLength(1);
+            const [{ error, capture, tokenPosition }] = walker.branchErrors as [RGXWalkerBranchError];
+            expect(error).toBeInstanceOf(RGXPartValidationFailedError);
+            expect(error.message).toMatch(/too long/);
+            expect(capture).toMatchObject({ raw: "12", ownerId: "a", branch: 0, start: 0, end: 2 });
+            expect(tokenPosition).toBe(1);
+        });
+
         it("rethrows the validation error when no branch is left", () => {
             const walker = new RGXWalker("1", [[new RGXPart(/\d/, { validate: () => "bad" }), new RGXPart(/\d/, { validate: () => "worse" })]]);
             expect(() => walker.step()).toThrow(/worse/);
             expect(walker.sourcePosition).toBe(0);
+            // The error that is thrown isn't recorded, only the ones that were dropped before it.
+            expect(walker.branchErrors.map(({ error }) => error.message)).toEqual([expect.stringMatching(/bad/)]);
+        });
+
+        it("doesn't record validation errors that afterValidationFailure handled", () => {
+            const walker = new RGXWalker("1", [[new RGXPart(/\d/, { validate: () => false, afterValidationFailure: () => "skip" }), /\d/]]);
+            walker.step();
+            expect(walker.branchErrors).toEqual([]);
         });
 
         it("follows directives from afterValidationFailure", () => {
