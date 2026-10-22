@@ -1643,12 +1643,24 @@ describe("RGXWalker", () => {
             expect(tokenPosition).toBe(1);
         });
 
+        it("only keeps the branch errors of the latest step", () => {
+            const walker = new RGXWalker("11", [[new RGXPart(/\d/, { validate: () => false }), /\d/], /\d/]);
+            walker.step();
+            const first = walker.branchErrors;
+            expect(first).toHaveLength(1);
+
+            walker.step();
+            expect(walker.branchErrors).toEqual([]);
+            expect(first).toHaveLength(1);
+        });
+
         it("rethrows the validation error when no branch is left", () => {
             const walker = new RGXWalker("1", [[new RGXPart(/\d/, { validate: () => "bad" }), new RGXPart(/\d/, { validate: () => "worse" })]]);
             expect(() => walker.step()).toThrow(/worse/);
             expect(walker.sourcePosition).toBe(0);
             // The error that is thrown isn't recorded, only the ones that were dropped before it.
-            expect(walker.branchErrors.map(({ error }) => error.message)).toEqual([expect.stringMatching(/bad/)]);
+            // Every branch's error is recorded, including the one that is thrown.
+            expect(walker.branchErrors.map(({ error }) => error.message)).toEqual([expect.stringMatching(/bad/), expect.stringMatching(/worse/)]);
         });
 
         it("doesn't record validation errors that afterValidationFailure handled", () => {

@@ -39,7 +39,7 @@ See [MIGRATION.md](./MIGRATION.md#1500) for details and update instructions.
 - `rgxConstantValue`, which returns the token a constant is stored as.
 - `deleteRGXConstant` returns the deleted token.
 - Documentation for the walker's `snapshot()` and `restore()` methods and their types.
-- `RGXWalker.branchErrors`, which records the validation errors of union branches that were dropped so another branch could capture, along with the failed capture and the step's position (`RGXWalkerBranchError`). Before, these errors were discarded.
+- `RGXWalker.branchErrors`, which holds the validation errors of the union branches that failed in the latest step, including the one that was thrown if no branch was left, along with each failed capture and the step's position (`RGXWalkerBranchError`). Before, the errors of branches that were dropped so another branch could capture were discarded.
 
 ### Fixed
 

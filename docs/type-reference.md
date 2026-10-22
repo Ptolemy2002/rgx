@@ -182,6 +182,7 @@ type RGXTryWalkOptions = {
     revertCaptures?: boolean;
 };
 
+// A validation error from a branch of a union step, whether the branch was dropped or the error was thrown.
 type RGXWalkerBranchError = {
     error: RGXPartValidationFailedError;
     capture: RGXCapture; // The capture that failed validation
