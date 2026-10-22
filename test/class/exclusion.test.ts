@@ -107,6 +107,11 @@ describe("RGXExclusionToken", () => {
         expect(result).toBe("(?:(?=(?<exclusionId>\\b\\w+\\b))(?!test\\b)\\k<exclusionId>)");
     });
 
+    it("defaults to no flags when toRgx() is called directly", () => {
+        const result = new RGXExclusionToken("exclusionId", /\b\w+/, [new TestClassToken()]).toRgx();
+        expect(result).toEqual(/(?=(?<exclusionId>(?:\b\w+)))(?!(?:test))\k<exclusionId>/);
+    });
+
     it("resolves correctly without terminal", () => {
         const result = new RGXExclusionToken("exclusionId", /\b\w+/, [new TestClassToken()]).resolve();
         expect(result).toBe("(?:(?=(?<exclusionId>\\b\\w+))(?!test)\\k<exclusionId>)");

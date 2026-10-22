@@ -1,4 +1,4 @@
-import { RGXInvalidRegexStringError } from "src/errors";
+import { RGXInvalidRegexStringError, RGXInvalidTokenError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
 import { rgxa, rgxInterpolation, rgxGroup, rgxRepeat, rgxLookahead, RGXClassUnionToken, RGXGroupToken, RGXSubpatternToken } from "src/index";
 
@@ -92,6 +92,26 @@ describe('resolveRGXToken', () => {
             rgxInterpolation: "[[abc"
         };
         expect(() => resolveRGXToken(token)).toThrow(RGXInvalidRegexStringError);
+    });
+
+    it('throws for a convertible token whose toRgx() returns an invalid value', () => {
+        const token = { toRgx: () => ({ notAToken: true }) };
+        expect(() => resolveRGXToken(token as any)).toThrow(RGXInvalidTokenError);
+    });
+
+    it('calls toRgx() once per resolution', () => {
+        const toRgx = jest.fn(() => /abc/);
+        resolveRGXToken({ toRgx });
+        expect(toRgx).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls toRgx() once per resolution for nested class tokens', () => {
+        const inner = rgxGroup({}, ['a']);
+        const token = rgxRepeat(rgxGroup({}, [rgxRepeat(inner, 0, 2), 'b']), 0, 2);
+        // Spy after constructing, since the constructors check their tokens.
+        const toRgx = jest.spyOn(inner, 'toRgx');
+        token.resolve();
+        expect(toRgx).toHaveBeenCalledTimes(1);
     });
 
     it('does not propogate groupWrap preference to nested convertible tokens', () => {

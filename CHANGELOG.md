@@ -46,6 +46,7 @@ See [MIGRATION.md](./MIGRATION.md#1500) for details and update instructions.
 - `RGXClassToken.clone()` keeps the `validate` setting of parts.
 - `RGXClassWrapperToken` passes `rgxAcceptInsertion` to the wrapped token, so the wrapped token can reject the wrapper's placement instead of only being checked at its own placement inside the wrapper. The wrapped token is checked once, at the wrapper's placement.
 - The token an `RGXConstantToken` refers to is checked for insertion once, at the reference's placement, instead of a second time inside the reference.
+- Resolving a convertible token calls its `toRgx()` once instead of twice (once was only to check the return value). Since this doubled the work at every level of nesting, resolving deeply nested class tokens is much faster (6 levels of `rgxRepeat(rgxGroup(...))` went from about 110ms to under 1ms). An invalid return value still throws `RGXInvalidTokenError`.
 
 ---
 

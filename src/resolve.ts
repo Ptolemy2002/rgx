@@ -67,7 +67,9 @@ export function resolveRGXToken(token: t.RGXToken, options: ResolveRGXTokenOptio
             return token.rgxInterpolation;
         }
 
-        if (tg.isRGXConvertibleToken(token)) {
+        // The return value isn't checked here, since that would call toRgx() a second time (doubling the work at every
+        // level of nesting). An invalid return value is caught when the result is resolved below.
+        if (tg.isRGXConvertibleToken(token, false)) {
             // The top-level group-wrapping preference propogates to a direct convertible token, but after that
             // the preference falls back to true.
             const result = token.toRgx(currentFlags);
@@ -100,8 +102,7 @@ export function resolveRGXToken(token: t.RGXToken, options: ResolveRGXTokenOptio
             return placeRGXToken(members, 0, () => resolveRGXToken(members[0], { groupWrap: true, topLevel: false, currentFlags }));
         }
 
-        // Ignoring this line since it should be impossible to reach if the types are correct, but we need it to satisfy the return type
-        /* istanbul ignore next */
+        // Reached by values that aren't tokens, including invalid values returned by a convertible token's toRgx().
         throw new e.RGXInvalidTokenError(`Invalid RGX token: ${token}`, null, token);
     };
 
