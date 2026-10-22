@@ -27,6 +27,7 @@ See [MIGRATION.md](./MIGRATION.md#1500) for details and update instructions.
 - The accent-insensitive flag covers every Latin letter with accented forms, including escapes, combining marks, character classes and character sets such as `\w`. Use `setAccentInsensitiveSetExpansion(false)` to leave character sets alone.
 - `RGXNotDirectRegExpError` and the `NOT_DIRECT_REGEXP` error code are removed.
 - `rgxConstant` returns an `RGXConstantToken` that refers to the constant by name, instead of the token the constant is stored as. Use `rgxConstantValue` for the stored token. Defining a constant as a reference to itself throws `RGXConstantConflictError`.
+- `RGXLexer` resolves each `"resolve"` definition once, when it is created, instead of every time the definition is tried, so changes made to a token afterwards are ignored. Pass `{ resolveOnce: false }` as the new fourth constructor argument for the old behavior. Lexing is several times faster (560 lexemes went from about 114ms to 16ms in a benchmark).
 
 ### Added
 

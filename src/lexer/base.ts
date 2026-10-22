@@ -42,6 +42,12 @@ export type RGXLexeme<Data> = {
 export type RGXLexemeDefinitions<Data, Share=unknown> = Readonly<Record<string, ReadonlyArray<RGXLexemeDefinition<Data, Share>>>>;
 type MutableRGXLexemeDefinitions<Data, Share=unknown> = Record<string, ReadonlyArray<RGXLexemeDefinition<Data, Share>>>;
 
+export type RGXLexerOptions = {
+    // Whether each "resolve" definition (and the whitespace skipped by skipWhitespace) is resolved once, when the lexer
+    // is created, instead of every time it's tried.
+    resolveOnce?: boolean;
+};
+
 export type RGXLexemeLocation = {
     index: number;
     line: number;
@@ -58,16 +64,18 @@ export function rgxLexemeLocationFromIndex(source: string, index: number): RGXLe
 }
 
 // Checks a lexeme definition the same way rgxa checks a pattern (for resolve definitions) or rgxwa checks its steps
-// (for walk definitions), so a definition that could never match what it means is rejected up front.
-export function validateRGXLexemeDefinition<Data, Share>(lexemeDefinition: RGXLexemeDefinition<Data, Share>) {
+// (for walk definitions), so a definition that could never match what it means is rejected up front. Returns the
+// source a resolve definition resolved to, or null for a walk definition.
+export function validateRGXLexemeDefinition<Data, Share>(lexemeDefinition: RGXLexemeDefinition<Data, Share>): string | null {
     if (lexemeDefinition.type === "walk") {
         validateRGXWalkerSteps(lexemeDefinition.tokens);
-        return;
+        return null;
     }
 
     // Lexeme patterns are matched without flags.
     const [source, references] = collectRGXReferences(() => withRGXInsertionRoot("" as ValidRegexFlags, () => placeRGXToken([lexemeDefinition.token], 0, () => resolveRGXToken(lexemeDefinition.token))));
     assertValidRegexReferences(source, references);
+    return source;
 }
 
 export class RGXLexer<Data, Share=unknown> {
@@ -77,6 +85,11 @@ export class RGXLexer<Data, Share=unknown> {
     // Map mode to the lexeme definitions for that mode.
     readonly lexemeDefinitions: RGXLexemeDefinitions<Data, Share>;
     readonly matched: RGXLexeme<Data>[] = [];
+    readonly resolveOnce: boolean;
+
+    // The regexes of resolve definitions and of skipped whitespace, when they are resolved once.
+    private readonly resolvedRegexes = new Map<RGXLexemeDefinition<Data, Share>, RegExp>();
+    private whitespaceRegex: RegExp | null = null;
 
     static check = createRGXClassGuardFunction(RGXLexer);
     static assert = createAssertRGXClassGuardFunction(RGXLexer, (value, c) => new RGXInvalidLexerError("Invalid Lexer", value, c.name));
@@ -93,7 +106,8 @@ export class RGXLexer<Data, Share=unknown> {
     constructor(
         source: string,
         lexemeDefinitions: RGXLexemeDefinitions<Data, Share> = {},
-        startingPosition: number = 0
+        startingPosition: number = 0,
+        { resolveOnce = true }: RGXLexerOptions = {}
     ) {
         // Copy to ensure we don't modify the original, which will be used across constructions.
         const lexemeDefinitionsCopy = { ...lexemeDefinitions } as MutableRGXLexemeDefinitions<Data, Share>;
@@ -101,8 +115,15 @@ export class RGXLexer<Data, Share=unknown> {
         lexemeDefinitionsCopy["default"] ??= [];
 
         this.source = source;
+        this.resolveOnce = resolveOnce;
 
-        for (const defs of Object.values(lexemeDefinitionsCopy)) defs.forEach(validateRGXLexemeDefinition);
+        for (const defs of Object.values(lexemeDefinitionsCopy)) {
+            for (const def of defs) {
+                // Validating a resolve definition resolves it, so its source is kept instead of resolving it again.
+                const source = validateRGXLexemeDefinition(def);
+                if (resolveOnce && source !== null) this.resolvedRegexes.set(def, createRegex(source));
+            }
+        }
 
         this.lexemeDefinitions = Object.fromEntries(
             Object.entries(lexemeDefinitionsCopy).map(
@@ -126,8 +147,7 @@ export class RGXLexer<Data, Share=unknown> {
         let dataPart: {data?: Data} = {};
 
         if (lexemeDefinition.type === "resolve") {
-            const { token } = lexemeDefinition;
-            const regex = createRegex(resolveRGXToken(token));
+            const regex = this.resolvedRegexes.get(lexemeDefinition) ?? createRegex(resolveRGXToken(lexemeDefinition.token));
 
             // Since the assertion will throw an error if there is no match, this is safe.
             const match = assertRegexMatchesAtPosition(regex, this.source, startPosition, 10, true);
@@ -262,7 +282,8 @@ export class RGXLexer<Data, Share=unknown> {
 
     skipWhitespace(): void {
         if (this.isAtEnd()) return;
-        const regex = createRegex(resolveRGXToken(rgxConstant("whitespace-block")));
+        const regex = this.whitespaceRegex ?? createRegex(resolveRGXToken(rgxConstant("whitespace-block")));
+        if (this.resolveOnce) this.whitespaceRegex = regex;
         const match = regexMatchAtPosition(regex, this.source, this.position, true);
 
         if (match !== null) {

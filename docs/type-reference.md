@@ -281,4 +281,8 @@ type RGXLexemeDefinition<Data, Share=unknown> = Readonly<({
 }>;
 
 type RGXLexemeDefinitions<Data, Share=unknown> = Readonly<Record<string, ReadonlyArray<RGXLexemeDefinition<Data, Share>>>>;
+
+type RGXLexerOptions = {
+    resolveOnce?: boolean;
+};
 ```

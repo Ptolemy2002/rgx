@@ -10,7 +10,7 @@ A change is breaking if it changes what a pattern matches, or changes the public
 
 | Version | Main changes |
 | --- | --- |
-| [15.0.0](#1500) | `RGXTokenCollection` removed, group flags inherit by default, backreferences and walker steps are validated, part tokens can be functions, walker steps can be unions of parts, `rgxParse` merges aliases by default, `ExtRegExp` JSON keeps custom flags and rebuilding from an `ExtRegExp` can remove them, the accent-insensitive flag covers all accents, `RGXNotDirectRegExpError` removed |
+| [15.0.0](#1500) | `RGXTokenCollection` removed, group flags inherit by default, backreferences and walker steps are validated, part tokens can be functions, walker steps can be unions of parts, `rgxParse` merges aliases by default, `ExtRegExp` JSON keeps custom flags and rebuilding from an `ExtRegExp` can remove them, the accent-insensitive flag covers all accents, `RGXNotDirectRegExpError` removed, `RGXLexer` resolves definitions once |
 | [14.0.0](#1400) | `rgxIsGroup`, `rgxGroupWrap` and `rgxInterpolate` removed, repeatability detected automatically, new `rgxAcceptInsertion` signature, single-step JSON class construction |
 | [13.0.0](#1300) | `resolveRGXToken` takes an options object, `rgxConstant` always returns a class token, word bounds match at the edges of the string |
 | [12.0.0](#1200) | `rgx` takes an options object |
@@ -162,6 +162,16 @@ To update:
 
 - Make each literal part of a `verbatim: false` template balanced on its own, or move the whole group into a single token.
 - Rename groups that start with `rgx_branch_`.
+
+## `RGXLexer` resolves definitions once
+
+`RGXLexer` now resolves the token of each `"resolve"` definition once, when it is created, and keeps the regex, instead of resolving it every time the definition is tried. The whitespace that `skipWhitespace` skips is also resolved once. This makes lexing several times faster, but a change made to a token (or to a constant it refers to) after the lexer is created no longer affects it. `"walk"` definitions aren't affected.
+
+To update, if you change tokens while lexing, either create a new lexer after changing them, or turn the cache off with the new `options` argument (see [the constructor](./docs/class/lexer.md#constructor)):
+
+```typescript
+const lexer = new RGXLexer(source, definitions, 0, { resolveOnce: false });
+```
 
 ## `RGXPart.token` can be a function
 

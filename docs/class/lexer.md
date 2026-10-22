@@ -75,6 +75,10 @@ type RGXLexemeDefinition<Data, Share=unknown> = Readonly<({
 }>;
 
 type RGXLexemeDefinitions<Data, Share=unknown> = Readonly<Record<string, ReadonlyArray<RGXLexemeDefinition<Data, Share>>>>;
+
+type RGXLexerOptions = {
+    resolveOnce?: boolean;
+};
 ```
 
 # Lexeme Definition
@@ -104,7 +108,7 @@ Computes the `RGXLexemeLocation` (index, line, and column) for a character posit
 
 ## validateRGXLexemeDefinition
 ```typescript
-function validateRGXLexemeDefinition<Data, Share>(lexemeDefinition: RGXLexemeDefinition<Data, Share>): void
+function validateRGXLexemeDefinition<Data, Share>(lexemeDefinition: RGXLexemeDefinition<Data, Share>): string | null
 ```
 Checks a lexeme definition the same way patterns and walker steps are checked. A `"resolve"` definition's token is resolved as a whole pattern without flags (with insertion checks, as in `rgxa`), and its backreferences are validated (see [Backreference validation](../general.md#backreference-validation)). A `"walk"` definition's steps are checked the same way `rgxwa` checks them (see [Step validation](./walker.md#step-validation)). `RGXLexer` calls this for every definition when it is created.
 
@@ -112,6 +116,9 @@ Throws `RGXInvalidBackreferenceError`, `RGXDuplicateGroupNameError`, `RGXReserve
 
 ### Parameters
 - `lexemeDefinition` (`RGXLexemeDefinition<Data, Share>`): The definition to check.
+
+### Returns
+- `string | null`: The source a `"resolve"` definition's token resolved to, or `null` for a `"walk"` definition.
 
 # RGXLexer\<Data, Share=unknown\>
 A class that tokenizes a source string into a sequence of `RGXLexeme` objects according to a set of named lexeme definitions grouped by mode. Each mode maps to an ordered list of `RGXLexemeDefinition` entries; the lexer tries them in priority order and uses the first one that matches. When using a `"walk"` definition, a temporary `RGXWalker` is created to match a sequence of tokens — its reduced value becomes the lexeme's `data`. The generic type `Data` is the type of the structured data attached to walk-type lexemes. The generic type `Share` is the type of the shared value passed to all Part callbacks within walk-type walkers.
@@ -124,11 +131,13 @@ A function `rgxLexer` is provided with the same parameters as this class' constr
 
 ## Constructor
 ```typescript
-constructor(source: string, lexemeDefinitions?: RGXLexemeDefinitions<Data, Share>, startingPosition?: number)
+constructor(source: string, lexemeDefinitions?: RGXLexemeDefinitions<Data, Share>, startingPosition?: number, options?: RGXLexerOptions)
 ```
 - `source` (`string`): The string to lex.
 - `lexemeDefinitions` (`RGXLexemeDefinitions<Data, Share>`, optional): A map from mode name to an ordered array of lexeme definitions. A `"default"` mode is created automatically if not provided. Within each mode, definitions are sorted by `priority` (descending) at construction time, so higher-priority definitions are tried first. Defaults to `{}`.
 - `startingPosition` (`number`, optional): The starting index in the source string. Defaults to `0`.
+- `options` (`RGXLexerOptions`, optional): Defaults to `{}`.
+  - `resolveOnce` (`boolean`, optional): Whether the token of each `"resolve"` definition, and the whitespace that `skipWhitespace` skips, is resolved once, when the lexer is created, instead of every time it is tried. Changes made to a token (or to the constants it refers to) after the lexer is created are then ignored. Turn it off if you change tokens while lexing. `"walk"` definitions are matched by a new walker each time, so they aren't affected. Defaults to `true`.
 
 Every lexeme definition, in every mode, is checked with `validateRGXLexemeDefinition` (see above) when the lexer is created, so an invalid definition throws here rather than when it is first tried.
 
@@ -136,6 +145,7 @@ Every lexeme definition, in every mode, is checked with `validateRGXLexemeDefini
 - `source` (`string`): The source string being lexed (readonly).
 - `position` (`number`): The current index in the source string. Setting this validates that the value is >= 0 and <= `source.length`, throwing `RGXOutOfBoundsError` if not. Non-integer values are floored before being stored.
 - `lexemeDefinitions` (`RGXLexemeDefinitions<Data, Share>`): The finalized, priority-sorted map of mode names to lexeme definition arrays (readonly).
+- `resolveOnce` (`boolean`): Whether definitions are resolved once (see the constructor) (readonly).
 - `matched` (`RGXLexeme<Data>[]`): The array of lexemes that have been consumed and logged so far (i.e., produced by `consume` or `expectConsume` with `log` enabled).
 
 ## Methods

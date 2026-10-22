@@ -143,6 +143,47 @@ describe("RGXLexer", () => {
         });
     });
 
+    describe("resolveOnce", () => {
+        it("is on by default", () => {
+            expect(new RGXLexer("a").resolveOnce).toBe(true);
+            expect(new RGXLexer("a", {}, 0, { resolveOnce: false }).resolveOnce).toBe(false);
+        });
+
+        it("resolves each resolve definition once, when the lexer is created", () => {
+            const toRgx = jest.fn(() => "a");
+            const lexer = new RGXLexer("aaa", { default: [{ id: "a", type: "resolve", token: { toRgx } }] });
+            expect(toRgx).toHaveBeenCalledTimes(1);
+            expect(lexer.consumeAll().map(lexeme => lexeme.id)).toEqual(["a", "a", "a"]);
+            expect(toRgx).toHaveBeenCalledTimes(1);
+        });
+
+        it("doesn't pick up changes to a token made after the lexer is created", () => {
+            const token = ["a"];
+            const lexer = new RGXLexer("b", { default: [{ id: "x", type: "resolve", token }] });
+            token[0] = "b";
+            expect(() => lexer.consume()).toThrow(RGXLexemeNotMatchedAtPositionError);
+        });
+
+        it("resolves each definition every time it's tried when off", () => {
+            const token = ["a"];
+            const lexer = new RGXLexer("ab", { default: [{ id: "x", type: "resolve", token }] }, 0, { resolveOnce: false });
+            expect(lexer.consume()?.raw).toBe("a");
+            token[0] = "b";
+            expect(lexer.consume()?.raw).toBe("b");
+        });
+
+        it("keeps the whitespace regex only when on", () => {
+            const on = new RGXLexer(" a b");
+            const off = new RGXLexer(" a b", {}, 0, { resolveOnce: false });
+            for (const lexer of [on, off]) {
+                lexer.skipWhitespace();
+                lexer.position = 2;
+                lexer.skipWhitespace();
+                expect(lexer.position).toBe(3);
+            }
+        });
+    });
+
     describe("type guards", () => {
         it("accepts RGXLexer instances", () => {
             const lexer = new RGXLexer("test");
