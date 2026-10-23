@@ -700,6 +700,16 @@ describe('backreference validation', () => {
         expect(() => rgxw("aa", { verbatim: false })`(a)\1`).not.toThrow();
     });
 
+    it('merges steps without parts in rgxwa when mergeSteps is true', () => {
+        const part = rgxPart(/c/);
+        const walker = rgxwa("aac", [{ rgxInterpolation: "(" }, "a", { rgxInterpolation: ")+" }, part], { mergeSteps: true });
+        expect(walker.tokens).toHaveLength(2);
+        walker.walk();
+        expect(walker.captures.map(c => c.raw)).toEqual(["aa", "c"]);
+
+        expect(() => rgxwa("a", [{ rgxInterpolation: "(" }, "a", { rgxInterpolation: ")" }])).toThrow(RGXInvalidWalkerStepError);
+    });
+
     it('merges steps without parts when mergeSteps is true', () => {
         const part = rgxPart(/c/, { id: "c" });
         const walker = rgxw("(a.b)-c", { verbatim: false, mergeSteps: true })`\(${"a"}${/./}b\)-${part}`;

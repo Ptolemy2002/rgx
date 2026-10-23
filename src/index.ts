@@ -38,17 +38,17 @@ export default function rgx(flags: string = '', {multiline=true, verbatim=true}:
 
 export function rgxwa<R = unknown, S = unknown, T = unknown>(
     source: string, tokens: RGXWalkerStep<R, S, T>[],
-    options: Omit<t.RGXWOptions<R, S>, "multiline" | "mergeSteps"> = {}
+    {mergeSteps=false, ...options}: Omit<t.RGXWOptions<R, S>, "multiline"> = {}
 ) {
+    const steps = mergeSteps ? rgxMergeWalkerSteps(tokens) : tokens;
     // Steps are checked when the walker is created, so problems are found before walking starts.
-    validateRGXWalkerSteps(tokens);
-    return new RGXWalker<R, S>(source, tokens, options);
+    validateRGXWalkerSteps(steps);
+    return new RGXWalker<R, S>(source, steps, options);
 }
 
-export function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {multiline=true, verbatim=true, mergeSteps=false, ...options}: t.RGXWOptions<R, S> = {}) {
+export function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {multiline=true, verbatim=true, ...options}: t.RGXWOptions<R, S> = {}) {
     return (strings: TemplateStringsArray, ...tokens: RGXWalkerStep<R, S, T>[]) => {
-        const steps = rgxTaggedTemplateToArray(strings, tokens, multiline, verbatim);
-        return rgxwa<R, S, T>(source, mergeSteps ? rgxMergeWalkerSteps(steps) : steps, options);
+        return rgxwa<R, S, T>(source, rgxTaggedTemplateToArray(strings, tokens, multiline, verbatim), options);
     };
 }
 

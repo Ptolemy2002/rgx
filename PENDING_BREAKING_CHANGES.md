@@ -23,12 +23,12 @@ With `verbatim: false`, the literal parts of an `rgxw` template are raw regex sy
 
 ### Breaking change
 
-Make `mergeSteps` default to `!verbatim`, so runs of steps without parts are combined by default when `verbatim` is `false`. Walkers built from balanced templates in that mode would have fewer steps, and so fewer entries in `tokens` and `captures`, a different `tokenPosition` for each part, and a different last token in `infinite` mode. Matching can change too: an alternation or quantifier in a literal part now applies to the whole run, and in non-contiguous mode a run must match in one place instead of each step searching forward separately.
+Make `mergeSteps` default to `!verbatim` in `rgxw` (it stays `false` in `rgxwa`, which has no literal parts), so runs of steps without parts are combined by default when `verbatim` is `false`. Walkers built from balanced templates in that mode would have fewer steps, and so fewer entries in `tokens` and `captures`, a different `tokenPosition` for each part, and a different last token in `infinite` mode. Matching can change too: an alternation or quantifier in a literal part now applies to the whole run, and in non-contiguous mode a run must match in one place instead of each step searching forward separately.
 
 ### Current workaround
 
-`mergeSteps` (in `RGXWOptions`, `src/types.ts`) defaults to `false` in `rgxw` (`src/index.ts`), so users opt in. The merging is done by `rgxMergeWalkerSteps` in `src/internal/taggedTemplateToArray.ts`.
+`mergeSteps` (in `RGXWOptions`, `src/types.ts`) defaults to `false` in `rgxwa` (`src/index.ts`), and `rgxw` passes it through unchanged, so users opt in. The merging is done by `rgxMergeWalkerSteps` in `src/internal/taggedTemplateToArray.ts`.
 
 ### Reverting the workaround
 
-Change the `mergeSteps=false` default in `rgxw` to depend on `verbatim` (destructure `mergeSteps` without a default and use `mergeSteps ?? !verbatim`), and update the `mergeSteps` docs in `docs/class/walker.md`, the changelog and `MIGRATION.md`.
+In `rgxw`, destructure `mergeSteps` and pass `mergeSteps: mergeSteps ?? !verbatim` to `rgxwa`, and update the `mergeSteps` docs in `docs/class/walker.md`, the changelog and `MIGRATION.md`.

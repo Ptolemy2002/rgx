@@ -12,7 +12,7 @@ Changes to the exact regex source the library outputs aren't considered breaking
 
 ### Added
 
-- `rgxw` has a `mergeSteps` option that combines each run of adjacent steps without parts into one step. With `verbatim: false`, this lets literal parts of the template open and close groups across interpolated tokens, which the walker otherwise rejects as unbalanced steps.
+- `rgxw` and `rgxwa` have a `mergeSteps` option that combines each run of adjacent steps without parts into one step. With `verbatim: false`, this lets literal parts of the template open and close groups across interpolated tokens, which the walker otherwise rejects as unbalanced steps.
 - `afterLoss` can return `"silent"`, so a part that wasn't picked in a union step can keep the winning capture from being recorded without stopping the walker.
 
 ## 15.0.0 - 2026-10-22

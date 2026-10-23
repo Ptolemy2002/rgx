@@ -130,7 +130,7 @@ The following are utilities for creating `RGXWalker` instances without the need 
 
 ## rgxw
 ```typescript
-function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {multiline=true, verbatim=true, mergeSteps=false, ...options}: RGXWOptions<R, S> = {}): (strings: TemplateStringsArray, ...tokens: RGXWalkerStep<R, S, T>[]) => RGXWalker<R, S>
+function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {multiline=true, verbatim=true, ...options}: RGXWOptions<R, S> = {}): (strings: TemplateStringsArray, ...tokens: RGXWalkerStep<R, S, T>[]) => RGXWalker<R, S>
 ```
 Creates an `RGXWalker` instance from an interpolation of strings and tokens. The template literal is interpreted as a raw string, meaning any escape sequences are left as-is instead of being resolved to their charcter equivalents. Tokens are checked for acceptance like in `rgxwa`, then passed through. Instead of returning an `ExtRegExp`, it returns an `RGXWalker` that can be used to walk through matches of the regex pattern in the source string.
 
@@ -152,17 +152,18 @@ Creates an `RGXWalker` instance from an interpolation of strings and tokens. The
 
 ## rgxwa
 ```typescript
-function rgxwa<R = unknown, S = unknown, T = unknown>(source: string, tokens: RGXWalkerStep<R, S, T>[], options: Omit<RGXWOptions<R, S>, "multiline" | "mergeSteps"> = {}): RGXWalker<R, S>
+function rgxwa<R = unknown, S = unknown, T = unknown>(source: string, tokens: RGXWalkerStep<R, S, T>[], {mergeSteps=false, ...options}: Omit<RGXWOptions<R, S>, "multiline"> = {}): RGXWalker<R, S>
 ```
 As an alternative to using the `rgxw` template tag, you can directly call `rgxwa` with a source string, an array of tokens and/or parts, and options to get an `RGXWalker` instance. This is useful in cases where you don't want to use a template literal. Each plain token and the inner token of each `RGXPart` is checked for acceptance at its position (including tokens nested inside it) by resolving it as the top level of a pattern with no flags, since the walker matches each token on its own without flags (see `rgxAcceptInsertion` in [base.md](./token/base.md)). Because of this, the tokens are resolved once when the walker is created, except for the tokens of dynamic parts, which aren't known until they are captured (see [Dynamic Parts](#dynamic-parts)). Each resolved step is then checked the same way the walker checks it before matching it (see [Step validation](#step-validation)), so problems are found before walking starts. `RGXPart` instances are then passed through to the walker. The provided options are passed through to configure the resulting walker.
 
 #### Parameters
   - `source` (`string`): An arbitrary string value that will be included in the `source` property of the walker object.
   - `tokens` (`RGXWalkerStep<R, S, T>[]`): The tokens and/or parts to form the walker's token sequence. Plain `RGXToken` values are validated; `RGXPart` instances are passed through as-is.
-  - `options` (`Omit<RGXWOptions<R, S>, "multiline" | "mergeSteps">`, optional): Additional options for configuring the behavior of the resulting `RGXWalker`, excluding the `multiline` and `mergeSteps` options, which are not applicable when not using a template literal. This includes:
+  - `options` (`Omit<RGXWOptions<R, S>, "multiline">`, optional): Additional options for configuring the behavior of the resulting `RGXWalker`, excluding the `multiline` option, which is not applicable when not using a template literal. This includes:
     - `startingSourcePosition` (`number`, optional): An optional initial value for the walker's `sourcePosition` property, which tracks the current position in the source string during walking. Defaults to `0`.
     - `reduced` (`R`, optional): An optional initial value for the walker's `reduced` property, which can be used to accumulate results across matches.
     - `share` (`S`, optional): An optional initial value for the walker's `share` property, which is passed to all Part callbacks and can be used as shared mutable state across parts.
+    - `mergeSteps` (`boolean`, optional): Whether to combine each run of adjacent `tokens` that contain no `RGXPart` into a single step, the same way `rgxw` does (see `mergeSteps` under `rgxw`). Defaults to `false`. For example, `rgxwa(source, [rgxInterpolation("("), "a", rgxInterpolation(")+"), part], { mergeSteps: true })` has two steps: `(a)+` and `part`.
 
 #### Returns
 - `RGXWalker<R, S>`: An `RGXWalker` instance configured with the provided source, the resolved tokens, and the specified options.
