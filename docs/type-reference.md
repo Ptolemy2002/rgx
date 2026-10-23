@@ -128,7 +128,7 @@ type RGXParseOptions = {
 };
 
 type RGXPartControl = "skip" | "stop" | "silent" | "stop-silent" | void;
-type RGXPartLossControl = "stop" | "stop-silent" | void;
+type RGXPartLossControl = "silent" | "stop" | "stop-silent" | void;
 type RGXPartLossReason = "no-match" | "not-reached";
 type RGXPartLoss<R, S = unknown> = {
     reason: RGXPartLossReason;

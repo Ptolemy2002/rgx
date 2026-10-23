@@ -409,8 +409,8 @@ export class RGXWalker<R, S = unknown> {
             const reason = loser.index < winner.index ? "no-match" : "not-reached";
             const control = part.afterLoss?.({ reason, winner: winningStep, capture: captureResult }, { part, walker: this });
             // If this happens, afterLoss itself stopped the walker, so we just need to respect that.
-            if (this.stopped) return result ?? "stop";
-            if (result === undefined && (control === "stop" || control === "stop-silent")) result = control;
+            if (this.stopped) return result === "silent" ? "stop-silent" : result ?? "stop";
+            if (result === undefined && (control === "silent" || control === "stop" || control === "stop-silent")) result = control;
         }
         return result;
     }
@@ -555,12 +555,12 @@ export class RGXWalker<R, S = unknown> {
         }
 
         const owner = winner.owner;
-        const silent = owner !== null && silentParts.has(owner);
 
         // The parts in a union that weren't picked are told so before the winner's afterCapture.
         const losers = canRetry ? branches.filter(branch => branch !== winner && branch.owner !== null) : [];
         const lossControl = losers.length > 0 ? this.handleAfterLoss(losers, winner, alternatives[winner.index]!, captureResult) : undefined;
-        if (lossControl !== undefined) {
+        const silent = (owner !== null && silentParts.has(owner)) || lossControl === "silent";
+        if (lossControl === "stop" || lossControl === "stop-silent") {
             if (!silent && lossControl === "stop") this.registerCapture(captureResult, owner);
             this.advanceToken();
             this._stopped = true;

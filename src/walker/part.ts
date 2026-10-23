@@ -14,11 +14,12 @@ import { assertRGXToken } from "src/typeGuards";
 // - "stop-silent": halt immediately but don't record in captures
 export type RGXPartControl = "skip" | "stop" | "silent" | "stop-silent" | void;
 
-// Return values from afterLoss. A part that wasn't picked can only stop the walker, since the step already captured.
+// Return values from afterLoss. A part that wasn't picked can't undo the step, since it already captured.
 // - void/undefined: proceed normally
+// - "silent": don't record the winning capture, but continue normally
 // - "stop": record the winning capture, then halt
 // - "stop-silent": halt without recording the winning capture
-export type RGXPartLossControl = "stop" | "stop-silent" | void;
+export type RGXPartLossControl = "silent" | "stop" | "stop-silent" | void;
 
 export type RGXCapture<T = unknown> = {
     raw: string;

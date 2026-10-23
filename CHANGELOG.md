@@ -8,6 +8,12 @@ Changes to the exact regex source the library outputs aren't considered breaking
 
 ---
 
+## Unreleased
+
+### Added
+
+- `afterLoss` can return `"silent"`, so a part that wasn't picked in a union step can keep the winning capture from being recorded without stopping the walker.
+
 ## 15.0.0 - 2026-10-22
 
 14.3.0 was never published, so this is the first release with its changes.
