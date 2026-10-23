@@ -8,9 +8,9 @@ Changes to the exact regex source the library outputs aren't considered breaking
 
 ---
 
-## Unreleased
+## 15.0.0 - 2026-10-22
 
-These changes are on `main` but haven't been published to npm yet. `package.json` was bumped to 14.3.0, but that version was never published, so its changes ship with the next release, which will be a major version (15.0.0).
+14.3.0 was never published, so this is the first release with its changes.
 
 ### Breaking
 
