@@ -6,11 +6,14 @@ import {
 import { RGXToken, ValidRegexFlags } from "src/types";
 import { RGXPart, RGXCapture, RGXPartLossControl } from "./part";
 import { resolveRGXToken } from "src/resolve";
+import { rgxConcat } from "src/concat";
 import { assertRegexMatchesAfterPosition, assertRegexMatchesAtPosition, createRegex } from "src/utils";
 import { RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { RGXCurrentTokenNotFoundError } from "src/errors/currentTokenNotFound";
-import { assertValidRegexReferences, collectRGXReferences, hasRegexParenErrors, placeRGXToken, withRGXInsertionRoot } from "src/internal";
+import {
+    assertValidRegexReferences, collectRGXReferences, hasRegexParenErrors, isMergedWalkerStep, placeRGXToken, withRGXInsertionRoot
+} from "src/internal";
 
 export type RGXWalkerOptions<R, S = unknown> = {
     startingSourcePosition?: number;
@@ -119,8 +122,11 @@ function assertValidStepSource(source: string, references: readonly (string | nu
 // position as the top level of a pattern with no flags. Returns the resolved source along with the backreferences
 // recorded while resolving it.
 function resolveCheckedStep(siblings: readonly RGXToken[], index: number): [string, (string | number)[]] {
+    const step = siblings[index];
     return collectRGXReferences(() => withRGXInsertionRoot('' as ValidRegexFlags, () => {
-        return placeRGXToken(siblings, index, () => resolveRGXToken(siblings[index]));
+        // The group of a merged step would reject unbalanced parentheses itself, so its tokens are concatenated
+        // without it, letting the step check report them.
+        return placeRGXToken(siblings, index, () => isMergedWalkerStep(step) ? rgxConcat(step.tokens, true) : resolveRGXToken(step));
     }));
 }
 

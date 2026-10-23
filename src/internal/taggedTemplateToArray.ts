@@ -1,6 +1,6 @@
-import { RGXGroupToken } from "src/class";
 import { RGXToken } from "src/types";
 import { RGXPart, RGXWalkerStep } from "src/walker";
+import { createMergedWalkerStep } from "./mergedWalkerSteps";
 
 export function rgxTaggedTemplateToArray<R = unknown, S = unknown, T = unknown>(
     _strings: TemplateStringsArray, tokens: RGXWalkerStep<R, S, T>[], multiline: boolean, verbatim: boolean
@@ -68,7 +68,7 @@ export function rgxMergeWalkerSteps<R = unknown, S = unknown, T = unknown>(steps
     const flushRun = () => {
         // A single step is kept as-is.
         if (run.length === 1) result.push(run[0]!);
-        else if (run.length > 1) result.push(new RGXGroupToken({ capturing: false }, run));
+        else if (run.length > 1) result.push(createMergedWalkerStep(run));
         run = [];
     };
 

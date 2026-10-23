@@ -1,4 +1,4 @@
-import rgx, { rgxa, rgxw, rgxwa, RGXClassToken, RGXClassWrapperToken, RGXGroupToken, rgxConcat, rgxConstant, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXInvalidRegexStringError, RGXToken, ValidRegexFlags, RGXPart, RGXSubpatternToken, RGXInvalidBackreferenceError, RGXDuplicateGroupNameError, RGXReservedGroupNameError, RGXInvalidWalkerStepError, rgxGroup, rgxSubpattern, rgxPart } from 'src/index';
+import rgx, { rgxa, rgxw, rgxwa, RGXClassToken, RGXClassWrapperToken, RGXGroupToken, rgxConcat, rgxConstant, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXToken, ValidRegexFlags, RGXPart, RGXSubpatternToken, RGXInvalidBackreferenceError, RGXDuplicateGroupNameError, RGXReservedGroupNameError, RGXInvalidWalkerStepError, rgxGroup, rgxSubpattern, rgxPart } from 'src/index';
 import { RGXWalker } from 'src/walker';
 import { expectError } from './utils';
 
@@ -713,8 +713,10 @@ describe('backreference validation', () => {
         unbalanced.walk();
         expect(unbalanced.captures.map(c => c.raw)).toEqual(["abab"]);
 
-        // A part between the halves still leaves them unbalanced, and the merged group rejects its source.
-        expect(() => rgxw("ab", { verbatim: false, mergeSteps: true })`(${"a"}${rgxPart("b")})`).toThrow(RGXInvalidRegexStringError);
+        // A part between the halves still leaves each run unbalanced.
+        const call = () => rgxw("ab", { verbatim: false, mergeSteps: true })`x(${"a"}${rgxPart("b")})`;
+        expect(call).toThrow(RGXInvalidWalkerStepError);
+        expect(call).toThrow(/Step index: 0; Got: "x\(a"/);
     });
 
     it('reserves the branch group names in walker steps', () => {
