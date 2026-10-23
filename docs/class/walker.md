@@ -120,7 +120,9 @@ type RGXOptions = {
     verbatim?: boolean;
 };
 
-type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & RGXOptions;
+type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & RGXOptions & {
+    mergeSteps?: boolean;
+};
 ```
 
 # Constructor Utilities
@@ -128,7 +130,7 @@ The following are utilities for creating `RGXWalker` instances without the need 
 
 ## rgxw
 ```typescript
-function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {multiline=true, verbatim=true, ...options}: RGXWOptions<R, S> = {}): (strings: TemplateStringsArray, ...tokens: RGXWalkerStep<R, S, T>[]) => RGXWalker<R, S>
+function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {multiline=true, verbatim=true, mergeSteps=false, ...options}: RGXWOptions<R, S> = {}): (strings: TemplateStringsArray, ...tokens: RGXWalkerStep<R, S, T>[]) => RGXWalker<R, S>
 ```
 Creates an `RGXWalker` instance from an interpolation of strings and tokens. The template literal is interpreted as a raw string, meaning any escape sequences are left as-is instead of being resolved to their charcter equivalents. Tokens are checked for acceptance like in `rgxwa`, then passed through. Instead of returning an `ExtRegExp`, it returns an `RGXWalker` that can be used to walk through matches of the regex pattern in the source string.
 
@@ -137,7 +139,8 @@ Creates an `RGXWalker` instance from an interpolation of strings and tokens. The
   - `options` (`RGXWOptions<R, S>`, optional): Additional options for configuring the behavior of the resulting `RGXWalker`. This includes:
     - `startingSourcePosition` (`number`, optional): An optional initial value for the walker's `sourcePosition` property, which tracks the current position in the source string during walking. Defaults to `0`.
     - `multiline` (`boolean`, optional): Whether to strip newlines and trim leading whitespace from the literal string parts of the template. Defaults to `true`. When `true`, each literal string part is split by newlines, each line has its leading whitespace trimmed, empty lines are removed, comments (denoted with `//`) ending a line or on a line by themselves are stripped, and the remaining lines are joined together. Interpolated tokens (including string tokens via `${"..."}`) are not affected. When `false`, literal string parts are preserved exactly as written.
-    - `verbatim` (`boolean`, optional): Whether to treat literal string parts of the template as verbatim text. Defaults to `true`. When `true`, literal string parts are escaped so that special regex characters are matched literally. When `false`, literal string parts are inserted as raw regex syntax without escaping, as interpolation tokens (see `rgxInterpolation` in [general.md](../general.md)) in the walker's token list. Since each token is matched on its own, each literal part must still be a valid regex by itself, and one with unbalanced parentheses throws an `RGXInvalidWalkerStepError` when the walker is created (see `rgxwa`). Interpolated values (including string tokens via `${"..."}`) are always escaped regardless of this setting.
+    - `verbatim` (`boolean`, optional): Whether to treat literal string parts of the template as verbatim text. Defaults to `true`. When `true`, literal string parts are escaped so that special regex characters are matched literally. When `false`, literal string parts are inserted as raw regex syntax without escaping, as interpolation tokens (see `rgxInterpolation` in [general.md](../general.md)) in the walker's token list. Since each token is matched on its own, each literal part must still be a valid regex by itself, and one with unbalanced parentheses throws an `RGXInvalidWalkerStepError` when the walker is created (see `rgxwa`), unless `mergeSteps` combines it with the parts that balance it. Interpolated values (including string tokens via `${"..."}`) are always escaped regardless of this setting.
+    - `mergeSteps` (`boolean`, optional): Whether to combine each run of adjacent steps that contain no `RGXPart` (literal string parts and interpolated tokens) into a single step, a non-capturing `RGXGroupToken` of the run, so the run is matched as one regex and records one capture. A step that is a part, or a union containing one, stays its own step and ends the run, and a run of one step is left as-is. A merged run that is still unbalanced throws an `RGXInvalidWalkerStepError` when the walker is created, like any other unbalanced step. Defaults to `false`. This is mainly useful with `verbatim: false`, where it lets a literal part open a group that a later literal part closes, as long as no part is between them. For example, ``rgxw(source, { verbatim: false, mergeSteps: true })`(${"a"}|b)+${part}` `` has two steps: `(a|b)+` and `part`.
     - `reduced` (`R`, optional): An optional initial value for the walker's `reduced` property, which can be used to accumulate results across matches.
     - `share` (`S`, optional): An optional initial value for the walker's `share` property, which is passed to all Part callbacks and can be used as shared mutable state across parts without being accumulated in `reduced`.
     - `infinite` (`boolean`, optional): Whether the walker should continue walking even after reaching the end of the token array, matching the final token repeatedly.
@@ -149,14 +152,14 @@ Creates an `RGXWalker` instance from an interpolation of strings and tokens. The
 
 ## rgxwa
 ```typescript
-function rgxwa<R = unknown, S = unknown, T = unknown>(source: string, tokens: RGXWalkerStep<R, S, T>[], options: Omit<RGXWOptions<R, S>, "multiline"> = {}): RGXWalker<R, S>
+function rgxwa<R = unknown, S = unknown, T = unknown>(source: string, tokens: RGXWalkerStep<R, S, T>[], options: Omit<RGXWOptions<R, S>, "multiline" | "mergeSteps"> = {}): RGXWalker<R, S>
 ```
 As an alternative to using the `rgxw` template tag, you can directly call `rgxwa` with a source string, an array of tokens and/or parts, and options to get an `RGXWalker` instance. This is useful in cases where you don't want to use a template literal. Each plain token and the inner token of each `RGXPart` is checked for acceptance at its position (including tokens nested inside it) by resolving it as the top level of a pattern with no flags, since the walker matches each token on its own without flags (see `rgxAcceptInsertion` in [base.md](./token/base.md)). Because of this, the tokens are resolved once when the walker is created, except for the tokens of dynamic parts, which aren't known until they are captured (see [Dynamic Parts](#dynamic-parts)). Each resolved step is then checked the same way the walker checks it before matching it (see [Step validation](#step-validation)), so problems are found before walking starts. `RGXPart` instances are then passed through to the walker. The provided options are passed through to configure the resulting walker.
 
 #### Parameters
   - `source` (`string`): An arbitrary string value that will be included in the `source` property of the walker object.
   - `tokens` (`RGXWalkerStep<R, S, T>[]`): The tokens and/or parts to form the walker's token sequence. Plain `RGXToken` values are validated; `RGXPart` instances are passed through as-is.
-  - `options` (`Omit<RGXWOptions<R, S>, "multiline">`, optional): Additional options for configuring the behavior of the resulting `RGXWalker`, excluding the `multiline` option which is not applicable when not using a template literal. This includes:
+  - `options` (`Omit<RGXWOptions<R, S>, "multiline" | "mergeSteps">`, optional): Additional options for configuring the behavior of the resulting `RGXWalker`, excluding the `multiline` and `mergeSteps` options, which are not applicable when not using a template literal. This includes:
     - `startingSourcePosition` (`number`, optional): An optional initial value for the walker's `sourcePosition` property, which tracks the current position in the source string during walking. Defaults to `0`.
     - `reduced` (`R`, optional): An optional initial value for the walker's `reduced` property, which can be used to accumulate results across matches.
     - `share` (`S`, optional): An optional initial value for the walker's `share` property, which is passed to all Part callbacks and can be used as shared mutable state across parts.

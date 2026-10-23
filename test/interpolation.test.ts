@@ -3,10 +3,10 @@ import {
     isRGXJSONInterpolationToken, assertRGXJSONInterpolationToken, isRGXJSONLiteralToken, isRGXJSONClassToken,
     isRGXJSONObjectToken, isRGXJSONToken, createRGXJSONInterpolationToken, isRGXToken, isRGXArrayToken,
     rgxTokenType, rgxTokenToJSON, rgxTokenFromJSON, rgxTokenFromJSONString, cloneRGXToken, RGXRepeatToken,
-    RGXClassWrapperToken, RGXInvalidTokenError, RGXInvalidJSONTokenError, RGXNotSupportedError
+    RGXClassWrapperToken, RGXGroupToken, RGXPart, RGXInvalidTokenError, RGXInvalidJSONTokenError, RGXNotSupportedError
 } from "src/index";
 import rgx from "src/index";
-import { rgxTaggedTemplateToArray } from "src/internal";
+import { rgxMergeWalkerSteps, rgxTaggedTemplateToArray } from "src/internal";
 
 function template(strings: TemplateStringsArray, ..._tokens: unknown[]) {
     return strings;
@@ -127,5 +127,15 @@ describe("tagged templates", () => {
 
     it("builds patterns from template strings with unbalanced parentheses when verbatim is false", () => {
         expect(rgx("", { verbatim: false })`(a${"."})`.source).toBe("(a\\.)");
+    });
+
+    it("merges runs of walker steps without parts", () => {
+        const part = new RGXPart("p");
+        const union = ["x", new RGXPart("y")];
+        expect(rgxMergeWalkerSteps([rgxInterpolation("(a"), "b", rgxInterpolation(")"), part, "c", union, ["d", "e"]])).toEqual([
+            new RGXGroupToken({ capturing: false }, [rgxInterpolation("(a"), "b", rgxInterpolation(")")]),
+            part, "c", union, ["d", "e"]
+        ]);
+        expect(rgxMergeWalkerSteps([])).toEqual([]);
     });
 });

@@ -700,6 +700,25 @@ describe('backreference validation', () => {
         expect(() => rgxw("aa", { verbatim: false })`(a)\1`).not.toThrow();
     });
 
+    it('merges steps without parts when mergeSteps is true', () => {
+        const part = rgxPart(/c/, { id: "c" });
+        const walker = rgxw("(a.b)-c", { verbatim: false, mergeSteps: true })`\(${"a"}${/./}b\)-${part}`;
+        // The run before the part, the part, and the empty literal part after it.
+        expect(walker.tokens).toHaveLength(3);
+        expect(walker.tokens[1]).toBe(part);
+        walker.walk();
+        expect(walker.captures.map(c => c.raw)).toEqual(["(a.b)-", "c", ""]);
+
+        const unbalanced = rgxw("abab", { verbatim: false, mergeSteps: true })`(${"a"}|x)${/b/}\1${"b"}`;
+        unbalanced.walk();
+        expect(unbalanced.captures.map(c => c.raw)).toEqual(["abab"]);
+
+        // A part between the halves still leaves each run unbalanced.
+        const call = () => rgxw("ab", { verbatim: false, mergeSteps: true })`x(${"a"}${rgxPart("b")})`;
+        expect(call).toThrow(RGXInvalidWalkerStepError);
+        expect(call).toThrow(/Step index: 0; Got: "x\(a"/);
+    });
+
     it('reserves the branch group names in walker steps', () => {
         expect(() => rgxwa("a", [rgxGroup({ name: "rgx_branch_0" }, "a")])).toThrow(RGXReservedGroupNameError);
         expect(() => rgxwa("a", [/(?<rgx_branch_x>a)/])).toThrow(RGXReservedGroupNameError);
