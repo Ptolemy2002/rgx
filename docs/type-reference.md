@@ -231,7 +231,9 @@ type RGXOptions = {
     verbatim?: boolean;
 };
 
-type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & RGXOptions;
+type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & RGXOptions & {
+    mergeSteps?: boolean;
+};
 
 type CreateRGXBoundsOptions = {
     flags?: string;

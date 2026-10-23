@@ -1,4 +1,4 @@
-import rgx, { rgxa, rgxw, rgxwa, RGXClassToken, RGXClassWrapperToken, RGXGroupToken, rgxConcat, rgxConstant, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXToken, ValidRegexFlags, RGXPart, RGXSubpatternToken, RGXInvalidBackreferenceError, RGXDuplicateGroupNameError, RGXReservedGroupNameError, RGXInvalidWalkerStepError, rgxGroup, rgxSubpattern, rgxPart } from 'src/index';
+import rgx, { rgxa, rgxw, rgxwa, RGXClassToken, RGXClassWrapperToken, RGXGroupToken, rgxConcat, rgxConstant, RGXInsertionRejectedError, RGXInvalidRegexFlagsError, RGXInvalidRegexStringError, RGXToken, ValidRegexFlags, RGXPart, RGXSubpatternToken, RGXInvalidBackreferenceError, RGXDuplicateGroupNameError, RGXReservedGroupNameError, RGXInvalidWalkerStepError, rgxGroup, rgxSubpattern, rgxPart } from 'src/index';
 import { RGXWalker } from 'src/walker';
 import { expectError } from './utils';
 
@@ -698,6 +698,23 @@ describe('backreference validation', () => {
         expect(call).toThrow(/Step index: 0/);
         expect(() => rgxwa("a", [rgxPart({ rgxInterpolation: "(?:a" })])).toThrow(RGXInvalidWalkerStepError);
         expect(() => rgxw("aa", { verbatim: false })`(a)\1`).not.toThrow();
+    });
+
+    it('merges steps without parts when mergeSteps is true', () => {
+        const part = rgxPart(/c/, { id: "c" });
+        const walker = rgxw("(a.b)-c", { verbatim: false, mergeSteps: true })`\(${"a"}${/./}b\)-${part}`;
+        // The run before the part, the part, and the empty literal part after it.
+        expect(walker.tokens).toHaveLength(3);
+        expect(walker.tokens[1]).toBe(part);
+        walker.walk();
+        expect(walker.captures.map(c => c.raw)).toEqual(["(a.b)-", "c", ""]);
+
+        const unbalanced = rgxw("abab", { verbatim: false, mergeSteps: true })`(${"a"}|x)${/b/}\1${"b"}`;
+        unbalanced.walk();
+        expect(unbalanced.captures.map(c => c.raw)).toEqual(["abab"]);
+
+        // A part between the halves still leaves them unbalanced, and the merged group rejects its source.
+        expect(() => rgxw("ab", { verbatim: false, mergeSteps: true })`(${"a"}${rgxPart("b")})`).toThrow(RGXInvalidRegexStringError);
     });
 
     it('reserves the branch group names in walker steps', () => {
