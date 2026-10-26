@@ -114,4 +114,6 @@ export type RGXOptions = {
     verbatim?: boolean;
 };
 
-export type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & RGXOptions;
+export type RGXWOptions<R = unknown, S = unknown> = RGXWalkerOptions<R, S> & RGXOptions & {
+    mergeSteps?: boolean;
+};

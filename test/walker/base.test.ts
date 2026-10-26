@@ -1746,6 +1746,33 @@ describe("RGXWalker", () => {
             expect(afterCapture).not.toHaveBeenCalled();
         });
 
+        it("continues without recording the capture when afterLoss returns silent", () => {
+            const afterCapture = jest.fn();
+            const winner = new RGXPart("b", { id: "winner", afterCapture });
+            const walker = new RGXWalker("bx", [[new RGXPart("a", { afterLoss: () => "silent" }), new RGXPart("a", { afterLoss: () => "stop" }), winner], "x"]);
+
+            expect(walker.step()).toMatchObject({ raw: "b", branch: 2 });
+            expect(walker.stopped).toBe(false);
+            expect(walker.captures).toHaveLength(0);
+            expect(walker.namedCaptures).toEqual({});
+            expect(walker.tokenPosition).toBe(1);
+            expect(afterCapture).toHaveBeenCalledTimes(1);
+        });
+
+        it("doesn't record the capture when afterLoss returns silent and the winner's afterCapture skips", () => {
+            const walker = new RGXWalker("b", [[new RGXPart("a", { afterLoss: () => "silent" }), new RGXPart("b", { afterCapture: () => "skip" })]]);
+            expect(walker.step()).toBe(null);
+            expect(walker.captures).toHaveLength(0);
+            expect(walker.sourcePosition).toBe(0);
+        });
+
+        it("stops without recording the capture when afterLoss returns silent and a later part stops the walker", () => {
+            const walker = new RGXWalker("b", [[new RGXPart("a", { afterLoss: () => "silent" }), new RGXPart("a", { afterLoss: (_, { walker }) => { walker.stop(); } }), "b"]]);
+            expect(walker.step()).toBe(null);
+            expect(walker.stopped).toBe(true);
+            expect(walker.captures).toHaveLength(0);
+        });
+
         it("stops without recording the capture when afterLoss returns stop-silent", () => {
             const walker = new RGXWalker("b", [[new RGXPart("a", { afterLoss: () => "stop-silent" }), new RGXPart("a", { afterLoss: () => "stop" }), "b"]]);
             expect(walker.step()).toBe(null);

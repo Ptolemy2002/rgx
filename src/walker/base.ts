@@ -6,11 +6,14 @@ import {
 import { RGXToken, ValidRegexFlags } from "src/types";
 import { RGXPart, RGXCapture, RGXPartLossControl } from "./part";
 import { resolveRGXToken } from "src/resolve";
+import { rgxConcat } from "src/concat";
 import { assertRegexMatchesAfterPosition, assertRegexMatchesAtPosition, createRegex } from "src/utils";
 import { RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { RGXCurrentTokenNotFoundError } from "src/errors/currentTokenNotFound";
-import { assertValidRegexReferences, collectRGXReferences, hasRegexParenErrors, placeRGXToken, withRGXInsertionRoot } from "src/internal";
+import {
+    assertValidRegexReferences, collectRGXReferences, hasRegexParenErrors, isMergedWalkerStep, placeRGXToken, withRGXInsertionRoot
+} from "src/internal";
 
 export type RGXWalkerOptions<R, S = unknown> = {
     startingSourcePosition?: number;
@@ -119,8 +122,11 @@ function assertValidStepSource(source: string, references: readonly (string | nu
 // position as the top level of a pattern with no flags. Returns the resolved source along with the backreferences
 // recorded while resolving it.
 function resolveCheckedStep(siblings: readonly RGXToken[], index: number): [string, (string | number)[]] {
+    const step = siblings[index];
     return collectRGXReferences(() => withRGXInsertionRoot('' as ValidRegexFlags, () => {
-        return placeRGXToken(siblings, index, () => resolveRGXToken(siblings[index]));
+        // The group of a merged step would reject unbalanced parentheses itself, so its tokens are concatenated
+        // without it, letting the step check report them.
+        return placeRGXToken(siblings, index, () => isMergedWalkerStep(step) ? rgxConcat(step.tokens, true) : resolveRGXToken(step));
     }));
 }
 
@@ -409,8 +415,8 @@ export class RGXWalker<R, S = unknown> {
             const reason = loser.index < winner.index ? "no-match" : "not-reached";
             const control = part.afterLoss?.({ reason, winner: winningStep, capture: captureResult }, { part, walker: this });
             // If this happens, afterLoss itself stopped the walker, so we just need to respect that.
-            if (this.stopped) return result ?? "stop";
-            if (result === undefined && (control === "stop" || control === "stop-silent")) result = control;
+            if (this.stopped) return result === "silent" ? "stop-silent" : result ?? "stop";
+            if (result === undefined && (control === "silent" || control === "stop" || control === "stop-silent")) result = control;
         }
         return result;
     }
@@ -555,12 +561,12 @@ export class RGXWalker<R, S = unknown> {
         }
 
         const owner = winner.owner;
-        const silent = owner !== null && silentParts.has(owner);
 
         // The parts in a union that weren't picked are told so before the winner's afterCapture.
         const losers = canRetry ? branches.filter(branch => branch !== winner && branch.owner !== null) : [];
         const lossControl = losers.length > 0 ? this.handleAfterLoss(losers, winner, alternatives[winner.index]!, captureResult) : undefined;
-        if (lossControl !== undefined) {
+        const silent = (owner !== null && silentParts.has(owner)) || lossControl === "silent";
+        if (lossControl === "stop" || lossControl === "stop-silent") {
             if (!silent && lossControl === "stop") this.registerCapture(captureResult, owner);
             this.advanceToken();
             this._stopped = true;

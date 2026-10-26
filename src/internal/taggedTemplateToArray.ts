@@ -1,4 +1,6 @@
-import { RGXWalkerStep } from "src/walker";
+import { RGXToken } from "src/types";
+import { RGXPart, RGXWalkerStep } from "src/walker";
+import { createMergedWalkerStep } from "./mergedWalkerSteps";
 
 export function rgxTaggedTemplateToArray<R = unknown, S = unknown, T = unknown>(
     _strings: TemplateStringsArray, tokens: RGXWalkerStep<R, S, T>[], multiline: boolean, verbatim: boolean
@@ -56,4 +58,34 @@ export function rgxTaggedTemplateToArray<R = unknown, S = unknown, T = unknown>(
     }
 
     return array;
+}
+// Combines each run of adjacent steps that contain no parts into a single step, so the run is matched as one regex.
+// Steps that contain parts are kept on their own, since each one handles its own capture.
+export function rgxMergeWalkerSteps<R = unknown, S = unknown, T = unknown>(steps: RGXWalkerStep<R, S, T>[]): RGXWalkerStep<R, S, T>[] {
+    const result: RGXWalkerStep<R, S, T>[] = [];
+    let run: RGXToken[] = [];
+
+    const flushRun = () => {
+        // A single step is kept as-is.
+        if (run.length === 1) result.push(run[0]!);
+        else if (run.length > 1) result.push(createMergedWalkerStep(run));
+        run = [];
+    };
+
+    for (const step of steps) {
+        if (stepContainsPart(step)) {
+            flushRun();
+            result.push(step);
+        } else {
+            run.push(step as RGXToken);
+        }
+    }
+    flushRun();
+
+    return result;
+}
+
+function stepContainsPart<R, S, T>(step: RGXWalkerStep<R, S, T>): boolean {
+    if (Array.isArray(step)) return step.some(alternative => stepContainsPart(alternative));
+    return RGXPart.check(step);
 }

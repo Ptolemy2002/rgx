@@ -6,7 +6,7 @@ import { collectRGXReferences, withRGXInsertionRoot } from "./internal/insertion
 import { removeRedundantRegexGroups } from "./internal/analyzeRegexSource";
 import { scanOptionsFromFlags } from "./internal/scanRegexSource";
 import { assertValidRegexReferences } from "./internal/validateReferences";
-import { rgxTaggedTemplateToArray } from "./internal/taggedTemplateToArray";
+import { rgxMergeWalkerSteps, rgxTaggedTemplateToArray } from "./internal/taggedTemplateToArray";
 import { assertValidRegexFlags, ExtRegExp } from "./ExtRegExp";
 import { RGXWalker, RGXWalkerStep } from "./walker";
 import { validateRGXWalkerSteps } from "./walker/base";
@@ -38,11 +38,12 @@ export default function rgx(flags: string = '', {multiline=true, verbatim=true}:
 
 export function rgxwa<R = unknown, S = unknown, T = unknown>(
     source: string, tokens: RGXWalkerStep<R, S, T>[],
-    options: Omit<t.RGXWOptions<R, S>, "multiline"> = {}
+    {mergeSteps=false, ...options}: Omit<t.RGXWOptions<R, S>, "multiline"> = {}
 ) {
+    const steps = mergeSteps ? rgxMergeWalkerSteps(tokens) : tokens;
     // Steps are checked when the walker is created, so problems are found before walking starts.
-    validateRGXWalkerSteps(tokens);
-    return new RGXWalker<R, S>(source, tokens, options);
+    validateRGXWalkerSteps(steps);
+    return new RGXWalker<R, S>(source, steps, options);
 }
 
 export function rgxw<R = unknown, S = unknown, T = unknown>(source: string, {multiline=true, verbatim=true, ...options}: t.RGXWOptions<R, S> = {}) {
