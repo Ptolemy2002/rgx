@@ -12,6 +12,9 @@ export function isConstructor(value: unknown): value is new (...args: unknown[])
             return false;
         }
 
+        // To save on performance, catch non-functions
+        if (typeof value !== "function") return false;
+
         //@ts-expect-error If the value isn't constructable, the error will be caught.
         return !!(new (new Proxy(value, handler))())
     } catch {
