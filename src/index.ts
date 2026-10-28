@@ -1,6 +1,7 @@
 import * as t from "./types";
 import { rgxClassInit } from "./class";
 import { registerCustomFlagTransformers } from "./flag-transformer";
+import { registerBuiltInRGXPatternTransformers } from "./pattern-transformer";
 import { rgxConcat } from "./concat";
 import { collectRGXReferences, withRGXInsertionRoot } from "./internal/insertionContext";
 import { removeRedundantRegexGroups } from "./internal/analyzeRegexSource";
@@ -16,6 +17,8 @@ import { createRegex } from "./utils/createRegex";
 rgxClassInit();
 // Call this for our custom flags to work correctly
 registerCustomFlagTransformers();
+// Call this for patterns to work around known regex engine bugs
+registerBuiltInRGXPatternTransformers();
 
 export function rgxa(tokens: t.RGXToken[], flags: string = ''): ExtRegExp {
     assertValidRegexFlags(flags);
@@ -63,6 +66,7 @@ export * from "./concat";
 export * from "./utils";
 export * from "./ExtRegExp";
 export * from "./flag-transformer";
+export * from "./pattern-transformer";
 export * from "./clone";
 export * from "./constants";
 export * from "./walker";

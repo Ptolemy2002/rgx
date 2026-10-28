@@ -10,6 +10,7 @@ import {
     RGXInvalidRegexLocalizableFlagDiffError,
     RGXInvalidJSONTokenError, RGXJSONClassConflictError, RGXInvalidJSONClassKeyError, RGXJSONClassArgsValidationFailedError, RGXNotJSONSerializableError,
     RGXInvalidBackreferenceError, RGXDuplicateGroupNameError, RGXReservedGroupNameError, RGXInvalidWalkerStepError,
+    RGXPatternTransformerConflictError, RGXInvalidPatternTransformerKeyError,
 } from 'src/index';
 
 class TestClassToken extends RGXClassToken {
@@ -1574,5 +1575,59 @@ describe("RGXInvalidWalkerStepError", () => {
     it("formats the error message correctly without an index", () => {
         const error = new RGXInvalidWalkerStepError("Bad step", null, "(");
         expect(error.toString()).toBe('RGXInvalidWalkerStepError: Bad step; Got: "("');
+    });
+});
+
+describe('RGXPatternTransformerConflictError', () => {
+    it('has the correct name', () => {
+        const error = new RGXPatternTransformerConflictError('Pattern transformer conflict', 'id');
+        expect(error.name).toBe('RGXPatternTransformerConflictError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXPatternTransformerConflictError('Pattern transformer conflict', 'id');
+        expect(error.code).toBe('PATTERN_TRANSFORMER_CONFLICT');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXPatternTransformerConflictError('Pattern transformer conflict', 'id');
+        expect(error.got).toBe('id');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXPatternTransformerConflictError('Pattern transformer conflict', 'id');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXPatternTransformerConflictError('Pattern transformer conflict', 'id');
+        expect(error.toString()).toBe('RGXPatternTransformerConflictError: Pattern transformer conflict; Got: "id"');
+    });
+});
+
+describe('RGXInvalidPatternTransformerKeyError', () => {
+    it('has the correct name', () => {
+        const error = new RGXInvalidPatternTransformerKeyError('Invalid pattern transformer key', 'id');
+        expect(error.name).toBe('RGXInvalidPatternTransformerKeyError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXInvalidPatternTransformerKeyError('Invalid pattern transformer key', 'id');
+        expect(error.code).toBe('INVALID_PATTERN_TRANSFORMER_KEY');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXInvalidPatternTransformerKeyError('Invalid pattern transformer key', 'id');
+        expect(error.got).toBe('id');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInvalidPatternTransformerKeyError('Invalid pattern transformer key', 'id');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXInvalidPatternTransformerKeyError('Invalid pattern transformer key', 'id');
+        expect(error.toString()).toBe('RGXInvalidPatternTransformerKeyError: Invalid pattern transformer key; Got: "id"');
     });
 });

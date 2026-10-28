@@ -10,9 +10,13 @@ Changes to the exact regex source the library outputs aren't considered breaking
 
 ## Unreleased
 
+### Added
+
+- Pattern transformers: rewrites applied to every finished pattern (from `rgx`, `rgxa`, `ExtRegExp`, walker steps and lexer definitions), mainly to work around regex engine bugs. `registerRGXPatternTransformer`, `unregisterRGXPatternTransformer`, `hasRGXPatternTransformer` and `listRGXPatternTransformers` manage them, and `applyRGXPatternTransformers` and `applyRGXPatternTransformersToSource` apply all of them, or the ones with the given ids, to any regex or source. Registering under an id that's taken throws the new `RGXPatternTransformerConflictError`, and applying an id that isn't registered throws the new `RGXInvalidPatternTransformerKeyError`. See [pattern-transformer.md](./docs/pattern-transformer.md).
+
 ### Fixed
 
-- Patterns now work around V8 bugs with modifier groups that add or remove the `i` flag, which the library generates whenever a token's case-insensitivity differs from its surroundings. Without the `u` or `v` flag, a character class in a later alternative of such a group ignored the modifier, so `rgxa([/[a]|[b]/i])` didn't match `"B"`. With `u` or `v`, the modifier leaked into later character classes and escapes like `\w`, so `rgxa([/a/i, /[B]/], "v")` matched `"ab"`. Every finished pattern (from `rgx`, `rgxa`, `ExtRegExp`, walker steps and lexer definitions) now goes through internal pattern transformers that rewrite these cases into equivalent patterns V8 reads correctly, including modifier groups written by hand. See [Engine bug workarounds](./docs/general.md#engine-bug-workarounds).
+- Patterns now work around V8 bugs with modifier groups that add or remove the `i` flag, which the library generates whenever a token's case-insensitivity differs from its surroundings. Without the `u` or `v` flag, a character class in a later alternative of such a group ignored the modifier, so `rgxa([/[a]|[b]/i])` didn't match `"B"`. With `u` or `v`, the modifier leaked into later character classes and escapes like `\w`, so `rgxa([/a/i, /[B]/], "v")` matched `"ab"`. Two built-in pattern transformers (`"modifier-group-alternatives"` and `"modifier-group-leaks"`) now rewrite these cases into equivalent patterns V8 reads correctly, including modifier groups written by hand.
 
 ## 15.1.0 - 2026-10-26
 

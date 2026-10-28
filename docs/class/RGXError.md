@@ -294,6 +294,32 @@ constructor(message: string, got: string)
 ### Properties
 - `got` (`string`): The conflicting key string.
 
+## RGXPatternTransformerConflictError
+A specific error class for pattern transformer conflicts. This error is thrown when attempting to register a pattern transformer (see [pattern-transformer.md](../pattern-transformer.md)) under an id that already has one. The error code is set to `PATTERN_TRANSFORMER_CONFLICT` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The conflicting id.
+
+### Properties
+- `got` (`string`): The conflicting id.
+
+## RGXInvalidPatternTransformerKeyError
+A specific error class for invalid pattern transformer ids. This error is thrown when `applyRGXPatternTransformers` or `applyRGXPatternTransformersToSource` (see [pattern-transformer.md](../pattern-transformer.md)) is asked to apply a transformer that isn't registered. The error code is set to `INVALID_PATTERN_TRANSFORMER_KEY` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The id that isn't registered.
+
+### Properties
+- `got` (`string`): The id that isn't registered.
+
 ## RGXInvalidConstantKeyError
 A specific error class for invalid constant keys. This error is thrown when attempting to access or assert an RGX constant with a name that does not exist. The error code is set to `INVALID_CONSTANT_KEY` on instantiation.
 

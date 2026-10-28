@@ -130,11 +130,7 @@ const pattern6 = rgx()`
 - `(strings: TemplateStringsArray, ...tokens: RGXToken[]) => ExtRegExp`: A template tag function that takes a template literal and returns an `ExtRegExp` object constructed from the resolved tokens, literal parts, and the provided flags.
 
 ## Engine bug workarounds
-Every finished pattern the library compiles goes through a set of pattern transformers before it is compiled: patterns built with `rgx`, `rgxa`, and the `ExtRegExp` constructor (including ones `regexWithFlags` returns, and ones `createRegex` builds with `extended` set to `true`), each step a walker matches, and each lexeme definition a lexer matches. Each transformer works around a known regex engine bug by rewriting the pattern into one the engine reads the way the specification says it should, matching the same strings with the same captures. Patterns that don't trigger a bug are left unchanged. This applies to modifier groups written by hand in literal and interpolation tokens as much as to the ones the library generates.
-
-The current transformers work around V8 bugs with modifier groups that add or remove the `i` flag (`(?i:...)` and `(?-i:...)`):
-- Without the `u` or `v` flag, a character class in any alternative but the first of a disjunction inside such a group is read with the flags outside the group, so `/(?i:a|[b])/` doesn't match `"B"`. Each alternative gets its own modifier group instead: `(?i:a|[b])` becomes `(?:(?i:a)|(?i:[b]))`, and `(?i:x(?:a|[b]))` becomes `(?:(?i:x)(?:(?i:a)|(?i:[b])))`.
-- With the `u` or `v` flag, the group's modifier leaks into the character classes, property escapes, and escapes like `\w` after it, until another group is opened, so `/(?i:a)[B]/v` matches `"ab"`. An empty group, `(?:)`, is inserted after the modifier group to stop it: `(?i:a)(?:)[B]`.
+Every finished pattern the library compiles goes through the registered pattern transformers before it is compiled: patterns built with `rgx` and `rgxa`, every `ExtRegExp`, each step a walker matches, and each lexeme definition a lexer matches. The built-in transformers work around V8 bugs with the modifier groups the library generates, so patterns match the way the specification says they should. See [pattern-transformer.md](./pattern-transformer.md).
 
 # rgxa
 ```typescript

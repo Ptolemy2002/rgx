@@ -1,6 +1,6 @@
 import { AST } from "@eslint-community/regexpp";
-import { parseRegexSource } from "./analyzeRegexSource";
-import { scanOptionsFromFlags } from "./scanRegexSource";
+import { parseRegexSource } from "src/internal/analyzeRegexSource";
+import { scanOptionsFromFlags } from "src/internal/scanRegexSource";
 
 // V8 mishandles modifier groups that add or remove the i flag, so these rewrite them into equivalent patterns it reads
 // correctly. Modifier groups that only set m or s are read correctly, so they are left alone.
@@ -130,7 +130,7 @@ function fixElement(element: AST.Element): string {
 
 // Rewrites case modifier groups with misread alternations, such as (?i:a|[b]) into (?:(?i:a)|(?i:[b])), splitting the
 // group around any inner disjunction: (?i:x(?:a|[b])) becomes (?:(?i:x)(?:(?i:a)|(?i:[b]))).
-export function fixModifierGroupAlternatives(source: string, flags: string): string {
+export function modifierGroupAlternativesPatternTransformer(source: string, flags: string): string {
     if (flags.includes('u') || flags.includes('v')) return source;
     const ast = parseRegexSource(source, scanOptionsFromFlags(flags));
     if (ast === null || !hasMisreadModifierGroup(ast.alternatives)) return source;
@@ -140,7 +140,7 @@ export function fixModifierGroupAlternatives(source: string, flags: string): str
 // With the u or v flag, a case modifier group's modifier leaks into the character classes, property escapes and
 // \w-style escapes after it, until the next group is opened: /^(?i:a)[B]$/v matches "ab". Opening an empty group right
 // after the modifier group stops it, so one is inserted wherever something other than a group follows.
-export function fixModifierGroupLeaks(source: string, flags: string): string {
+export function modifierGroupLeaksPatternTransformer(source: string, flags: string): string {
     if (!flags.includes('u') && !flags.includes('v')) return source;
     const ast = parseRegexSource(source, scanOptionsFromFlags(flags));
     if (ast === null) return source;

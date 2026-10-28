@@ -1,0 +1,115 @@
+# Type Reference
+The following is a reference to types relevant to the components listed in this file. The full type reference for the library can be found in [type-reference.md](./type-reference.md).
+
+```typescript
+type RGXPatternTransformer = (source: string, flags: string) => string;
+```
+
+# Pattern Transformers
+Pattern transformers are rewrites applied to every finished pattern the library compiles, mainly to work around regex engine bugs. Each one receives a pattern's source and vanilla flags and returns a source that matches the same strings with the same captures, written so the engine reads it the way the specification says it should.
+
+Transformers are registered under an id and applied in the order they were registered. Every registered transformer is applied to:
+- patterns built with `rgx` and `rgxa`;
+- every `ExtRegExp`, after its custom flag transformers (see [ExtRegExp.md](./ExtRegExp.md)), including ones returned by `regexWithFlags` and ones `createRegex` builds with `extended` set to `true`;
+- the regex each walker step is matched with (see [walker.md](./class/walker.md));
+- the regex each `"resolve"` lexeme definition is matched with, and the whitespace `skipWhitespace` skips (see [lexer.md](./class/lexer.md)).
+
+A transformer should return the source unchanged when it has nothing to fix. It must also give the same result when applied to its own output, since a finished pattern can be placed into another pattern and finished again. Transformers apply to the whole source, so modifier groups and other syntax written by hand in literal and interpolation tokens are rewritten as much as the syntax the library generates.
+
+Registering a transformer only affects patterns compiled afterwards. An `ExtRegExp` can be rebuilt with `new ExtRegExp(regex)` to pick up the change.
+
+## Built-in Transformers
+These are registered when the main entry point is imported. They work around V8 bugs with modifier groups that add or remove the `i` flag (`(?i:...)` and `(?-i:...)`), which the library generates whenever a token's case-insensitivity differs from its surroundings.
+
+| Id | Function | What it fixes |
+| --- | --- | --- |
+| `"modifier-group-alternatives"` | `modifierGroupAlternativesPatternTransformer` | Without the `u` or `v` flag, a character class in any alternative but the first of a disjunction inside such a group is read with the flags outside the group, so `/(?i:a\|[b])/` doesn't match `"B"`. Each alternative gets its own modifier group instead: `(?i:a\|[b])` becomes `(?:(?i:a)\|(?i:[b]))`, and `(?i:x(?:a\|[b]))` becomes `(?:(?i:x)(?:(?i:a)\|(?i:[b])))`. |
+| `"modifier-group-leaks"` | `modifierGroupLeaksPatternTransformer` | With the `u` or `v` flag, the group's modifier leaks into the character classes, property escapes, and escapes like `\w` after it, until another group is opened, so `/(?i:a)[B]/v` matches `"ab"`. An empty group, `(?:)`, is inserted after the modifier group to stop it: `(?i:a)(?:)[B]`. |
+
+Both functions are exported, so they can be applied on their own or registered again under other ids.
+
+# Functions
+## registerRGXPatternTransformer
+```typescript
+function registerRGXPatternTransformer(id: string, transformer: RGXPatternTransformer): void
+```
+Registers a pattern transformer under the given id, after every transformer already registered. Throws `RGXPatternTransformerConflictError` if a transformer is already registered under `id`.
+
+### Parameters
+  - `id` (`string`): The id to register the transformer under.
+  - `transformer` (`RGXPatternTransformer`): A function that takes a pattern's source and vanilla flags and returns the transformed source.
+
+### Returns
+- `void`
+
+## unregisterRGXPatternTransformer
+```typescript
+function unregisterRGXPatternTransformer(id: string): boolean
+```
+Removes the pattern transformer registered under the given id. Built-in transformers can be removed too.
+
+### Parameters
+  - `id` (`string`): The id of the transformer to remove.
+
+### Returns
+- `boolean`: `true` if a transformer was removed, or `false` if none was registered under `id`.
+
+## hasRGXPatternTransformer
+```typescript
+function hasRGXPatternTransformer(id: string): boolean
+```
+Checks whether a pattern transformer is registered under the given id.
+
+### Parameters
+  - `id` (`string`): The id to check.
+
+### Returns
+- `boolean`: `true` if a transformer is registered under `id`, otherwise `false`.
+
+## listRGXPatternTransformers
+```typescript
+function listRGXPatternTransformers(): string[]
+```
+Lists the ids of the registered pattern transformers.
+
+### Returns
+- `string[]`: The ids, in the order the transformers are applied.
+
+## registerBuiltInRGXPatternTransformers
+```typescript
+function registerBuiltInRGXPatternTransformers(): void
+```
+Registers the built-in transformers (see [Built-in Transformers](#built-in-transformers)). This is called when the main entry point is imported, so it only needs to be called again after `unregisterBuiltInRGXPatternTransformers`. Throws `RGXPatternTransformerConflictError` if any of their ids is already registered.
+
+## unregisterBuiltInRGXPatternTransformers
+```typescript
+function unregisterBuiltInRGXPatternTransformers(): void
+```
+Removes the built-in transformers, leaving any others registered.
+
+## applyRGXPatternTransformers
+```typescript
+function applyRGXPatternTransformers(regex: RegExp, ids?: readonly string[] | null): RegExp
+```
+Applies registered pattern transformers to an arbitrary regex, returning a new plain `RegExp` with the transformed source and the same vanilla flags. Instances of `RegExp` subclasses, such as `ExtRegExp`, are converted into plain `RegExp`s, keeping their (already transformed) source and leaving out their custom flags. Throws `RGXInvalidPatternTransformerKeyError` if `ids` names a transformer that isn't registered, and `RGXInvalidRegexStringError` if a transformer produces an invalid regex.
+
+### Parameters
+  - `regex` (`RegExp`): The regex to transform.
+  - `ids` (`readonly string[] | null`, optional): The ids of the transformers to apply. They are applied in the order they were registered, not the order given here. Defaults to `null`, which applies every registered transformer.
+
+### Returns
+- `RegExp`: A new `RegExp` with the transformed source.
+
+## applyRGXPatternTransformersToSource
+```typescript
+function applyRGXPatternTransformersToSource(source: string, flags?: string, ids?: readonly string[] | null): string
+```
+Applies registered pattern transformers to a regex source. This is what the library calls on every finished pattern. Throws `RGXInvalidPatternTransformerKeyError` if `ids` names a transformer that isn't registered, and `RGXInvalidRegexStringError` if a transformer produces a source that isn't a valid regex with `flags`.
+
+### Parameters
+  - `source` (`string`): The regex source to transform.
+  - `flags` (`string`, optional): The vanilla flags the source is read with. Defaults to `''`.
+  - `ids` (`readonly string[] | null`, optional): The ids of the transformers to apply, as in `applyRGXPatternTransformers`. Defaults to `null`, which applies every registered transformer.
+
+### Returns
+- `string`: The transformed source.

@@ -31,3 +31,5 @@ export * from './notJSONSerializable';export * from './invalidBackreference';
 export * from './duplicateGroupName';
 export * from './reservedGroupName';
 export * from './invalidWalkerStep';
+export * from './patternTransformerConflict';
+export * from './invalidPatternTransformerKey';
