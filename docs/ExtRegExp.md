@@ -14,7 +14,7 @@ type RegExpFlagTransformer = (exp: RegExp) => [string, string];
 ```
 
 # ExtRegExp
-A subclass of `RegExp` that supports custom flag transformers in addition to the standard vanilla regex flags (g, i, m, s, u, y). When constructed, custom flags are extracted, their corresponding transformers are applied to the pattern and vanilla flags, and the resulting transformed `RegExp` is created. The `flags` getter returns both the vanilla flags and any custom flags.
+A subclass of `RegExp` that supports custom flag transformers in addition to the standard vanilla regex flags (g, i, m, s, u, y). When constructed, custom flags are extracted, their corresponding transformers are applied to the pattern and vanilla flags, and the resulting transformed `RegExp` is created. The transformed pattern then goes through the library's pattern transformers, which work around regex engine bugs (see [Engine bug workarounds](./general.md#engine-bug-workarounds)), so `source` may differ slightly from what was written. The `flags` getter returns both the vanilla flags and any custom flags.
 
 A function `extRegExp` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
 

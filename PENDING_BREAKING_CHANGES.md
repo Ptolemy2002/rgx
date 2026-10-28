@@ -32,3 +32,21 @@ Make `mergeSteps` default to `!verbatim` in `rgxw` (it stays `false` in `rgxwa`,
 ### Reverting the workaround
 
 In `rgxw`, destructure `mergeSteps` and pass `mergeSteps: mergeSteps ?? !verbatim` to `rgxwa`, and update the `mergeSteps` docs in `docs/class/walker.md`, the changelog and `MIGRATION.md`.
+
+## Leave the lexeme that stops `consumeWhile` unconsumed
+
+### Problem
+
+`RGXLexer.consumeWhile` (and `consumeUntil`, which calls it) consumes a lexeme before checking it against the predicate, so the lexeme that stops the loop is consumed and logged to `matched`, and `position` moves past it, but it isn't in the returned array. Callers usually want to handle that lexeme next (for example, the closing bracket after a list of items), and today they have to find it with `lastMatched()` or call `backtrack()` to get it back.
+
+### Breaking change
+
+Check the predicate against a peeked lexeme, and only consume it when it passes, so the stopping lexeme is left in the source: `position` stays before it and it isn't added to `matched`. Code that relies on the stopping lexeme being consumed, such as reading it with `lastMatched()` or skipping a terminator with `consumeUntil`, would need to consume it itself.
+
+### Current workaround
+
+None. The current behavior is documented in `docs/class/lexer.md` and implemented in `consumeWhile` in `src/lexer/base.ts`.
+
+### Reverting the workaround
+
+Nothing to revert. Change `consumeWhile` to peek before consuming, and update the `consumeWhile` and `consumeUntil` docs in `docs/class/lexer.md`, the changelog and `MIGRATION.md`.

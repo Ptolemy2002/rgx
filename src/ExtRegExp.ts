@@ -1,5 +1,5 @@
 import { RGXFlagTransformerConflictError, RGXInvalidFlagTransformerKeyError, RGXInvalidRegexFlagsError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError } from "./errors";
-import { createConstructFunction } from "./internal";
+import { applyRGXPatternTransformers, createConstructFunction } from "./internal";
 import { isValidVanillaRegexFlags } from "./typeGuards";
 import { ValidRegexFlags } from "./types";
 import { createRegex } from "./utils";
@@ -23,7 +23,8 @@ export class ExtRegExp extends RegExp {
         const source = pattern instanceof ExtRegExp ? pattern.originalSource : pattern instanceof RegExp ? pattern.source : pattern;
 
         const { source: transformedSource, flags: transformedFlags } = applyFlagTransformers(createRegex(source, vanillaFlags), customFlags);
-        super(transformedSource, transformedFlags);
+        // Every finished pattern goes through the pattern transformers, which work around regex engine bugs.
+        super(applyRGXPatternTransformers(transformedSource, transformedFlags), transformedFlags);
 
         this.originalSource = source;
         this.extFlags = customFlags;

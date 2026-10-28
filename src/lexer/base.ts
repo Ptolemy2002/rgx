@@ -7,7 +7,7 @@ import {
 } from "src/errors";
 import { RGXWalker, RGXWalkerBranchError, RGXWalkerOptions, RGXWalkerStep } from "src/walker";
 import { validateRGXWalkerSteps } from "src/walker/base";
-import { assertValidRegexReferences, collectRGXReferences, placeRGXToken, withRGXInsertionRoot } from "src/internal";
+import { applyRGXPatternTransformers, assertValidRegexReferences, collectRGXReferences, placeRGXToken, withRGXInsertionRoot } from "src/internal";
 import { assertRegexMatchesAtPosition, createRegex, regexMatchAtPosition } from "src/utils";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { rgxConstant } from "src/constants";
@@ -126,7 +126,7 @@ export class RGXLexer<Data, Share=unknown> {
             for (const def of defs) {
                 // Validating a resolve definition resolves it, so its source is kept instead of resolving it again.
                 const source = validateRGXLexemeDefinition(def);
-                if (resolveOnce && source !== null) this.resolvedRegexes.set(def, createRegex(source));
+                if (resolveOnce && source !== null) this.resolvedRegexes.set(def, createRegex(applyRGXPatternTransformers(source)));
             }
         }
 
@@ -152,7 +152,7 @@ export class RGXLexer<Data, Share=unknown> {
         let dataPart: {data?: Data} = {};
 
         if (lexemeDefinition.type === "resolve") {
-            const regex = this.resolvedRegexes.get(lexemeDefinition) ?? createRegex(resolveRGXToken(lexemeDefinition.token));
+            const regex = this.resolvedRegexes.get(lexemeDefinition) ?? createRegex(applyRGXPatternTransformers(resolveRGXToken(lexemeDefinition.token)));
 
             // Since the assertion will throw an error if there is no match, this is safe.
             const match = assertRegexMatchesAtPosition(regex, this.source, startPosition, 10, true);
@@ -299,7 +299,7 @@ export class RGXLexer<Data, Share=unknown> {
 
     skipWhitespace(): void {
         if (this.isAtEnd()) return;
-        const regex = this.whitespaceRegex ?? createRegex(resolveRGXToken(rgxConstant("whitespace-block")));
+        const regex = this.whitespaceRegex ?? createRegex(applyRGXPatternTransformers(resolveRGXToken(rgxConstant("whitespace-block"))));
         if (this.resolveOnce) this.whitespaceRegex = regex;
         const match = regexMatchAtPosition(regex, this.source, this.position, true);
 

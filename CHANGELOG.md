@@ -10,6 +10,12 @@ Changes to the exact regex source the library outputs aren't considered breaking
 
 ## Unreleased
 
+### Fixed
+
+- Patterns now work around V8 bugs with modifier groups that add or remove the `i` flag, which the library generates whenever a token's case-insensitivity differs from its surroundings. Without the `u` or `v` flag, a character class in a later alternative of such a group ignored the modifier, so `rgxa([/[a]|[b]/i])` didn't match `"B"`. With `u` or `v`, the modifier leaked into later character classes and escapes like `\w`, so `rgxa([/a/i, /[B]/], "v")` matched `"ab"`. Every finished pattern (from `rgx`, `rgxa`, `ExtRegExp`, walker steps and lexer definitions) now goes through internal pattern transformers that rewrite these cases into equivalent patterns V8 reads correctly, including modifier groups written by hand. See [Engine bug workarounds](./docs/general.md#engine-bug-workarounds).
+
+## 15.1.0 - 2026-10-26
+
 ### Added
 
 - `rgxw` and `rgxwa` have a `mergeSteps` option that combines each run of adjacent steps without parts into one step. With `verbatim: false`, this lets literal parts of the template open and close groups across interpolated tokens, which the walker otherwise rejects as unbalanced steps.
