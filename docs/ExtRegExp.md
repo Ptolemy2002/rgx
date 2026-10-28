@@ -11,10 +11,11 @@ type ValidRegexFlagsBrandSymbol = typeof validRegexFlagsSymbol;
 type ValidRegexFlags = Branded<string, [ValidRegexFlagsBrandSymbol]> | ValidVanillaRegexFlags;
 
 type RegExpFlagTransformer = (exp: RegExp) => [string, string];
+type RGXPatternTransformerSelection = readonly string[] | boolean | null;
 ```
 
 # ExtRegExp
-A subclass of `RegExp` that supports custom flag transformers in addition to the standard vanilla regex flags (g, i, m, s, u, y). When constructed, custom flags are extracted, their corresponding transformers are applied to the pattern and vanilla flags, and the resulting transformed `RegExp` is created. The transformed pattern then goes through the library's pattern transformers, which work around regex engine bugs (see [pattern-transformer.md](./pattern-transformer.md)), so `source` may differ slightly from what was written. The `flags` getter returns both the vanilla flags and any custom flags.
+A subclass of `RegExp` that supports custom flag transformers in addition to the standard vanilla regex flags (g, i, m, s, u, y). When constructed, custom flags are extracted, their corresponding transformers are applied to the pattern and vanilla flags, and the resulting transformed `RegExp` is created. The transformed pattern then goes through the selected pattern transformers, which work around regex engine bugs (see [pattern-transformer.md](./pattern-transformer.md)), so `source` may differ slightly from what was written. The `flags` getter returns both the vanilla flags and any custom flags.
 
 A function `extRegExp` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
 
@@ -23,12 +24,14 @@ A function `extRegExp` is provided with the same parameters as this class' const
 
 ## Constructor
 ```typescript
-constructor(pattern: string | RegExp, flags?: string)
+constructor(pattern: string | RegExp, flags?: string, patternTransformers?: RGXPatternTransformerSelection)
 ```
 - `pattern` (`string | RegExp`): The regex pattern. If a `RegExp` is provided, its `source` is used and its existing `flags` are tracked as already-applied flags to avoid re-applying transformers. If it is an `ExtRegExp`, it is rebuilt from its `originalSource` instead, so `flags` replaces its custom flags just as it replaces its vanilla flags, and each custom flag in `flags` is applied once.
 - `flags` (`string`, optional): The flags string, which may include both vanilla regex flags and custom registered flag keys. Validated via `assertValidRegexFlags`. Defaults to `''`.
+- `patternTransformers` (`RGXPatternTransformerSelection`, optional): The pattern transformers to apply to the pattern after its custom flag transformers: `true` for every registered one, `false` for none, or a list of ids for those (applied in the order they were registered). Throws `RGXInvalidPatternTransformerKeyError` if the list names one that isn't registered. Defaults to `null`, which applies every registered transformer if they are enabled by default (see `setRGXPatternTransformersEnabled` in [pattern-transformer.md](./pattern-transformer.md)), and none otherwise. The selection isn't kept when the `ExtRegExp` is rebuilt (such as by passing it to this constructor, by `regexWithFlags`, or from its JSON form), so the rebuilt one uses the default unless a selection is passed again.
 
 ## Properties
+- `patternTransformers` (`readonly string[]`, readonly): The ids of the pattern transformers applied to the source, in the order they were applied.
 - `flags` (`string`): Returns the combination of the vanilla flags (from the underlying `RegExp`) and any custom flags that were applied during construction.
 - `originalSource` (`string`, readonly): The pattern before any custom flag transformations were applied. `source` is the transformed pattern, which is what is used when the `ExtRegExp` is embedded in a larger pattern. `new ExtRegExp(regex.originalSource, regex.flags)` rebuilds an equivalent `ExtRegExp`, which is how JSON literal tokens store it (see [json.md](./json.md)), and passing other flags rebuilds it with those instead, adding or removing custom flags.
 

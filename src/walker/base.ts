@@ -7,7 +7,7 @@ import { RGXToken, ValidRegexFlags } from "src/types";
 import { RGXPart, RGXCapture, RGXPartLossControl } from "./part";
 import { resolveRGXToken } from "src/resolve";
 import { rgxConcat } from "src/concat";
-import { applyRGXPatternTransformersToSource } from "src/pattern-transformer/register";
+import { applyDefaultRGXPatternTransformersToSource } from "src/pattern-transformer/default";
 import { assertRegexMatchesAfterPosition, assertRegexMatchesAtPosition, createRegex } from "src/utils";
 import { RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
@@ -274,7 +274,7 @@ export class RGXWalker<R, S = unknown> {
         const plain = this.resolveStepToken(token);
         // Without branch groups, group numbers don't shift.
         const source = this.checkStep(token, plain, false);
-        const match = this.matchRegex(createRegex(applyRGXPatternTransformersToSource(source)));
+        const match = this.matchRegex(createRegex(applyDefaultRGXPatternTransformersToSource(source)));
         return includeMatch ? match : match[0];
     }
 
@@ -515,7 +515,7 @@ export class RGXWalker<R, S = unknown> {
         while (true) {
             let match: RegExpExecArray;
             try {
-                match = this.matchRegex(createRegex(applyRGXPatternTransformersToSource(singleSource ?? resolveRGXToken(branchesToken(branches)))));
+                match = this.matchRegex(createRegex(applyDefaultRGXPatternTransformersToSource(singleSource ?? resolveRGXToken(branchesToken(branches)))));
             } catch (e) {
                 if (e instanceof RGXRegexNotMatchedAtPositionError || e instanceof RGXRegexNotMatchedAfterPositionError) {
                     const owners = [...new Set(branches.flatMap(branch => branch.owner === null ? [] : [branch.owner]))];

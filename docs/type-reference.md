@@ -57,6 +57,7 @@ type ValidRegexFlags = Branded<string, [ValidRegexFlagsBrandSymbol]> | ValidVani
 
 type RegExpFlagTransformer = (exp: RegExp) => [string, string];
 type RGXPatternTransformer = (source: string, flags: string) => string;
+type RGXPatternTransformerSelection = readonly string[] | boolean | null;
 
 const validIdentifierSymbol = Symbol('rgx.ValidIdentifier');
 type ValidIdentifierBrandSymbol = typeof validIdentifierSymbol;

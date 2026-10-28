@@ -1,6 +1,7 @@
 import { RGXFlagTransformerConflictError, RGXInvalidFlagTransformerKeyError, RGXInvalidRegexFlagsError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError } from "./errors";
 import { createConstructFunction } from "./internal";
 import { applyRGXPatternTransformersToSource } from "./pattern-transformer/register";
+import { resolveRGXPatternTransformerSelection, RGXPatternTransformerSelection } from "./pattern-transformer/default";
 import { isValidVanillaRegexFlags } from "./typeGuards";
 import { ValidRegexFlags } from "./types";
 import { createRegex } from "./utils";
@@ -12,8 +13,10 @@ export class ExtRegExp extends RegExp {
     private extFlags: string;
     // The pattern before any custom flag transformations, so it can be rebuilt with any flags.
     readonly originalSource: string;
+    // The ids of the pattern transformers applied to the source, in the order they were applied.
+    readonly patternTransformers: readonly string[];
 
-    constructor(pattern: string | RegExp, flags='') {
+    constructor(pattern: string | RegExp, flags='', patternTransformers: RGXPatternTransformerSelection = null) {
         assertValidRegexFlags(flags);
 
         const vanillaFlags = extractVanillaRegexFlags(flags);
@@ -24,10 +27,12 @@ export class ExtRegExp extends RegExp {
         const source = pattern instanceof ExtRegExp ? pattern.originalSource : pattern instanceof RegExp ? pattern.source : pattern;
 
         const { source: transformedSource, flags: transformedFlags } = applyFlagTransformers(createRegex(source, vanillaFlags), customFlags);
-        // Every finished pattern goes through the pattern transformers, which work around regex engine bugs.
-        super(applyRGXPatternTransformersToSource(transformedSource, transformedFlags), transformedFlags);
+        // Finished patterns go through the pattern transformers, which work around regex engine bugs.
+        const transformerIds = resolveRGXPatternTransformerSelection(patternTransformers);
+        super(applyRGXPatternTransformersToSource(transformedSource, transformedFlags, transformerIds), transformedFlags);
 
         this.originalSource = source;
+        this.patternTransformers = transformerIds;
         this.extFlags = customFlags;
     }
 

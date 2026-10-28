@@ -308,7 +308,7 @@ constructor(message: string, got: string)
 - `got` (`string`): The conflicting id.
 
 ## RGXInvalidPatternTransformerKeyError
-A specific error class for invalid pattern transformer ids. This error is thrown when `applyRGXPatternTransformers` or `applyRGXPatternTransformersToSource` (see [pattern-transformer.md](../pattern-transformer.md)) is asked to apply a transformer that isn't registered. The error code is set to `INVALID_PATTERN_TRANSFORMER_KEY` on instantiation.
+A specific error class for invalid pattern transformer ids. This error is thrown when `applyRGXPatternTransformers`, `applyRGXPatternTransformersToSource` (see [pattern-transformer.md](../pattern-transformer.md)) or the `ExtRegExp` constructor is asked to apply a transformer that isn't registered. The error code is set to `INVALID_PATTERN_TRANSFORMER_KEY` on instantiation.
 
 ### Constructor
 ```typescript
