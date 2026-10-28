@@ -4,14 +4,14 @@ import rgx, {
     applyRGXPatternTransformers, applyRGXPatternTransformersToSource, hasRGXPatternTransformer, listRGXPatternTransformers,
     registerRGXPatternTransformer, unregisterRGXPatternTransformer,
     registerBuiltInRGXPatternTransformers, unregisterBuiltInRGXPatternTransformers,
-    getRGXPatternTransformersEnabled, setRGXPatternTransformersEnabled,
+    isRGXPatternTransformerEnabled, setRGXPatternTransformerEnabled, regexWithFlags, rgxTokenToJSON, rgxTokenFromJSON,
+    isRGXJSONLiteralToken,
 } from "src/index";
 
 const builtIns = ["modifier-group-alternatives", "modifier-group-leaks"];
 const upperX: RGXPatternTransformer = source => source.replaceAll("x", "X");
 
 afterEach(() => {
-    setRGXPatternTransformersEnabled(true);
     for (const id of listRGXPatternTransformers()) unregisterRGXPatternTransformer(id);
     registerBuiltInRGXPatternTransformers();
 });
@@ -121,14 +121,17 @@ describe("ExtRegExp pattern transformers", () => {
     });
 });
 
-describe("setRGXPatternTransformersEnabled", () => {
-    it("turns the default transformers of finished patterns on and off", () => {
-        expect(getRGXPatternTransformersEnabled()).toBe(true);
-        setRGXPatternTransformersEnabled(false);
-        expect(getRGXPatternTransformersEnabled()).toBe(false);
+describe("setRGXPatternTransformerEnabled", () => {
+    it("turns individual transformers on and off for finished patterns", () => {
+        expect(isRGXPatternTransformerEnabled("modifier-group-alternatives")).toBe(true);
+        setRGXPatternTransformerEnabled("modifier-group-alternatives", false);
+        expect(isRGXPatternTransformerEnabled("modifier-group-alternatives")).toBe(false);
+        expect(listRGXPatternTransformers()).toEqual(builtIns);
+        expect(listRGXPatternTransformers(true)).toEqual(["modifier-group-leaks"]);
 
         expect(rgxa(["x", /(?i:a|[b])/]).source).toBe("x(?i:a|[b])");
-        expect(new ExtRegExp("(?i:a|[b])").patternTransformers).toEqual([]);
+        expect(rgxa([/(?i:a)/, /[B]/], "v").source).toBe("(?i:a)(?:)[B]");
+        expect(new ExtRegExp("(?i:a|[b])").patternTransformers).toEqual(["modifier-group-leaks"]);
         expect(new ExtRegExp("(?i:a|[b])", "", true).source).toBe("(?:(?i:a)|(?i:[b]))");
         expect(rgxwa("B", [/[a]|[b]/i]).tryWalk()).toBe(false);
         const lexer = rgxLexer("B", { default: [{ id: "letter", type: "resolve", token: /[a]|[b]/i }] });
@@ -138,8 +141,58 @@ describe("setRGXPatternTransformersEnabled", () => {
         expect(applyRGXPatternTransformersToSource("(?i:a|[b])")).toBe("(?:(?i:a)|(?i:[b]))");
         expect(applyRGXPatternTransformers(/(?i:a|[b])/).source).toBe("(?:(?i:a)|(?i:[b]))");
 
-        setRGXPatternTransformersEnabled(true);
+        setRGXPatternTransformerEnabled("modifier-group-alternatives", true);
         expect(rgxa(["x", /(?i:a|[b])/]).source).toBe("x(?:(?i:a)|(?i:[b]))");
+    });
+
+    it("registers transformers disabled", () => {
+        registerRGXPatternTransformer("upper-x", upperX, false);
+        expect(isRGXPatternTransformerEnabled("upper-x")).toBe(false);
+        expect(rgxa(["x"]).source).toBe("x");
+        expect(new ExtRegExp("x", "", ["upper-x"]).source).toBe("X");
+    });
+
+    it("throws for ids that aren't registered", () => {
+        expect(() => isRGXPatternTransformerEnabled("missing")).toThrow(RGXInvalidPatternTransformerKeyError);
+        expect(() => setRGXPatternTransformerEnabled("missing", true)).toThrow(RGXInvalidPatternTransformerKeyError);
+    });
+});
+
+describe("keeping an ExtRegExp's selection", () => {
+    beforeEach(() => registerRGXPatternTransformer("upper-x", upperX, false));
+
+    it("keeps it when the ExtRegExp is rebuilt", () => {
+        const regex = new ExtRegExp("x|(?i:a|[b])", "", ["upper-x"]);
+        expect(new ExtRegExp(regex, "g").patternTransformers).toEqual(["upper-x"]);
+        expect(new ExtRegExp(regex, "g").source).toBe("X|(?i:a|[b])");
+        expect(new ExtRegExp(regex, "g", null).patternTransformers).toEqual(["upper-x"]);
+        expect(new ExtRegExp(regex, "g", true).patternTransformers).toEqual([...builtIns, "upper-x"]);
+        expect(regexWithFlags(regex, "g").patternTransformers).toEqual(["upper-x"]);
+        expect(regexWithFlags(regex, "i", true).source).toBe("X|(?i:a|[b])");
+
+        unregisterRGXPatternTransformer("upper-x");
+        expect(new ExtRegExp(regex).patternTransformers).toEqual([]);
+    });
+
+    it("keeps it through JSON when it isn't the default", () => {
+        const regex = new ExtRegExp("x", "g", ["upper-x"]);
+        const json = rgxTokenToJSON(regex);
+        expect(json).toEqual({ $rgx: true, source: "x", flags: "g", patternTransformers: ["upper-x"] });
+        const restored = rgxTokenFromJSON(json) as ExtRegExp;
+        expect(restored.patternTransformers).toEqual(["upper-x"]);
+        expect(restored.source).toBe("X");
+
+        expect(rgxTokenToJSON(new ExtRegExp("x"))).toEqual({ $rgx: true, source: "x" });
+        expect(rgxTokenToJSON(new ExtRegExp("x", "", ["modifier-group-leaks"]))).toEqual({ $rgx: true, source: "x", patternTransformers: ["modifier-group-leaks"] });
+        expect((rgxTokenFromJSON({ $rgx: true, source: "x" }) as ExtRegExp).patternTransformers).toEqual(builtIns);
+        expect((rgxTokenFromJSON({ $rgx: true, source: "x", patternTransformers: ["upper-x", "missing"] }) as ExtRegExp).patternTransformers).toEqual(["upper-x"]);
+    });
+
+    it("checks the stored selection's type", () => {
+        expect(isRGXJSONLiteralToken({ $rgx: true, source: "x", patternTransformers: ["a"] })).toBe(true);
+        expect(isRGXJSONLiteralToken({ $rgx: true, source: "x", patternTransformers: undefined })).toBe(true);
+        expect(isRGXJSONLiteralToken({ $rgx: true, source: "x", patternTransformers: "a" })).toBe(false);
+        expect(isRGXJSONLiteralToken({ $rgx: true, source: "x", patternTransformers: [1] })).toBe(false);
     });
 });
 

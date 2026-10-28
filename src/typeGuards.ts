@@ -145,6 +145,9 @@ export function isRGXJSONLiteralToken(value: unknown, contentCheck: boolean = tr
     if (!hasRGXJSONFlag(value)) return false;
     if (typeof value.source !== 'string' || 'class' in value || 'interpolation' in value) return false;
     if ('flags' in value && value.flags !== undefined && typeof value.flags !== 'string') return false;
+    if ('patternTransformers' in value && value.patternTransformers !== undefined) {
+        if (!Array.isArray(value.patternTransformers) || !value.patternTransformers.every(id => typeof id === 'string')) return false;
+    }
     if (!contentCheck) return true;
 
     const flags = (value.flags as string | undefined) ?? '';

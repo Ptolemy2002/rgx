@@ -3,6 +3,8 @@ import * as e from "./errors";
 import * as tg from "./typeGuards";
 import { RGXClassToken, toRGXClassToken } from "./class";
 import { ExtRegExp } from "./ExtRegExp";
+import { listRGXPatternTransformers } from "./pattern-transformer/register";
+import { registeredRGXPatternTransformers } from "./pattern-transformer/default";
 import { resolveRGXToken, rgxInterpolation } from "./resolve";
 import { removeRedundantRegexGroups } from "./internal/analyzeRegexSource";
 import { withoutRGXInsertionChecks } from "./internal/insertionContext";
@@ -75,10 +77,12 @@ export function createRGXJSONClassToken(name: RGXJSONClassName, args: t.RGXJSONV
     return { [t.RGX_JSON_FLAG]: true, class: name, args };
 }
 
-export function createRGXJSONLiteralToken(source: string, flags: string = ''): t.RGXJSONLiteralToken {
+export function createRGXJSONLiteralToken(source: string, flags: string = '', patternTransformers?: readonly string[]): t.RGXJSONLiteralToken {
     tg.assertValidRegexString(source, flags);
-    if (flags === '') return { [t.RGX_JSON_FLAG]: true, source };
-    return { [t.RGX_JSON_FLAG]: true, source, flags };
+    const token: t.RGXJSONLiteralToken = { [t.RGX_JSON_FLAG]: true, source };
+    if (flags !== '') token.flags = flags;
+    if (patternTransformers !== undefined) token.patternTransformers = [...patternTransformers];
+    return token;
 }
 
 export function createRGXJSONInterpolationToken(interpolation: string): t.RGXJSONInterpolationToken {
@@ -117,7 +121,11 @@ export function rgxTokenToJSON(token: t.RGXToken, { resolveConvertible = true }:
     if (tg.isRGXLiteralToken(token)) {
         // The source of an ExtRegExp has its custom flag transformations applied, so the source from before them is
         // stored, and rgxTokenFromJSON applies them again.
-        return createRGXJSONLiteralToken(token instanceof ExtRegExp ? token.originalSource : token.source, token.flags);
+        if (!(token instanceof ExtRegExp)) return createRGXJSONLiteralToken(token.source, token.flags);
+        // The selection of pattern transformers is only stored when it isn't the default, the enabled ones.
+        const enabled = listRGXPatternTransformers(true);
+        const isDefault = token.patternTransformers.length === enabled.length && token.patternTransformers.every((id, i) => id === enabled[i]);
+        return createRGXJSONLiteralToken(token.originalSource, token.flags, isDefault ? undefined : token.patternTransformers);
     }
 
     if (tg.isRGXJSONObjectToken(token, false)) {
@@ -157,7 +165,9 @@ export function rgxTokenFromJSON(json: t.RGXJSONToken): t.RGXNonJSONToken {
 
     if (tg.isRGXJSONLiteralToken(json, false)) {
         tg.assertRGXJSONLiteralToken(json);
-        return new ExtRegExp(json.source, json.flags ?? '');
+        // Stored transformers that aren't registered anymore are left out.
+        const patternTransformers = json.patternTransformers === undefined ? null : registeredRGXPatternTransformers(json.patternTransformers);
+        return new ExtRegExp(json.source, json.flags ?? '', patternTransformers);
     }
 
     if (tg.isRGXJSONInterpolationToken(json)) return rgxInterpolation(json.interpolation);

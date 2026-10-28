@@ -22,7 +22,7 @@ type RGXJSONPrimitive = string | number | boolean | null;
 type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
 type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
 type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
-type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string };
+type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string, patternTransformers?: string[] };
 type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
 type RGXJSONInterpolationToken = { $rgx: true, interpolation: string };
 type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInterpolationToken;
@@ -187,7 +187,7 @@ Asserts that the given value is a JSON native token with the same logic as `isRG
 ```typescript
 function isRGXJSONLiteralToken(value: unknown, contentCheck?: boolean): value is RGXJSONLiteralToken
 ```
-Checks if the given value is a JSON literal token: a plain object with `$rgx` set to `true`, a string `source` property, no `class` property, and an optional string `flags` property. When `contentCheck` is `true` (the default), additionally validates that `flags` is a valid `ExtRegExp` flag set (custom flags included) and that `source` compiles as a regex with the vanilla subset of those flags.
+Checks if the given value is a JSON literal token: a plain object with `$rgx` set to `true`, a string `source` property, no `class` property, an optional string `flags` property, and an optional `patternTransformers` array of strings. When `contentCheck` is `true` (the default), additionally validates that `flags` is a valid `ExtRegExp` flag set (custom flags included) and that `source` compiles as a regex with the vanilla subset of those flags.
 
 ### Parameters
   - `value` (`unknown`): The value to check.

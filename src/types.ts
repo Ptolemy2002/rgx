@@ -38,7 +38,7 @@ export type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
 export type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
 
 export type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
-export type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string };
+export type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string, patternTransformers?: string[] };
 export type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
 export type RGXJSONInterpolationToken = { $rgx: true, interpolation: string };
 export type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInterpolationToken;

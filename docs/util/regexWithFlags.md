@@ -23,4 +23,4 @@ Creates a new `ExtRegExp` from an existing one with additional or replaced flags
   - `replace` (`boolean`, optional): Whether to replace the existing flags entirely instead of merging. Defaults to `false`.
 
 ## Returns
-- `ExtRegExp`: A new `ExtRegExp` with the same source pattern (the `originalSource` of an `ExtRegExp`) and the resulting flags.
+- `ExtRegExp`: A new `ExtRegExp` with the same source pattern (the `originalSource` of an `ExtRegExp`) and the resulting flags. An `ExtRegExp` keeps its selection of pattern transformers (see [pattern-transformer.md](../pattern-transformer.md)).

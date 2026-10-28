@@ -1,7 +1,7 @@
 import { RGXFlagTransformerConflictError, RGXInvalidFlagTransformerKeyError, RGXInvalidRegexFlagsError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError } from "./errors";
 import { createConstructFunction } from "./internal";
 import { applyRGXPatternTransformersToSource } from "./pattern-transformer/register";
-import { resolveRGXPatternTransformerSelection, RGXPatternTransformerSelection } from "./pattern-transformer/default";
+import { registeredRGXPatternTransformers, resolveRGXPatternTransformerSelection, RGXPatternTransformerSelection } from "./pattern-transformer/default";
 import { isValidVanillaRegexFlags } from "./typeGuards";
 import { ValidRegexFlags } from "./types";
 import { createRegex } from "./utils";
@@ -27,7 +27,11 @@ export class ExtRegExp extends RegExp {
         const source = pattern instanceof ExtRegExp ? pattern.originalSource : pattern instanceof RegExp ? pattern.source : pattern;
 
         const { source: transformedSource, flags: transformedFlags } = applyFlagTransformers(createRegex(source, vanillaFlags), customFlags);
-        // Finished patterns go through the pattern transformers, which work around regex engine bugs.
+        // Finished patterns go through the pattern transformers, which work around regex engine bugs. An ExtRegExp that
+        // is rebuilt keeps its selection, apart from transformers that have been unregistered since.
+        if (patternTransformers === null && pattern instanceof ExtRegExp) {
+            patternTransformers = registeredRGXPatternTransformers(pattern.patternTransformers);
+        }
         const transformerIds = resolveRGXPatternTransformerSelection(patternTransformers);
         super(applyRGXPatternTransformersToSource(transformedSource, transformedFlags, transformerIds), transformedFlags);
 

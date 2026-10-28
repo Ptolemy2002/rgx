@@ -8,31 +8,35 @@ import { modifierGroupAlternativesPatternTransformer, modifierGroupLeaksPatternT
 // applied to their own output, since a finished pattern can be placed into another one and finished again.
 export type RGXPatternTransformer = (source: string, flags: string) => string;
 
-// Applied in the order they were registered.
-const patternTransformers = new Map<string, RGXPatternTransformer>();
+// Applied in the order they were registered. Enabled transformers are the ones finished patterns go through when
+// nothing says which ones to apply.
+const patternTransformers = new Map<string, { transformer: RGXPatternTransformer, enabled: boolean }>();
 
-// Whether finished patterns go through every registered transformer when nothing says which ones to apply.
-let enabledByDefault = true;
-
-export function setRGXPatternTransformersEnabled(value: boolean) {
-    enabledByDefault = value;
-}
-
-export function getRGXPatternTransformersEnabled(): boolean {
-    return enabledByDefault;
+function assertHasRGXPatternTransformer(id: string) {
+    if (!patternTransformers.has(id)) throw new RGXInvalidPatternTransformerKeyError("No pattern transformer exists under this id.", id);
 }
 
 export function hasRGXPatternTransformer(id: string): boolean {
     return patternTransformers.has(id);
 }
 
-export function listRGXPatternTransformers(): string[] {
-    return [...patternTransformers.keys()];
+export function listRGXPatternTransformers(enabledOnly: boolean = false): string[] {
+    return [...patternTransformers].filter(([, { enabled }]) => !enabledOnly || enabled).map(([id]) => id);
 }
 
-export function registerRGXPatternTransformer(id: string, transformer: RGXPatternTransformer): void {
+export function registerRGXPatternTransformer(id: string, transformer: RGXPatternTransformer, enabled: boolean = true): void {
     if (patternTransformers.has(id)) throw new RGXPatternTransformerConflictError("Pattern transformer already exists under this id.", id);
-    patternTransformers.set(id, transformer);
+    patternTransformers.set(id, { transformer, enabled });
+}
+
+export function isRGXPatternTransformerEnabled(id: string): boolean {
+    assertHasRGXPatternTransformer(id);
+    return patternTransformers.get(id)!.enabled;
+}
+
+export function setRGXPatternTransformerEnabled(id: string, enabled: boolean): void {
+    assertHasRGXPatternTransformer(id);
+    patternTransformers.get(id)!.enabled = enabled;
 }
 
 export function unregisterRGXPatternTransformer(id: string): boolean {
@@ -50,12 +54,10 @@ export function unregisterBuiltInRGXPatternTransformers() {
 }
 
 export function applyRGXPatternTransformersToSource(source: string, flags: string = '', ids: readonly string[] | null = null): string {
-    for (const id of ids ?? []) {
-        if (!patternTransformers.has(id)) throw new RGXInvalidPatternTransformerKeyError("No pattern transformer exists under this id.", id);
-    }
+    for (const id of ids ?? []) assertHasRGXPatternTransformer(id);
 
     // The registration order is kept even when ids are given in a different order.
-    for (const [id, transformer] of patternTransformers) {
+    for (const [id, { transformer }] of patternTransformers) {
         if (ids !== null && !ids.includes(id)) continue;
 
         const transformed = transformer(source, flags);
