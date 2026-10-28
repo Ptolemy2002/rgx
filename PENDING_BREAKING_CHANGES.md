@@ -50,3 +50,21 @@ None. The current behavior is documented in `docs/class/lexer.md` and implemente
 ### Reverting the workaround
 
 Nothing to revert. Change `consumeWhile` to peek before consuming, and update the `consumeWhile` and `consumeUntil` docs in `docs/class/lexer.md`, the changelog and `MIGRATION.md`.
+
+## Parse character classes into class tokens in `rgxParse` by default
+
+### Problem
+
+`rgxParse` turns every character class (`[...]`) into an opaque literal token, so classes are the one common construct that can't be inspected or changed with the class token API after parsing. A character class token (planned in [PENDING_MINOR_CHANGES.md](./PENDING_MINOR_CHANGES.md#character-class-token)) would fix this, but having `rgxParse` return it changes its output.
+
+### Breaking change
+
+Once the character class token exists, make `rgxParse` convert character classes into it by default. Code that expects the parsed tree to hold `RegExp` literal tokens where classes were (for example, checking `instanceof RegExp` or reading `.source`) would get class tokens instead. The resolved patterns match the same strings either way.
+
+### Current workaround
+
+None yet, since the character class token doesn't exist. When it is added, `rgxParse` should get a `parseClasses` option (in `RGXParseOptions`, `src/parse.ts`) that defaults to `false`, so users can opt in.
+
+### Reverting the workaround
+
+Make `parseClasses` default to `true` in `rgxParse`, and update the `parseClasses` docs in `docs/parse.md`, the construct table at the top of `docs/parse.md`, the changelog and `MIGRATION.md`.

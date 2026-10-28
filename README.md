@@ -54,6 +54,9 @@ Because this library has many major releases, a migration guide at [MIGRATION.md
 ## Pending Breaking Changes
 Breaking changes that would improve the library, but are not worth a major release by themselves, are tracked in [PENDING_BREAKING_CHANGES.md](./PENDING_BREAKING_CHANGES.md) along with the non-breaking workarounds currently in place for them. They will be made in the next major release.
 
+## Pending Minor Changes
+Planned features and improvements that can ship without breaking anything are tracked in [PENDING_MINOR_CHANGES.md](./PENDING_MINOR_CHANGES.md).
+
 ## Requirements
 Node.js 23 or newer (see [.nvmrc](./.nvmrc) for the version used in development). The library generates regex modifier groups like `(?i:...)`, which older versions don't support.
 
