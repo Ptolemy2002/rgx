@@ -18,6 +18,8 @@ When writing tests, aim for 100% coverage generally, but I am intentionally not 
 
 `./PENDING_BREAKING_CHANGES.md` is a running list of breaking changes that are being deferred until a major release, along with the non-breaking workarounds currently in place for them. If you implement such a workaround, add an entry there. If you are making a major release, implement the pending changes and revert their workarounds as described there.
 
+`./PENDING_MINOR_CHANGES.md` is a running list of planned features and improvements that can ship without breaking anything. When you implement one of its entries, delete the entry and add the change to the changelog. If a new idea comes up that isn't worth doing right away, add it there (or to `./PENDING_BREAKING_CHANGES.md` if it would be breaking), following the entry format at the top of the file.
+
 `./MIGRATION.md` contains instructions for migrating between major versions of the library. If it is confirmed that a major release is necessary, update it accordingly.
 
 Never make releases yourself, as the user has a specific workflow for this that requires 2FA. Also, never bump the package version number manually. If you need to view previous versions, each release has its own dedicated git commit with the version number as the text, so you can look through the git history to find them.
