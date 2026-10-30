@@ -18,6 +18,8 @@ When writing tests, aim for 100% coverage generally, but I am intentionally not 
 
 `./PENDING_BREAKING_CHANGES.md` is a running list of breaking changes that are being deferred until a major release, along with the non-breaking workarounds currently in place for them. If you implement such a workaround, add an entry there. If you are making a major release, implement the pending changes and revert their workarounds as described there.
 
+Changes to the exact text of error messages, the exact regex syntax the library generates (as long as it matches the same strings with the same captures), and the exact text of built-in `rgxExplain` explanations are not breaking changes, so don't add entries to `./PENDING_BREAKING_CHANGES.md` for them or list them under "Breaking" in the changelog. Still test them, to catch sanity and formatting problems, and update those tests when the text changes. The public rule is in the "What counts as breaking" section of `./MIGRATION.md`.
+
 `./PENDING_MINOR_CHANGES.md` is a running list of planned features and improvements that can ship without breaking anything. When you implement one of its entries, delete the entry and add the change to the changelog. If a new idea comes up that isn't worth doing right away, add it there (or to `./PENDING_BREAKING_CHANGES.md` if it would be breaking), following the entry format at the top of the file.
 
 `./MIGRATION.md` contains instructions for migrating between major versions of the library. If it is confirmed that a major release is necessary, update it accordingly.

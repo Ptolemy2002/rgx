@@ -4,7 +4,7 @@ This file lists the changes in each released version of RGX, starting with 10.0.
 
 For step-by-step instructions on upgrading across major versions, see [MIGRATION.md](./MIGRATION.md). Breaking changes that are planned but not yet released are tracked in [PENDING_BREAKING_CHANGES.md](./PENDING_BREAKING_CHANGES.md).
 
-Changes to the exact regex source the library outputs aren't considered breaking on their own, as long as the pattern matches the same strings with the same captures (see [What counts as breaking](./MIGRATION.md#what-counts-as-breaking)).
+Changes to the exact regex source the library outputs aren't considered breaking on their own, as long as the pattern matches the same strings with the same captures. Neither are changes to the wording of error messages or built-in explanations (see [What counts as breaking](./MIGRATION.md#what-counts-as-breaking)).
 
 ---
 

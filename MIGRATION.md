@@ -8,6 +8,8 @@ If you're upgrading across several major versions, apply the sections in order, 
 
 A change is breaking if it changes what a pattern matches, or changes the public API (names, signatures, types, or documented behavior other than exact output). Changes to the exact regex source the library outputs are not breaking on their own, as long as the pattern matches the same strings with the same captures. For example, a minor or patch release may remove a redundant group, shorten a flag modifier, or reorder equivalent syntax. Don't compare resolved sources as strings to check whether two patterns are equivalent, and don't depend on the exact text of a resolved pattern. Test what it matches instead.
 
+The same goes for text meant for people to read. Changes to the wording of error messages and of built-in explanations are not breaking, so don't match on that text. Check an error's class (and its documented properties) instead. Changing which error class is thrown, or when one is thrown, is still breaking.
+
 | Version | Main changes |
 | --- | --- |
 | [15.0.0](#1500) | `RGXTokenCollection` removed, group flags inherit by default, backreferences and walker steps are validated, part tokens can be functions, walker steps can be unions of parts, `rgxParse` merges aliases by default, `ExtRegExp` JSON keeps custom flags and rebuilding from an `ExtRegExp` can remove them, the accent-insensitive flag covers all accents, `RGXNotDirectRegExpError` removed, `RGXLexer` resolves definitions once |
