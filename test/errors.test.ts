@@ -629,6 +629,16 @@ describe('RGXOutOfBoundsError', () => {
         const error2 = new RGXOutOfBoundsError('Value out of bounds', 11, { min: 0, max: 10, inclusiveRight: false });
         expect(error2.toString()).toBe('RGXOutOfBoundsError: Value out of bounds; Got: [11]; Expected: [>= 0 and < 10]; 11 > 10');
     });
+
+    it('formats the error message correctly with only a min', () => {
+        const error = new RGXOutOfBoundsError('Value out of bounds', -1, { min: 0 });
+        expect(error.toString()).toBe('RGXOutOfBoundsError: Value out of bounds; Got: [-1]; Expected: [>= 0]; -1 < 0');
+    });
+
+    it('formats the error message correctly with only a max', () => {
+        const error = new RGXOutOfBoundsError('Value out of bounds', 11, { max: 10 });
+        expect(error.toString()).toBe('RGXOutOfBoundsError: Value out of bounds; Got: [11]; Expected: [<= 10]; 11 > 10');
+    });
 });
 
 describe('isInRange', () => {
@@ -1449,9 +1459,10 @@ describe("RGXInvalidJSONTokenError", () => {
     it("falls back to String() for values that cannot be stringified", () => {
         const circular: Record<string, unknown> = {};
         circular.self = circular;
-        expect(new RGXInvalidJSONTokenError("Invalid", null, 1n).message).toContain("Got: [1]");
-        expect(new RGXInvalidJSONTokenError("Invalid", null, circular).message).toContain("Got: [[object Object]]");
-        expect(new RGXInvalidJSONTokenError("Invalid", null, undefined).message).toContain("Got: [undefined]");
+        const expected = { type: "custom" as const, values: ["a JSON token"] };
+        expect(new RGXInvalidJSONTokenError("Invalid", expected, 1n).message).toBe("Invalid; Expected: [a JSON token]; Got: [1]");
+        expect(new RGXInvalidJSONTokenError("Invalid", expected, circular).message).toBe("Invalid; Expected: [a JSON token]; Got: [[object Object]]");
+        expect(new RGXInvalidJSONTokenError("Invalid", expected, undefined).message).toBe("Invalid; Expected: [a JSON token]; Got: [undefined]");
     });
 
     it("defaults to expecting a json token", () => {
