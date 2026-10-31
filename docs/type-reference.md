@@ -26,7 +26,7 @@ type RGXJSONPrimitive = string | number | boolean | null;
 type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
 type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
 type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
-type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string, patternTransformers?: string[] };
+type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string, patternTransformers?: string[], exactMarkers?: boolean };
 type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
 type RGXJSONInterpolationToken = { $rgx: true, interpolation: string };
 type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInterpolationToken;
@@ -176,6 +176,7 @@ type RGXWalkerOptions<R, S = unknown> = {
     infinite?: boolean;
     looping?: boolean;
     contiguous?: boolean;
+    exact?: boolean;
 };
 
 type RGXTryWalkOptions = {
@@ -216,7 +217,7 @@ type RGXJSONClassTokenConstructor = {
 type RGXJSONBuiltinClassName =
     "RGXClassWrapperToken" | "RGXClassUnionToken" | "RGXGroupToken" | "RGXRepeatToken" |
     "RGXLookaheadToken" | "RGXLookbehindToken" | "RGXExclusionToken" | "RGXSubpatternToken" |
-    "RGXConstantToken";
+    "RGXConstantToken" | "RGXExactToken";
 type RGXJSONClassName = RGXJSONBuiltinClassName | (string & {});
 type RGXTokenToJSONOptions = {
     resolveConvertible?: boolean;
@@ -228,7 +229,11 @@ type ResolveRGXTokenOptions = {
     currentFlags?: string;
 };
 
-type RGXOptions = {
+type RGXAOptions = {
+    exact?: boolean;
+};
+
+type RGXOptions = RGXAOptions & {
     multiline?: boolean;
     verbatim?: boolean;
 };

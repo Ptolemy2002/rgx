@@ -1,10 +1,12 @@
 import { assertValidRegexFlags } from "./ExtRegExp";
-import { placeRGXToken, removeRedundantRegexGroups, scanOptionsFromFlags } from "./internal";
+import { isRGXExactScopeActive, placeRGXToken, removeRedundantRegexGroups, scanOptionsFromFlags, withRGXExactScope } from "./internal";
 import { resolveRGXToken } from "./resolve";
 import * as t from "./types";
 
 // Wrapper for letting an array of tokens be resolved as a concatenation instead of a union.
 export function rgxConcat(tokens: t.RGXToken[], groupWrap=true, currentFlags=''): t.ValidRegexString {
+    // Exact text is named uniquely across everything resolved for one pattern (see resolveRGXToken).
+    if (!isRGXExactScopeActive()) return withRGXExactScope(() => rgxConcat(tokens, groupWrap, currentFlags))[0];
     assertValidRegexFlags(currentFlags);
     // Joining the resolved tokens can leave groups that are only redundant next to each other, such as "(?:a)(?:b)".
     const result = removeRedundantRegexGroups(

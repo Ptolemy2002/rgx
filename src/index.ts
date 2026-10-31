@@ -7,6 +7,7 @@ import { collectRGXReferences, withRGXInsertionRoot } from "./internal/insertion
 import { removeRedundantRegexGroups } from "./internal/analyzeRegexSource";
 import { scanOptionsFromFlags } from "./internal/scanRegexSource";
 import { assertValidRegexReferences } from "./internal/validateReferences";
+import { assertRGXExactMarkerNames, compileRGXExactMarkers, withRGXExactScope, withRGXExactStrings } from "./internal/exactMarkers";
 import { rgxMergeWalkerSteps, rgxTaggedTemplateToArray } from "./internal/taggedTemplateToArray";
 import { assertValidRegexFlags, ExtRegExp } from "./ExtRegExp";
 import { RGXWalker, RGXWalkerStep } from "./walker";
@@ -20,22 +21,26 @@ registerCustomFlagTransformers();
 // Call this for patterns to work around known regex engine bugs
 registerBuiltInRGXPatternTransformers();
 
-export function rgxa(tokens: t.RGXToken[], flags: string = ''): ExtRegExp {
+export function rgxa(tokens: t.RGXToken[], flags: string = '', {exact=false}: t.RGXAOptions = {}): ExtRegExp {
     assertValidRegexFlags(flags);
-    // Insertions are checked while the pattern is built.
-    const [concatenated, references] = collectRGXReferences(() => withRGXInsertionRoot(flags, () => rgxConcat(tokens, true, flags)));
+    // Insertions are checked while the pattern is built, which names its exact text.
+    const [[concatenated, references], exactNames] = withRGXExactScope(() => collectRGXReferences(
+        () => withRGXInsertionRoot(flags, () => withRGXExactStrings(exact, () => rgxConcat(tokens, true, flags)))
+    ));
     // Nothing else is added to the final pattern, so groups at its edges can be removed too.
     const scanOptions = scanOptionsFromFlags(flags);
     const pattern = removeRedundantRegexGroups(concatenated, { ...scanOptions, isolated: true });
-    // The pattern is finished, so every group a backreference could point to is in it.
-    assertValidRegexReferences(pattern, references, scanOptions);
-    return createRegex(pattern, flags, true);
+    assertRGXExactMarkerNames(pattern, exactNames, scanOptions);
+    // The pattern is finished, so every group a backreference could point to is in it. Exact text adds no groups once
+    // it is compiled, so the groups are counted without it.
+    assertValidRegexReferences(compileRGXExactMarkers(pattern, exactNames, scanOptions), references, scanOptions);
+    return createRegex(pattern, flags, true, exactNames.size > 0);
 }
 
-export default function rgx(flags: string = '', {multiline=true, verbatim=true}: t.RGXOptions = {}) {
+export default function rgx(flags: string = '', {multiline=true, verbatim=true, exact=false}: t.RGXOptions = {}) {
     return (strings: TemplateStringsArray, ...tokens: t.RGXToken[]) => {
         // It is safe to assert the result because we know there will be no parts passed in here.
-        return rgxa(rgxTaggedTemplateToArray(strings, tokens, multiline, verbatim) as t.RGXToken[], flags);
+        return rgxa(rgxTaggedTemplateToArray(strings, tokens, multiline, verbatim) as t.RGXToken[], flags, { exact });
     };
 }
 
@@ -45,7 +50,7 @@ export function rgxwa<R = unknown, S = unknown, T = unknown>(
 ) {
     const steps = mergeSteps ? rgxMergeWalkerSteps(tokens) : tokens;
     // Steps are checked when the walker is created, so problems are found before walking starts.
-    validateRGXWalkerSteps(steps);
+    validateRGXWalkerSteps(steps, options.exact);
     return new RGXWalker<R, S>(source, steps, options);
 }
 

@@ -13,7 +13,8 @@ import { RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { RGXCurrentTokenNotFoundError } from "src/errors/currentTokenNotFound";
 import {
-    assertValidRegexReferences, collectRGXReferences, hasRegexParenErrors, isMergedWalkerStep, placeRGXToken, withRGXInsertionRoot
+    assertValidRegexReferences, collectRGXReferences, finishRGXExactMarkers, hasRegexParenErrors, isMergedWalkerStep, placeRGXToken,
+    resolveFinishedRGXSource, withRGXExactScope, withRGXExactStrings, withRGXInsertionRoot
 } from "src/internal";
 
 export type RGXWalkerOptions<R, S = unknown> = {
@@ -23,6 +24,8 @@ export type RGXWalkerOptions<R, S = unknown> = {
     infinite?: boolean;
     looping?: boolean;
     contiguous?: boolean;
+    // Whether native tokens are matched exactly (see RGXExactToken).
+    exact?: boolean;
 };
 
 export type RGXTryWalkOptions = {
@@ -119,12 +122,19 @@ function assertValidStepSource(source: string, references: readonly (string | nu
     assertValidRegexReferences(source, references, { reservedGroupPrefix: branchGroupPrefix, rejectNumeric: isUnion });
 }
 
+// Resolves a step as a finished pattern of its own, with its exact text compiled, returning it along with the
+// backreferences recorded while resolving it.
+function resolveStepSource(exact: boolean, resolve: () => string): [string, (string | number)[]] {
+    const [[source, references], exactNames] = withRGXExactScope(() => collectRGXReferences(() => withRGXExactStrings(exact, resolve)));
+    return [finishRGXExactMarkers(source, exactNames), references];
+}
+
 // The walker matches each step on its own, without flags, so insertions are checked by resolving the step at its
 // position as the top level of a pattern with no flags. Returns the resolved source along with the backreferences
 // recorded while resolving it.
-function resolveCheckedStep(siblings: readonly RGXToken[], index: number): [string, (string | number)[]] {
+function resolveCheckedStep(siblings: readonly RGXToken[], index: number, exact: boolean): [string, (string | number)[]] {
     const step = siblings[index];
-    return collectRGXReferences(() => withRGXInsertionRoot('' as ValidRegexFlags, () => {
+    return resolveStepSource(exact, () => withRGXInsertionRoot('' as ValidRegexFlags, () => {
         // The group of a merged step would reject unbalanced parentheses itself, so its tokens are concatenated
         // without it, letting the step check report them.
         return placeRGXToken(siblings, index, () => isMergedWalkerStep(step) ? rgxConcat(step.tokens, true) : resolveRGXToken(step));
@@ -133,11 +143,11 @@ function resolveCheckedStep(siblings: readonly RGXToken[], index: number): [stri
 
 // Checks every step, the same way the walker does before matching each one. Dynamic parts produce their token when
 // they are captured, so they are checked then instead, and other steps see them as no-op tokens.
-export function validateRGXWalkerSteps<R, S>(tokens: readonly RGXWalkerStep<R, S>[]) {
+export function validateRGXWalkerSteps<R, S>(tokens: readonly RGXWalkerStep<R, S>[], exact: boolean = false) {
     const plainTokens = tokens.map(step => plainStepToken(step));
     tokens.forEach((step, i) => {
         if (RGXPart.check(step) && step.isDynamic()) return;
-        const [source, references] = resolveCheckedStep(plainTokens, i);
+        const [source, references] = resolveCheckedStep(plainTokens, i, exact);
         assertValidStepSource(source, references, i, unionAlternatives(plainTokens[i]).length > 1);
     });
 }
@@ -168,6 +178,7 @@ export class RGXWalker<R, S = unknown> {
     infinite: boolean;
     looping: boolean;
     contiguous: boolean;
+    readonly exact: boolean;
 
     private _stopped: boolean = false;
     // Only relevant in infinite mode, tracking whether we've reached the end yet.
@@ -213,6 +224,7 @@ export class RGXWalker<R, S = unknown> {
         this.infinite = options.infinite ?? false;
         this.looping = options.looping ?? false;
         this.contiguous = options.contiguous ?? true;
+        this.exact = options.exact ?? false;
     }
 
     stop() {
@@ -293,9 +305,9 @@ export class RGXWalker<R, S = unknown> {
         if (containsPart(step, part => part.isDynamic())) {
             const isCurrent = !this.atTokenEnd() && this.currentToken() === step;
             const siblings = isCurrent ? this.tokens.map((t, i) => i === this.tokenPosition ? plain : plainStepToken(t)) : [plain];
-            [source, references] = resolveCheckedStep(siblings, isCurrent ? this.tokenPosition : 0);
+            [source, references] = resolveCheckedStep(siblings, isCurrent ? this.tokenPosition : 0, this.exact);
         } else {
-            [source, references] = collectRGXReferences(() => resolveRGXToken(plain));
+            [source, references] = resolveStepSource(this.exact, () => resolveRGXToken(plain));
         }
 
         assertValidStepSource(source, references, null, isUnion);
@@ -515,7 +527,7 @@ export class RGXWalker<R, S = unknown> {
         while (true) {
             let match: RegExpExecArray;
             try {
-                match = this.matchRegex(createRegex(applyDefaultRGXPatternTransformersToSource(singleSource ?? resolveRGXToken(branchesToken(branches)))));
+                match = this.matchRegex(createRegex(applyDefaultRGXPatternTransformersToSource(singleSource ?? resolveFinishedRGXSource(() => withRGXExactStrings(this.exact, () => resolveRGXToken(branchesToken(branches)))))));
             } catch (e) {
                 if (e instanceof RGXRegexNotMatchedAtPositionError || e instanceof RGXRegexNotMatchedAfterPositionError) {
                     const owners = [...new Set(branches.flatMap(branch => branch.owner === null ? [] : [branch.owner]))];
@@ -735,7 +747,8 @@ export class RGXWalker<R, S = unknown> {
                 share: extClone(this.share, depthDecrement(depth, 1)),
                 infinite: this.infinite,
                 looping: this.looping,
-                contiguous: this.contiguous
+                contiguous: this.contiguous,
+                exact: this.exact
             }
         );
 

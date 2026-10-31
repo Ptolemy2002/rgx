@@ -3,6 +3,7 @@ import { RGXInvalidTokenError, RGXNotImplementedError } from "src/errors";
 import { createRGXJSONLiteralToken } from "src/json";
 import { removeRedundantRegexGroups } from "src/internal/analyzeRegexSource";
 import { withoutRGXInsertionChecks } from "src/internal/insertionContext";
+import { resolveFinishedRGXSource } from "src/internal/exactMarkers";
 import { resolveRGXToken, ResolveRGXTokenOptions } from "src/resolve";
 import { CloneDepth } from "@ptolemy2002/immutability-utils";
 import type { RGXClassUnionToken } from "./union";
@@ -25,7 +26,8 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
     // JSON literal token, the same way plain convertible tokens are handled by rgxTokenToJSON. This is lossy.
     toJSON(): RGXJSONObjectToken {
         // Serializing the token isn't part of building a pattern.
-        const source = withoutRGXInsertionChecks(() => resolveRGXToken(this, { groupWrap: false }));
+        // Its exact text is compiled, since nothing would mark the source of a JSON literal as having it.
+        const source = withoutRGXInsertionChecks(() => resolveFinishedRGXSource(() => resolveRGXToken(this, { groupWrap: false })));
         return createRGXJSONLiteralToken(removeRedundantRegexGroups(source, { isolated: true }));
     }
 

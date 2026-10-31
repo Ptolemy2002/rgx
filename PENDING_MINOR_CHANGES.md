@@ -114,3 +114,10 @@ Each entry has a `##` heading naming the change, followed by:
 - **Idea**: A small benchmark script for the cases sped up in 15.0.0 (deeply nested resolution, nested wrappers, lexing).
 - **Why**: So those speedups don't quietly regress.
 - **Effort**: S to M.
+
+## Let flag transformers see exact text
+
+- **Idea**: An option on `registerFlagTransformer` (such as `{ seesExactText: true }`) that gives that transformer the pattern with its exact text still in its marker groups, instead of emptied out.
+- **Why**: Exact text is hidden from every custom flag (see "Exact text" in `docs/general.md`), but a flag that only wraps the pattern or rewrites its structure could need the full source to work correctly.
+- **Effort**: S.
+- **Notes**: Hiding must stay the default, or custom flags would start changing exact text. A transformer that opts in has to leave the marker groups in place.

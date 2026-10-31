@@ -1,6 +1,6 @@
 import { removeRgxUnionDuplicates, RGXClassWrapperToken, RGXConstantToken } from "./class";
 import * as e from "./errors";
-import { assertValidRegexFlags } from "./ExtRegExp";
+import { assertValidRegexFlags, ExtRegExp } from "./ExtRegExp";
 import * as tg from "./typeGuards";
 import * as t from "./types";
 import {
@@ -8,6 +8,7 @@ import {
     placeRGXToken, removeRedundantRegexGroups, scanOptionsFromFlags
 } from "./internal";
 import { rgxTokenFromJSON } from "./json";
+import { isRGXExactScopeActive, isRGXExactStringsActive, nextRGXExactMarkerName, renumberRGXExactMarkers, withRGXExactScope } from "./internal/exactMarkers";
 
 export type ResolveRGXTokenOptions = {
     groupWrap?: boolean;
@@ -23,11 +24,22 @@ export function escapeRegex(value: string) {
     return result;
 }
 
+// The source of text that is matched exactly, whatever flags are around it (see RGXExactToken). It is marked with a
+// reserved group name that is unique in the pattern being built.
+export function exactRegex(value: string): t.ValidRegexString {
+    if (value === '') return '' as t.ValidRegexString;
+    return `(?<${nextRGXExactMarkerName()}>${escapeRegex(value)})` as t.ValidRegexString;
+}
+
 export function rgxInterpolation(source: string): t.RGXInterpolationToken {
     return { rgxInterpolation: source };
 }
 
 export function resolveRGXToken(token: t.RGXToken, options: ResolveRGXTokenOptions = {}): t.ValidRegexString {
+    // Exact text is named uniquely across everything resolved for one pattern, so the outermost resolution starts a
+    // build if none is open.
+    if (!isRGXExactScopeActive()) return withRGXExactScope(() => resolveRGXToken(token, options))[0];
+
     let { groupWrap = true, topLevel = true, currentFlags = '' } = options;
 
     // While a pattern is being built, a token resolved on its own (such as by a container's toRgx()) is placed
@@ -47,16 +59,20 @@ export function resolveRGXToken(token: t.RGXToken, options: ResolveRGXTokenOptio
         if (tg.isRGXNoOpToken(token)) return '';
 
         if (tg.isRGXLiteralToken(token)) {
+            // A pattern built separately keeps its exact text marked, with names from this build so they don't repeat.
+            const source = token instanceof ExtRegExp && token.exactMarkers
+                ? renumberRGXExactMarkers(token.markedSource, null, scanOptionsFromFlags(token.flags))
+                : token.source;
             const localizableFlagDiff = localizableVanillaRegexFlagDiff(currentFlags, token.flags);
             if (!localizableFlagDiff) {
-                if (groupWrap) return '(?:' + token.source + ')';
-                else return token.source;
+                if (groupWrap) return '(?:' + source + ')';
+                else return source;
             } else {
-                return `(?${localizableFlagDiff}:${token.source})`;
+                return `(?${localizableFlagDiff}:${source})`;
             }
         }
 
-        if (tg.isRGXNativeToken(token)) return escapeRegex(String(token));
+        if (tg.isRGXNativeToken(token)) return isRGXExactStringsActive() ? exactRegex(String(token)) : escapeRegex(String(token));
 
         // Interpolations are returned as-is. They might have an unterminated group,
         // but that's okay, since a future token might terminate it, and if it doesn't, that

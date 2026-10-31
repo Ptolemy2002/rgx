@@ -24,16 +24,19 @@ A function `extRegExp` is provided with the same parameters as this class' const
 
 ## Constructor
 ```typescript
-constructor(pattern: string | RegExp, flags?: string, patternTransformers?: RGXPatternTransformerSelection)
+constructor(pattern: string | RegExp, flags?: string, patternTransformers?: RGXPatternTransformerSelection, exactMarkers?: boolean | null)
 ```
 - `pattern` (`string | RegExp`): The regex pattern. If a `RegExp` is provided, its `source` is used and its existing `flags` are tracked as already-applied flags to avoid re-applying transformers. If it is an `ExtRegExp`, it is rebuilt from its `originalSource` instead, so `flags` replaces its custom flags just as it replaces its vanilla flags, and each custom flag in `flags` is applied once.
 - `flags` (`string`, optional): The flags string, which may include both vanilla regex flags and custom registered flag keys. Validated via `assertValidRegexFlags`. Defaults to `''`.
 - `patternTransformers` (`RGXPatternTransformerSelection`, optional): The pattern transformers to apply to the pattern after its custom flag transformers: `true` for every registered one, `false` for none, or a list of ids for those (applied in the order they were registered). Throws `RGXInvalidPatternTransformerKeyError` if the list names one that isn't registered. Defaults to `null`, which keeps the selection of `pattern` when it is an `ExtRegExp` (leaving out transformers that have been unregistered since), and otherwise applies the enabled transformers (see `setRGXPatternTransformerEnabled` in [pattern-transformer.md](./pattern-transformer.md)).
+- `exactMarkers` (`boolean | null`, optional): Whether the groups in `pattern` named with the reserved prefix `rgx_exact_` mark exact text (see [Exact text](./general.md#exact-text)). When `true`, their text is taken out before custom flags are applied and put back afterwards, so custom flags leave it alone, and the compiled pattern has each one replaced by its text in a group that turns the `i` flag off, so they add no capture groups. When `false`, they are ordinary groups. Defaults to `null`, which keeps the setting of `pattern` when it is an `ExtRegExp`, and is otherwise `false`. `rgx` and `rgxa` set it to `true` for patterns with exact text.
 
 ## Properties
 - `patternTransformers` (`readonly string[]`, readonly): The ids of the pattern transformers applied to the source, in the order they were applied.
 - `flags` (`string`): Returns the combination of the vanilla flags (from the underlying `RegExp`) and any custom flags that were applied during construction.
-- `originalSource` (`string`, readonly): The pattern before any custom flag transformations were applied. `source` is the transformed pattern, which is what is used when the `ExtRegExp` is embedded in a larger pattern. `new ExtRegExp(regex.originalSource, regex.flags)` rebuilds an equivalent `ExtRegExp`, which is how JSON literal tokens store it (see [json.md](./json.md)), and passing other flags rebuilds it with those instead, adding or removing custom flags.
+- `exactMarkers` (`boolean`, readonly): Whether the pattern marks exact text, as set by the constructor.
+- `markedSource` (`string`, readonly): The pattern after custom flag transformations, with its exact text still marked. It is the same as `source` for a pattern without exact text, apart from pattern transformers. When `exactMarkers` is `true`, this is what is used when the `ExtRegExp` is embedded in a larger pattern, so its text stays exact there.
+- `originalSource` (`string`, readonly): The pattern before any custom flag transformations were applied, with any exact text still marked. `source` is the transformed pattern, which is what is used when the `ExtRegExp` is embedded in a larger pattern. `new ExtRegExp(regex.originalSource, regex.flags, null, regex.exactMarkers)` rebuilds an equivalent `ExtRegExp`, which is how JSON literal tokens store it (see [json.md](./json.md)), and passing other flags rebuilds it with those instead, adding or removing custom flags.
 
 # Functions
 ## isFlagKeyAvailable

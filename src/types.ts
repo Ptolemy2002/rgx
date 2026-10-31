@@ -38,7 +38,7 @@ export type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
 export type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
 
 export type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
-export type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string, patternTransformers?: string[] };
+export type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string, patternTransformers?: string[], exactMarkers?: boolean };
 export type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
 export type RGXJSONInterpolationToken = { $rgx: true, interpolation: string };
 export type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInterpolationToken;
@@ -109,7 +109,13 @@ export const validRegexLocalizableFlagDiffSymbol = Symbol('rgx.ValidRegexLocaliz
 export type ValidRegexLocalizableFlagDiffBrandSymbol = typeof validRegexLocalizableFlagDiffSymbol;
 export type ValidRegexLocalizableFlagDiff = Branded<string, [ValidRegexLocalizableFlagDiffBrandSymbol]>;
 
-export type RGXOptions = {
+export type RGXAOptions = {
+    // Whether native tokens (strings, numbers and booleans) are matched exactly, as with RGXExactToken, whatever flags
+    // are around them.
+    exact?: boolean;
+};
+
+export type RGXOptions = RGXAOptions & {
     multiline?: boolean;
     verbatim?: boolean;
 };

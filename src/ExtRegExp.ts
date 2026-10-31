@@ -1,5 +1,7 @@
 import { RGXFlagTransformerConflictError, RGXInvalidFlagTransformerKeyError, RGXInvalidRegexFlagsError, RGXInvalidRegexStringError, RGXInvalidVanillaRegexFlagsError } from "./errors";
 import { createConstructFunction } from "./internal";
+import { compileRGXExactMarkers, findRGXExactMarkers, replaceRGXExactMarkers } from "./internal/exactMarkers";
+import { scanOptionsFromFlags } from "./internal/scanRegexSource";
 import { applyRGXPatternTransformersToSource } from "./pattern-transformer/register";
 import { registeredRGXPatternTransformers, resolveRGXPatternTransformerSelection, RGXPatternTransformerSelection } from "./pattern-transformer/default";
 import { isValidVanillaRegexFlags } from "./typeGuards";
@@ -15,8 +17,14 @@ export class ExtRegExp extends RegExp {
     readonly originalSource: string;
     // The ids of the pattern transformers applied to the source, in the order they were applied.
     readonly patternTransformers: readonly string[];
+    // Whether the groups named with the reserved prefix "rgx_exact_" mark exact text (see RGXExactToken), which custom
+    // flag transformations leave alone and which is compiled to ignore the i flag.
+    readonly exactMarkers: boolean;
+    // The source after custom flag transformations, with exact text still marked, so the pattern can be placed in
+    // another one without its exact text losing its protection.
+    readonly markedSource: string;
 
-    constructor(pattern: string | RegExp, flags='', patternTransformers: RGXPatternTransformerSelection = null) {
+    constructor(pattern: string | RegExp, flags='', patternTransformers: RGXPatternTransformerSelection = null, exactMarkers: boolean | null = null) {
         assertValidRegexFlags(flags);
 
         const vanillaFlags = extractVanillaRegexFlags(flags);
@@ -26,7 +34,24 @@ export class ExtRegExp extends RegExp {
         // custom flags the same way it replaces its vanilla ones.
         const source = pattern instanceof ExtRegExp ? pattern.originalSource : pattern instanceof RegExp ? pattern.source : pattern;
 
-        const { source: transformedSource, flags: transformedFlags } = applyFlagTransformers(createRegex(source, vanillaFlags), customFlags);
+        // An ExtRegExp that is rebuilt keeps marking exact text unless told otherwise.
+        exactMarkers ??= pattern instanceof ExtRegExp && pattern.exactMarkers;
+
+        // Flag transformers are given the pattern with the text of each exact marker taken out, so they can't change it,
+        // and it is put back afterwards.
+        const scanOptions = scanOptionsFromFlags(vanillaFlags);
+        const markers = exactMarkers ? findRGXExactMarkers(source, null, scanOptions) : [];
+        const contents = new Map(markers.map(marker => [marker.name, source.slice(marker.contentStart, marker.contentEnd)]));
+        const hiddenSource = replaceRGXExactMarkers(source, markers, marker => `(?<${marker.name}>)`);
+
+        const { source: transformed, flags: transformedFlags } = applyFlagTransformers(createRegex(hiddenSource, vanillaFlags), customFlags);
+        const transformedScanOptions = scanOptionsFromFlags(transformedFlags);
+        const markedSource = contents.size === 0 ? transformed : replaceRGXExactMarkers(
+            transformed, findRGXExactMarkers(transformed, new Set(contents.keys()), transformedScanOptions),
+            marker => `(?<${marker.name}>${contents.get(marker.name)!})`
+        );
+        // Exact text is compiled to ignore the i flag, without adding capture groups.
+        const transformedSource = exactMarkers ? compileRGXExactMarkers(markedSource, null, transformedScanOptions) : markedSource;
         // Finished patterns go through the pattern transformers, which work around regex engine bugs. An ExtRegExp that
         // is rebuilt keeps its selection, apart from transformers that have been unregistered since.
         if (patternTransformers === null && pattern instanceof ExtRegExp) {
@@ -38,6 +63,8 @@ export class ExtRegExp extends RegExp {
         this.originalSource = source;
         this.patternTransformers = transformerIds;
         this.extFlags = customFlags;
+        this.exactMarkers = exactMarkers;
+        this.markedSource = markedSource;
     }
 
     get flags(): string {

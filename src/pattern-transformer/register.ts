@@ -85,11 +85,11 @@ export function applyRGXPatternTransformersToSource(source: string, flags: strin
 export function applyRGXPatternTransformers<T extends RegExp>(regex: T, ids?: readonly string[] | null): T extends ExtRegExp ? ExtRegExp : RegExp;
 export function applyRGXPatternTransformers(regex: RegExp, ids: readonly string[] | null = null): RegExp {
     // An ExtRegExp is rebuilt with the given transformers added to the ones it already had, so it keeps its custom
-    // flags and its original source. Ones that have been unregistered since are left out.
+    // flags, its original source, and its exact text. Ones that have been unregistered since are left out.
     if (regex instanceof ExtRegExp) {
         const added = ids ?? listRGXPatternTransformers();
         const kept = regex.patternTransformers.filter(id => patternTransformers.has(id));
-        return new ExtRegExp(regex.originalSource, regex.flags, [...new Set([...kept, ...added])]);
+        return new ExtRegExp(regex.originalSource, regex.flags, [...new Set([...kept, ...added])], regex.exactMarkers);
     }
 
     // Other subclasses can report flags in `flags`, which a plain RegExp can't take. The RegExp

@@ -22,7 +22,7 @@ type RGXJSONPrimitive = string | number | boolean | null;
 type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
 type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
 type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
-type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string, patternTransformers?: string[] };
+type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string, patternTransformers?: string[], exactMarkers?: boolean };
 type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
 type RGXJSONInterpolationToken = { $rgx: true, interpolation: string };
 type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInterpolationToken;
@@ -37,6 +37,7 @@ type RGXWalkerOptions<R, S = unknown> = {
     share?: S;
     infinite?: boolean;
     looping?: boolean;
+    exact?: boolean;
 };
 
 type LexemeNotMatchedCauseError = RGXRegexNotMatchedAtPositionError | RGXPartValidationFailedError;

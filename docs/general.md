@@ -22,7 +22,7 @@ type RGXJSONPrimitive = string | number | boolean | null;
 type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
 type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
 type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
-type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string, patternTransformers?: string[] };
+type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string, patternTransformers?: string[], exactMarkers?: boolean };
 type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
 type RGXJSONInterpolationToken = { $rgx: true, interpolation: string };
 type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInterpolationToken;
@@ -58,9 +58,14 @@ type RGXWalkerOptions<R> = {
     reduced?: R;
     infinite?: boolean;
     looping?: boolean;
+    exact?: boolean;
 };
 
-type RGXOptions = {
+type RGXAOptions = {
+    exact?: boolean;
+};
+
+type RGXOptions = RGXAOptions & {
     multiline?: boolean;
     verbatim?: boolean;
 };
@@ -121,6 +126,7 @@ const pattern6 = rgx()`
   - `options` (`RGXOptions`, optional): An object containing optional configuration for the template tag.
     - `multiline` (`boolean`, optional): Whether to strip newlines and trim leading whitespace from the literal string parts of the template. Defaults to `true`. When `true`, each literal string part is split by newlines, each line has its leading whitespace trimmed, empty lines are removed, comments (denoted with `//`) ending a line or on a line by themselves are stripped, and the remaining lines are joined together. Interpolated tokens (including string tokens via `${"..."}`) are not affected. When `false`, literal string parts are preserved exactly as written.
     - `verbatim` (`boolean`, optional): Whether to treat literal string parts of the template as verbatim text. Defaults to `true`. When `true`, literal string parts are escaped so that special regex characters are matched literally. When `false`, literal string parts are inserted as raw regex syntax without escaping. Interpolated values (including string tokens via `${"..."}`) are always escaped regardless of this setting.
+    - `exact` (`boolean`, optional): Whether native tokens are matched exactly, as if each were an `RGXExactToken` (see [Exact text](#exact-text)). Defaults to `false`. This covers interpolated native values and, when `verbatim` is `true`, the literal string parts of the template, which are native strings then. Native tokens nested inside other tokens are covered too.
 
 **Template Tag**
   - `strings` (`TemplateStringsArray`): The literal parts of the template string.
@@ -134,7 +140,7 @@ Every finished pattern the library compiles goes through the registered pattern 
 
 # rgxa
 ```typescript
-function rgxa(tokens: RGXToken[], flags?: string): ExtRegExp
+function rgxa(tokens: RGXToken[], flags?: string, options?: RGXAOptions): ExtRegExp
 ```
 As an alternative to using the `rgx` template tag, you can directly call `rgxa` with an array of RGX tokens and optional flags to get an `ExtRegExp` object. This is useful in cases where you don't want to use a template literal. Like `rgx`, the provided `flags` are passed as `currentFlags` to the resolver, enabling inline modifier groups for `RegExp` literal tokens whose localizable flags differ. Insertion checks (see `rgxAcceptInsertion` in [base.md](./class/token/base.md)) run while the pattern is built, with the given `flags` at the top level: every convertible token that defines `rgxAcceptInsertion`, at any depth, is called once for each place it is inserted, with an `RGXInsertionContext` describing that place; if it returns `false` or a string, an `RGXInsertionRejectedError` is thrown with details about the reason and exactly where the rejection occurred. Since nothing else is added to the final pattern, redundant non-capturing groups at its start and end are removed as well, so `rgxa([/a/, /b/])` produces `ab` rather than `(?:a)(?:b)`.
 
@@ -151,12 +157,23 @@ A name that several groups share (which is allowed when they are in different al
 
 Missing groups are found through the `RGXSubpatternToken`s that were resolved while building the pattern, which is the only way to tell them apart from literal text. References written directly in literal or interpolation tokens are checked for the other problems, but a missing group is only found there when the engine reads them as a reference. Only finished patterns are checked, so `resolveRGXToken` and `rgxConcat` accept fragments that reference a group added later. Patterns built with the `ExtRegExp` constructor aren't checked.
 
+## Exact text
+Text from an `RGXExactToken` (see [exact.md](./class/token/exact.md)), or any native token when the `exact` option is on, is matched exactly: neither the `i` flag nor custom flags change what it matches. While the pattern is built, each piece of exact text is a named group with the reserved prefix `rgx_exact_` (a marker), numbered from `0` in the order the text is resolved, so the names never repeat in one pattern. The markers are handled like this:
+
+- Before custom flags are applied, an `ExtRegExp` built from a pattern with markers takes the text out of each one, leaving an empty group such as `(?<rgx_exact_0>)`, and puts it back afterwards. Flag transformers never see the exact text, so any custom flag leaves it alone without having to know about it.
+- When the pattern is compiled, each marker is replaced by its text in a modifier group that turns the `i` flag off, such as `(?-i:Café)`, or a plain non-capturing group for text without letters. So exact text adds no capture groups to the compiled pattern, `match.groups` and group numbers are unaffected, and backreferences are validated as if the markers weren't there. The same happens to the steps a walker matches and the definitions a lexer matches.
+- The pattern with its markers is kept as the `ExtRegExp`'s `originalSource` and `markedSource`, and its `exactMarkers` property is `true` (see [ExtRegExp.md](./ExtRegExp.md)). Rebuilding it with other flags, and placing it in another pattern, keeps the text exact. When it is placed in another pattern, its markers are renamed to continue that pattern's numbering.
+
+In a pattern with exact text, group names starting with `rgx_exact_` are reserved, and a group written with one throws an `RGXReservedGroupNameError`. In a pattern without exact text, such groups are ordinary groups.
+
 ## Parameters
   - `tokens` (`RGXToken[]`): The RGX tokens to be resolved and concatenated to form the regex pattern.
   - `flags` (`string`, optional): The regex flags to apply to the resulting `ExtRegExp` object (e.g., 'g', 'i', 'm', or custom registered flags). If not provided, no flags will be applied. If provided and not valid regex flags (vanilla or registered custom), an `RGXInvalidRegexFlagsError` will be thrown.
+  - `options` (`RGXAOptions`, optional): An object containing optional configuration.
+    - `exact` (`boolean`, optional): Whether native tokens, at any depth, are matched exactly, as if each were an `RGXExactToken` (see [Exact text](#exact-text)). Defaults to `false`.
 
 ## Returns
-- `ExtRegExp`: An `ExtRegExp` object constructed from the resolved tokens and the provided flags. Throws `RGXInvalidBackreferenceError` or `RGXDuplicateGroupNameError` if the pattern fails [backreference validation](#backreference-validation).
+- `ExtRegExp`: An `ExtRegExp` object constructed from the resolved tokens and the provided flags. Its `exactMarkers` is `true` when the pattern has exact text. Throws `RGXInvalidBackreferenceError` or `RGXDuplicateGroupNameError` if the pattern fails [backreference validation](#backreference-validation), and `RGXReservedGroupNameError` if a pattern with exact text has a group written with the reserved prefix.
 
 # resolveRGXToken
 ```typescript
@@ -166,6 +183,8 @@ function resolveRGXToken(token: RGXToken, options?: ResolveRGXTokenOptions): Val
 Resolves an RGX token to a string. No-op tokens resolve to an empty string, literal tokens are included as-is (wrapped in a non-capturing group when `groupWrap` is `true`), native tokens are converted to strings and escaped, interpolation tokens (see `rgxInterpolation`) are inserted as-is without escaping, convertible tokens are converted using their `toRgx` method and then resolved recursively, and arrays of tokens are resolved as unions of their resolved elements (repeats removed, placed in a non-capturing group when `groupWrap` is `true`).
 
 JSON object tokens (see [json.md](./json.md)) are converted with `rgxTokenFromJSON` before resolving, so a JSON literal token resolves exactly like the `ExtRegExp` it describes and a JSON class token resolves exactly like the class token it describes. No conversion is needed beforehand; this applies to JSON tokens nested at any depth, since nested tokens are resolved recursively. Invalid JSON object tokens throw the error `rgxTokenFromJSON` would throw (e.g. `RGXInvalidJSONClassKeyError` for an unregistered class).
+
+Native tokens resolved while the `exact` option of `rgx`, `rgxa`, `rgxw` or `rgxwa` is on are resolved with `exactRegex` instead of `escapeRegex`. An `ExtRegExp` whose `exactMarkers` is `true` is included through its `markedSource`, with its markers renamed to continue the numbering of the pattern being built (see [Exact text](#exact-text)). One call to `resolveRGXToken` numbers its markers from `0` unless it is part of a pattern being built.
 
 For literal tokens (`RegExp` instances), if the token's flags differ from `currentFlags` in any of the localizable flags (`i`, `m`, `s`), the token is wrapped in an inline modifier group (e.g., `(?i:...)`, `(?-i:...)`, `(?ms-i:...)`) instead of a plain non-capturing group. Non-localizable flags (such as `g`, `u`, `y`, `d`, `v`) are ignored when computing the diff. When an inline modifier group is used, it always wraps the token regardless of the `groupWrap` setting, since the modifier group itself serves as a group.
 
@@ -202,6 +221,22 @@ rgxa([rgxInterpolation("(?<word>"), /\w+/, rgxInterpolation(")")]); // /(?<word>
 
 ## Returns
 - `RGXInterpolationToken`: The interpolation token.
+
+# exactRegex
+```typescript
+function exactRegex(value: string): ValidRegexString
+```
+Escapes `value` the same way as `escapeRegex` (see [escapeRegex.md](./util/escapeRegex.md)) and wraps it in a marker group for exact text, named with the reserved prefix `rgx_exact_` and the next number in the pattern being built (see [Exact text](#exact-text)). An empty `value` returns an empty string. This is what `RGXExactToken` resolves to. Outside of a pattern being built, the number is always `0`.
+
+```typescript
+exactRegex("a.b"); // "(?<rgx_exact_0>a\.b)"
+```
+
+## Parameters
+  - `value` (`string`): The text to match exactly.
+
+## Returns
+- `ValidRegexString`: The marked, escaped text.
 
 # rgxConcat
 ```typescript

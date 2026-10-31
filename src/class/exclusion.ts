@@ -7,7 +7,7 @@ import { assertValidIdentifier, isRGXJSONToken } from "src/typeGuards";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
-import { createConstructFunction, createRegexPiece } from "src/internal";
+import { createConstructFunction, createRegexPiece, renumberRGXExactMarkers, scanOptionsFromFlags, withRGXExactScope } from "src/internal";
 
 function parseExclusionJSONArgs(args: RGXJSONValue[]): [string, RGXJSONToken, RGXJSONToken?, RGXJSONToken?] | string {
     if (args.length < 2 || args.length > 4) return "Expected between 2 and 4 arguments (exclusionId, token, exclusions, terminal).";
@@ -52,7 +52,9 @@ export class RGXExclusionToken extends RGXClassToken {
         const resolvedToken = resolveRGXToken(this.token, { currentFlags });
         const resolvedExclusions = this.exclusions.resolve({ currentFlags });
         // null and undefined are no-ops and will resolve to empty strings.
-        const resolvedTerminal = resolveRGXToken(this.terminal, { currentFlags });
+        const [resolvedTerminal, terminalExactNames] = withRGXExactScope(() => resolveRGXToken(this.terminal, { currentFlags }));
+        // The terminal is placed twice, so its exact text needs new names the second time.
+        const repeatedTerminal = renumberRGXExactMarkers(resolvedTerminal, terminalExactNames, scanOptionsFromFlags(currentFlags));
 
         // Get a match to the pattern in a lookahead, use a negative lookahead to
         // exclude the exclusion group from the match, then actually consume what we
@@ -61,7 +63,7 @@ export class RGXExclusionToken extends RGXClassToken {
         // Note: the exclusions will prevent the pattern from matching if the matched text only
         // begins with an exclusion pattern, not just if it is the entire exclusion pattern. The solution to this is to provide
         // a terminal anchor, but that might not always be desirable or possible, so it's something to be aware of.
-        const source = `(?=(?<${this.exclusionId}>${resolvedToken}${resolvedTerminal}))(?!${resolvedExclusions}${resolvedTerminal})\\k<${this.exclusionId}>`;
+        const source = `(?=(?<${this.exclusionId}>${resolvedToken}${resolvedTerminal}))(?!${resolvedExclusions}${repeatedTerminal})\\k<${this.exclusionId}>`;
         // Because the terminal should be consuming no actual characters, it shuld be able to be repeated without issue, but we cannot actually validate
         // that the terminal is not consuming characters, so we will just document that the user not consume characters in the terminal.
 
