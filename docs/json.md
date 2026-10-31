@@ -22,7 +22,7 @@ type RGXJSONPrimitive = string | number | boolean | null;
 type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
 type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
 type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
-type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string, patternTransformers?: string[] };
+type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string, patternTransformers?: string[], exactMarkers?: boolean };
 type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
 type RGXJSONInterpolationToken = { $rgx: true, interpolation: string };
 type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInterpolationToken;
@@ -40,7 +40,7 @@ type RGXJSONClassTokenConstructor = {
 type RGXJSONBuiltinClassName =
     "RGXClassWrapperToken" | "RGXClassUnionToken" | "RGXGroupToken" | "RGXRepeatToken" |
     "RGXLookaheadToken" | "RGXLookbehindToken" | "RGXExclusionToken" | "RGXSubpatternToken" |
-    "RGXConstantToken";
+    "RGXConstantToken" | "RGXExactToken";
 type RGXJSONClassName = RGXJSONBuiltinClassName | (string & {});
 type RGXTokenToJSONOptions = {
     resolveConvertible?: boolean;
@@ -52,7 +52,7 @@ A JSON token is a token that is guaranteed to survive `JSON.stringify` and `JSON
 
 - **JSON native tokens** (`RGXJSONNativeToken`): any native token except `undefined`, i.e. a string, a finite number, a boolean, or `null`. These behave exactly like the native tokens they are.
 - **JSON object tokens** (`RGXJSONObjectToken`): plain objects with the flag property `$rgx` set to `true` (the key is exported as `RGX_JSON_FLAG`). The flag signals the intent to be an RGX token, and the remaining keys describe one of three things:
-  - A **JSON literal token** (`RGXJSONLiteralToken`) has a `source` string and an optional `flags` string, and describes the `ExtRegExp` created by `new ExtRegExp(source, flags)`. Since `ExtRegExp` behaves exactly like `RegExp`, this is enough to describe any literal token. `flags` can include custom flags, and `source` is then the pattern before their transformations, so the flags' transformers must be registered to convert the token back (the source is validated against the vanilla flags only). An optional `patternTransformers` array of ids selects the pattern transformers the `ExtRegExp` is built with (see [pattern-transformer.md](./pattern-transformer.md)); without it, the enabled ones are applied.
+  - A **JSON literal token** (`RGXJSONLiteralToken`) has a `source` string and an optional `flags` string, and describes the `ExtRegExp` created by `new ExtRegExp(source, flags)`. Since `ExtRegExp` behaves exactly like `RegExp`, this is enough to describe any literal token. `flags` can include custom flags, and `source` is then the pattern before their transformations, so the flags' transformers must be registered to convert the token back (the source is validated against the vanilla flags only). An optional `patternTransformers` array of ids selects the pattern transformers the `ExtRegExp` is built with (see [pattern-transformer.md](./pattern-transformer.md)); without it, the enabled ones are applied. An optional `exactMarkers` boolean is passed to the `ExtRegExp` constructor, and is `true` when `source` marks exact text (see [Exact text](./general.md#exact-text)).
   - A **JSON class token** (`RGXJSONClassToken`) has a `class` name and an optional `args` array of JSON values, and describes the class token produced by giving `args` to the constructor registered under `class` in the JSON class registry (see below).
   - A **JSON interpolation token** (`RGXJSONInterpolationToken`) has an `interpolation` string, and describes the interpolation token created by `rgxInterpolation(interpolation)` (see [general.md](./general.md)). Unlike a JSON literal token's `source`, the string doesn't have to be a valid regex, so it can store fragments with unbalanced parentheses.
 
@@ -89,11 +89,11 @@ function rgxTokenToJSON(token: RGXToken, options?: RGXTokenToJSONOptions): RGXJS
 Converts any `RGXToken` into a JSON token. The conversion is by token type:
 - No-op tokens (`null` and `undefined`) become `null`.
 - Native tokens are returned as-is. Non-finite numbers (`NaN`, `Infinity`) throw `RGXNotJSONSerializableError`, since `JSON.stringify` would turn them into `null`.
-- Literal tokens become JSON literal tokens with the regex's source and all of its flags (`flags` is omitted when empty). For an `ExtRegExp`, the source stored is its `originalSource`, from before its custom flags' transformations, and the custom flags are stored along with the vanilla ones, so converting back applies each transformation exactly once and the result reports the same flags. Its selection of pattern transformers is stored as `patternTransformers` when it differs from the enabled ones. The converted token behaves identically.
+- Literal tokens become JSON literal tokens with the regex's source and all of its flags (`flags` is omitted when empty). For an `ExtRegExp`, the source stored is its `originalSource`, from before its custom flags' transformations, and the custom flags are stored along with the vanilla ones, so converting back applies each transformation exactly once and the result reports the same flags. Its selection of pattern transformers is stored as `patternTransformers` when it differs from the enabled ones, and `exactMarkers` is stored as `true` when it marks exact text. The converted token behaves identically.
 - JSON object tokens are validated (`assertRGXJSONObjectToken`) and returned as-is.
 - Interpolation tokens become JSON interpolation tokens that store the fragment as-is. Resolving them into JSON literal tokens would fail whenever the fragment is unbalanced.
 - Class tokens that override `toJSON()` are converted with it. Class tokens that do not are treated like any other convertible token (see below).
-- Any other convertible token (including a class token that does not override `toJSON()`) cannot be reconstructed from JSON, so when `resolveConvertible` is `true` (the default) it is resolved with `resolveRGXToken(token, { groupWrap: false })` into a JSON literal token, after removing groups that are redundant in an isolated source (this is safe because a JSON literal's source must be a valid regex on its own, and it is wrapped or flag-localized again whenever it is inserted). This is lossy: `rgxIsRepeatable` and `rgxAcceptInsertion` preferences are not preserved, and the resolved string may be wrapped in an extra non-capturing group once used, though the matching behavior is the same. When `resolveConvertible` is `false`, an `RGXNotJSONSerializableError` is thrown instead.
+- Any other convertible token (including a class token that does not override `toJSON()`) cannot be reconstructed from JSON, so when `resolveConvertible` is `true` (the default) it is resolved with `resolveRGXToken(token, { groupWrap: false })` into a JSON literal token, after removing groups that are redundant in an isolated source (this is safe because a JSON literal's source must be a valid regex on its own, and it is wrapped or flag-localized again whenever it is inserted). Exact text in it (see [Exact text](./general.md#exact-text)) is compiled to groups that turn the `i` flag off, so it stays case-sensitive but custom flags applied later can change it. This is lossy: `rgxIsRepeatable` and `rgxAcceptInsertion` preferences are not preserved, and the resolved string may be wrapped in an extra non-capturing group once used, though the matching behavior is the same. When `resolveConvertible` is `false`, an `RGXNotJSONSerializableError` is thrown instead.
 - Arrays are converted element-wise (with the same options).
 
 ## Parameters
@@ -248,9 +248,9 @@ Returns `{ $rgx: true, class: name, args }`. `args` defaults to `[]`. No validat
 
 ## createRGXJSONLiteralToken
 ```typescript
-function createRGXJSONLiteralToken(source: string, flags?: string, patternTransformers?: readonly string[]): RGXJSONLiteralToken
+function createRGXJSONLiteralToken(source: string, flags?: string, patternTransformers?: readonly string[], exactMarkers?: boolean): RGXJSONLiteralToken
 ```
-Returns `{ $rgx: true, source }` when `flags` is empty (the default), otherwise `{ $rgx: true, source, flags }`, with `patternTransformers` added when it is given. Throws `RGXInvalidRegexStringError` if `source` is not a valid regex string with `flags` (which change what syntax is valid, such as with the `u` and `v` flags), or `RGXInvalidRegexFlagsError` if `flags` is invalid.
+Returns `{ $rgx: true, source }` when `flags` is empty (the default), otherwise `{ $rgx: true, source, flags }`, with `patternTransformers` added when it is given and `exactMarkers: true` added when `exactMarkers` is `true` (it defaults to `false`). Throws `RGXInvalidRegexStringError` if `source` is not a valid regex string with `flags` (which change what syntax is valid, such as with the `u` and `v` flags), or `RGXInvalidRegexFlagsError` if `flags` is invalid.
 
 ## createRGXJSONInterpolationToken
 ```typescript

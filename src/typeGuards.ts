@@ -148,6 +148,7 @@ export function isRGXJSONLiteralToken(value: unknown, contentCheck: boolean = tr
     if ('patternTransformers' in value && value.patternTransformers !== undefined) {
         if (!Array.isArray(value.patternTransformers) || !value.patternTransformers.every(id => typeof id === 'string')) return false;
     }
+    if ('exactMarkers' in value && value.exactMarkers !== undefined && typeof value.exactMarkers !== 'boolean') return false;
     if (!contentCheck) return true;
 
     const flags = (value.flags as string | undefined) ?? '';

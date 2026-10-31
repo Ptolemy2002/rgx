@@ -68,3 +68,21 @@ None yet, since the character class token doesn't exist. When it is added, `rgxP
 ### Reverting the workaround
 
 Make `parseClasses` default to `true` in `rgxParse`, and update the `parseClasses` docs in `docs/parse.md`, the construct table at the top of `docs/parse.md`, the changelog and `MIGRATION.md`.
+
+## Reserve the `rgx_exact_` group name prefix in every pattern
+
+### Problem
+
+Exact text (`RGXExactToken`, and native tokens with the `exact` option) is marked with groups named `rgx_exact_<number>` until the pattern is compiled. To keep those markers from being confused with groups written by hand, the prefix should be reserved everywhere, the way `rgx_branch_` is reserved in walker steps. Reserving it in patterns that don't use exact text would reject group names that work today, so it is only reserved where exact text is used.
+
+### Breaking change
+
+Throw `RGXReservedGroupNameError` for any group name starting with `rgx_exact_` in a pattern built with `rgx`, `rgxa`, a walker step or a lexer definition, whether or not the pattern has exact text. Patterns that use such names today would throw.
+
+### Current workaround
+
+`assertRGXExactMarkerNames` in `src/internal/exactMarkers.ts` returns early when the pattern was built without exact text (its `names` set is empty), so the prefix is only checked in patterns that have exact text. It is called by `rgxa` (`src/index.ts`), `finishRGXExactMarkers` (used by walker steps in `src/walker/base.ts` and lexer definitions in `src/lexer/base.ts`), and compiled markers are limited to the names a build created (`compileRGXExactMarkers` with a `names` set).
+
+### Reverting the workaround
+
+Remove the early return in `assertRGXExactMarkerNames`, so every group with the prefix that the build didn't create throws, and update the "Exact text" section of `docs/general.md`, the walker's step validation docs in `docs/class/walker.md`, the changelog and `MIGRATION.md`.

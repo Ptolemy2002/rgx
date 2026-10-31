@@ -8,6 +8,7 @@ import { registeredRGXPatternTransformers } from "./pattern-transformer/default"
 import { resolveRGXToken, rgxInterpolation } from "./resolve";
 import { removeRedundantRegexGroups } from "./internal/analyzeRegexSource";
 import { withoutRGXInsertionChecks } from "./internal/insertionContext";
+import { resolveFinishedRGXSource } from "./internal/exactMarkers";
 
 // Parses the args of a JSON class token into a typed tuple, or returns the reason they were rejected.
 export type RGXJSONClassArgsParser<A extends unknown[]> = (args: t.RGXJSONValue[]) => A | string;
@@ -23,7 +24,7 @@ export type RGXJSONClassTokenConstructor = {
 export type RGXJSONBuiltinClassName =
     "RGXClassWrapperToken" | "RGXClassUnionToken" | "RGXGroupToken" | "RGXRepeatToken" |
     "RGXLookaheadToken" | "RGXLookbehindToken" | "RGXExclusionToken" | "RGXSubpatternToken" |
-    "RGXConstantToken";
+    "RGXConstantToken" | "RGXExactToken";
 export type RGXJSONClassName = RGXJSONBuiltinClassName | (string & {});
 
 export type RGXTokenToJSONOptions = {
@@ -77,11 +78,14 @@ export function createRGXJSONClassToken(name: RGXJSONClassName, args: t.RGXJSONV
     return { [t.RGX_JSON_FLAG]: true, class: name, args };
 }
 
-export function createRGXJSONLiteralToken(source: string, flags: string = '', patternTransformers?: readonly string[]): t.RGXJSONLiteralToken {
+export function createRGXJSONLiteralToken(
+    source: string, flags: string = '', patternTransformers?: readonly string[], exactMarkers: boolean = false
+): t.RGXJSONLiteralToken {
     tg.assertValidRegexString(source, flags);
     const token: t.RGXJSONLiteralToken = { [t.RGX_JSON_FLAG]: true, source };
     if (flags !== '') token.flags = flags;
     if (patternTransformers !== undefined) token.patternTransformers = [...patternTransformers];
+    if (exactMarkers) token.exactMarkers = true;
     return token;
 }
 
@@ -125,7 +129,7 @@ export function rgxTokenToJSON(token: t.RGXToken, { resolveConvertible = true }:
         // The selection of pattern transformers is only stored when it isn't the default, the enabled ones.
         const enabled = listRGXPatternTransformers(true);
         const isDefault = token.patternTransformers.length === enabled.length && token.patternTransformers.every((id, i) => id === enabled[i]);
-        return createRGXJSONLiteralToken(token.originalSource, token.flags, isDefault ? undefined : token.patternTransformers);
+        return createRGXJSONLiteralToken(token.originalSource, token.flags, isDefault ? undefined : token.patternTransformers, token.exactMarkers);
     }
 
     if (tg.isRGXJSONObjectToken(token, false)) {
@@ -147,7 +151,8 @@ export function rgxTokenToJSON(token: t.RGXToken, { resolveConvertible = true }:
         // A JSON literal's source must be a valid regex on its own, and it is wrapped again whenever it is inserted,
         // so groups at its edges can be removed.
         // Serializing the token isn't part of building a pattern.
-        const source = withoutRGXInsertionChecks(() => resolveRGXToken(token, { groupWrap: false }));
+        // Its exact text is compiled, since nothing would mark the source of a JSON literal as having it.
+        const source = withoutRGXInsertionChecks(() => resolveFinishedRGXSource(() => resolveRGXToken(token, { groupWrap: false })));
         return createRGXJSONLiteralToken(removeRedundantRegexGroups(source, { isolated: true }));
     }
 
@@ -167,7 +172,7 @@ export function rgxTokenFromJSON(json: t.RGXJSONToken): t.RGXNonJSONToken {
         tg.assertRGXJSONLiteralToken(json);
         // Stored transformers that aren't registered anymore are left out.
         const patternTransformers = json.patternTransformers === undefined ? null : registeredRGXPatternTransformers(json.patternTransformers);
-        return new ExtRegExp(json.source, json.flags ?? '', patternTransformers);
+        return new ExtRegExp(json.source, json.flags ?? '', patternTransformers, json.exactMarkers ?? false);
     }
 
     if (tg.isRGXJSONInterpolationToken(json)) return rgxInterpolation(json.interpolation);

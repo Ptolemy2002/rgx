@@ -7,7 +7,7 @@ import {
 } from "src/errors";
 import { RGXWalker, RGXWalkerBranchError, RGXWalkerOptions, RGXWalkerStep } from "src/walker";
 import { validateRGXWalkerSteps } from "src/walker/base";
-import { assertValidRegexReferences, collectRGXReferences, placeRGXToken, withRGXInsertionRoot } from "src/internal";
+import { assertValidRegexReferences, collectRGXReferences, finishRGXExactMarkers, placeRGXToken, resolveFinishedRGXSource, withRGXExactScope, withRGXInsertionRoot } from "src/internal";
 import { applyDefaultRGXPatternTransformersToSource } from "src/pattern-transformer/default";
 import { assertRegexMatchesAtPosition, createRegex, regexMatchAtPosition } from "src/utils";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
@@ -77,7 +77,11 @@ export function validateRGXLexemeDefinition<Data, Share>(lexemeDefinition: RGXLe
     }
 
     // Lexeme patterns are matched without flags.
-    const [source, references] = collectRGXReferences(() => withRGXInsertionRoot("" as ValidRegexFlags, () => placeRGXToken([lexemeDefinition.token], 0, () => resolveRGXToken(lexemeDefinition.token))));
+    const [[marked, references], exactNames] = withRGXExactScope(() => collectRGXReferences(
+        () => withRGXInsertionRoot("" as ValidRegexFlags, () => placeRGXToken([lexemeDefinition.token], 0, () => resolveRGXToken(lexemeDefinition.token)))
+    ));
+    // Exact text is compiled first, since it adds no groups once it is.
+    const source = finishRGXExactMarkers(marked, exactNames);
     assertValidRegexReferences(source, references);
     return source;
 }
@@ -153,7 +157,7 @@ export class RGXLexer<Data, Share=unknown> {
         let dataPart: {data?: Data} = {};
 
         if (lexemeDefinition.type === "resolve") {
-            const regex = this.resolvedRegexes.get(lexemeDefinition) ?? createRegex(applyDefaultRGXPatternTransformersToSource(resolveRGXToken(lexemeDefinition.token)));
+            const regex = this.resolvedRegexes.get(lexemeDefinition) ?? createRegex(applyDefaultRGXPatternTransformersToSource(resolveFinishedRGXSource(() => resolveRGXToken(lexemeDefinition.token))));
 
             // Since the assertion will throw an error if there is no match, this is safe.
             const match = assertRegexMatchesAtPosition(regex, this.source, startPosition, 10, true);

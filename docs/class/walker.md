@@ -26,7 +26,7 @@ type RGXJSONPrimitive = string | number | boolean | null;
 type RGXJSONObject = { [key: string]: RGXJSONValue | undefined };
 type RGXJSONValue = RGXJSONPrimitive | RGXJSONValue[] | RGXJSONObject;
 type RGXJSONNativeToken = Exclude<RGXNativeToken, undefined>;
-type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string, patternTransformers?: string[] };
+type RGXJSONLiteralToken = { $rgx: true, source: string, flags?: string, patternTransformers?: string[], exactMarkers?: boolean };
 type RGXJSONClassToken = { $rgx: true, class: string, args?: RGXJSONValue[] };
 type RGXJSONInterpolationToken = { $rgx: true, interpolation: string };
 type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInterpolationToken;
@@ -44,6 +44,7 @@ type RGXWalkerOptions<R, S = unknown> = {
     infinite?: boolean;
     looping?: boolean;
     contiguous?: boolean;
+    exact?: boolean;
 };
 
 type RGXTryWalkOptions = {
@@ -115,7 +116,11 @@ type RGXPartOptions<R, S = unknown, T=string> = {
     afterLoss: ((loss: RGXPartLoss<R, S>, context: RGXPartContext<R, S, T>) => RGXPartLossControl) | null;
 };
 
-type RGXOptions = {
+type RGXAOptions = {
+    exact?: boolean;
+};
+
+type RGXOptions = RGXAOptions & {
     multiline?: boolean;
     verbatim?: boolean;
 };
@@ -146,6 +151,7 @@ Creates an `RGXWalker` instance from an interpolation of strings and tokens. The
     - `infinite` (`boolean`, optional): Whether the walker should continue walking even after reaching the end of the token array, matching the final token repeatedly.
     - `looping` (`boolean`, optional): Whether the walker should loop back to the beginning of the token array after reaching the end, continuing to walk indefinitely until the source is consumed or the walker is stopped.
     - `contiguous` (`boolean`, optional): Whether the walker should require each token to match exactly at the current source position (`true`), or search forward for the next match of each token starting from the current position (`false`). Defaults to `true`.
+    - `exact` (`boolean`, optional): Whether native tokens, at any depth, are matched exactly, as if each were an `RGXExactToken` (see [Exact text](../general.md#exact-text)). With `verbatim` set to `true`, this includes the literal string parts of the template. Defaults to `false`.
 
 ### Returns
 - `(strings: TemplateStringsArray, ...tokens: RGXWalkerStep<R, S, T>[]) => RGXWalker<R, S>`: A template tag function that takes a template literal and returns an `RGXWalker` instance configured with the provided source, the provided tokens, and the specified options.
@@ -164,6 +170,7 @@ As an alternative to using the `rgxw` template tag, you can directly call `rgxwa
     - `reduced` (`R`, optional): An optional initial value for the walker's `reduced` property, which can be used to accumulate results across matches.
     - `share` (`S`, optional): An optional initial value for the walker's `share` property, which is passed to all Part callbacks and can be used as shared mutable state across parts.
     - `mergeSteps` (`boolean`, optional): Whether to combine each run of adjacent `tokens` that contain no `RGXPart` into a single step, the same way `rgxw` does (see `mergeSteps` under `rgxw`). Defaults to `false`. For example, `rgxwa(source, [rgxInterpolation("("), "a", rgxInterpolation(")+"), part], { mergeSteps: true })` has two steps: `(a)+` and `part`.
+    - `exact` (`boolean`, optional): Whether native tokens, at any depth, are matched exactly, as if each were an `RGXExactToken` (see [Exact text](../general.md#exact-text)). Defaults to `false`.
 
 #### Returns
 - `RGXWalker<R, S>`: An `RGXWalker` instance configured with the provided source, the resolved tokens, and the specified options.
@@ -279,12 +286,14 @@ constructor(source: string, tokens: RGXWalkerStep<R, S>[], options?: RGXWalkerOp
   - `infinite` (`boolean`, optional): When `true`, the walker stays at the last token indefinitely rather than stopping when the token collection is exhausted, continuing to match the last token until the source is consumed. Defaults to `false`.
   - `looping` (`boolean`, optional): When `true`, the walker loops back to token position `0` when the token collection is exhausted, continuing to match from the start until the source is consumed. Defaults to `false`.
   - `contiguous` (`boolean`, optional): When `true`, each token must match exactly at the current source position (via `assertRegexMatchesAtPosition`). When `false`, each token is searched for anywhere at or after the current source position (via `assertRegexMatchesAfterPosition`), allowing gaps between matches. Defaults to `true`.
+  - `exact` (`boolean`, optional): Whether native tokens, at any depth, are matched exactly, as if each were an `RGXExactToken` (see [Exact text](../general.md#exact-text)). Defaults to `false`.
 
 ## Step validation
 Each step (a plain token, or a part's inner token) is matched on its own as a finished pattern with no flags, so before matching it, the walker resolves it and checks it. `rgxwa` and `rgxw` run the same checks on every step when the walker is created, so a walker built with them finds these problems before walking starts. Dynamic parts are the exception: their token is checked, along with its insertions at the part's position, each time the walker captures them. A walker created directly with the constructor finds them when it reaches the step. The checks are:
 
 - **Balanced parentheses.** An interpolation token may leave a group open for a later token to close (see `rgxInterpolation` in [general.md](../general.md)), but nothing can close it in a separate step. A step with unbalanced parentheses throws an `RGXInvalidWalkerStepError`. When `rgxwa` finds it, the error's `index` is the step's position in the tokens.
 - **Backreferences.** The step's backreferences are validated like a pattern built with `rgxa` (see [Backreference validation](../general.md#backreference-validation)), throwing `RGXInvalidBackreferenceError` or `RGXDuplicateGroupNameError`. Since each step is matched on its own, a backreference can't point to a group in another step.
+- **Exact text.** Each step's exact text (see [Exact text](../general.md#exact-text)) is compiled before the step is checked and matched, so it adds no groups, and a step with exact text throws an `RGXReservedGroupNameError` for a group name starting with `rgx_exact_`.
 - **Reserved group names.** The walker wraps each branch of a union step in a group named `rgx_branch_<index>` to find out which branch matched, so a group name starting with `rgx_branch_` in a step throws an `RGXReservedGroupNameError`.
 - **Numeric backreferences in unions.** The branch groups shift the number of every group in a union step, so a numeric backreference in one (such as `\1`, or an `RGXSubpatternToken` for a number) throws an `RGXInvalidBackreferenceError` with the reason `"numeric-in-branches"`. Use a named group and reference it by name instead.
 
@@ -301,6 +310,7 @@ Each step (a plain token, or a part's inner token) is matched on its own as a fi
 - `infinite` (`boolean`): Whether the walker is in infinite mode — stays at the last token when the token collection is exhausted until the source is consumed.
 - `looping` (`boolean`): Whether the walker is in looping mode — loops back to token position `0` when the token collection is exhausted until the source is consumed.
 - `contiguous` (`boolean`): Whether the walker requires each token to match exactly at the current source position. When `false`, the walker searches forward for the next match instead.
+- `exact` (`boolean`, readonly): Whether native tokens are matched exactly, as set by the `exact` option.
 - `stopped` (`boolean`, readonly): Whether the walker has been stopped. Set to `true` when any Part callback returns `"stop"` or `"stop-silent"`, or when `stop()` is called directly.
 
 ## Methods
@@ -330,4 +340,4 @@ Each step (a plain token, or a part's inner token) is matched on its own as a fi
 - `tryWalkAsync(options?: RGXTryWalkOptions, yieldFn?: () => Promise<void>) => Promise<boolean>`: Async variant of `tryWalk`. Like `walkAsync()`, but snapshots and restores state on failure. Returns a `Promise<boolean>` — `true` if the walk succeeded or was stopped, `false` if it failed due to a match or validation error. Unexpected errors are re-thrown after restoring state. Accepts the same `options` as `tryWalk`.
 - `snapshot(name: string, ...keys: Array<RGXWalkerSnapshotKey | false>) => this`: Saves the current values of the listed walker fields under `name`, so they can be put back later with `restore(name)`. Only the listed keys are saved; a snapshot taken with no keys saves nothing and restoring it changes nothing. `sourcePosition` and `tokenPosition` are copied as numbers, while `reduced`, `share`, `captures`, and `namedCaptures` are deep-cloned (`extClone` with depth `"max"`), so later changes to the walker do not affect what was saved. `false` entries in `keys` are ignored, which allows keys to be included conditionally (e.g., `walker.snapshot("before", "sourcePosition", keepCaptures && "captures")`). Taking a snapshot with a name that already exists replaces the previous one. Snapshots are stored per walker instance and are not copied by `clone()`. Note that the walker uses some names internally: `step` (and so every stepping and walking method) saves under `"step"`, and `tryWalk` and `tryWalkAsync` save under `"tryWalk"`, so a snapshot saved under either name is overwritten when those methods run.
 - `restore(name: string) => this`: Restores the fields saved by the snapshot named `name`, leaving every field that snapshot did not include untouched. Positions are set through the `sourcePosition` and `tokenPosition` setters. If no snapshot with that name exists, does nothing. The snapshot remains stored after restoring, and its `reduced`, `share`, `captures`, and `namedCaptures` values are deep-cloned again when restored, so later changes to the walker never affect the stored snapshot and the same snapshot can be restored any number of times.
-- `clone(depth: CloneDepth = "max") => RGXWalker`: Creates a clone of the walker. When `depth` is `0`, returns `this`; otherwise, creates a new `RGXWalker` with cloned tokens, source position, reduced value, share value, captures, named captures, branch errors, stopped state, and the `infinite`/`looping`/`contiguous` flags.
+- `clone(depth: CloneDepth = "max") => RGXWalker`: Creates a clone of the walker. When `depth` is `0`, returns `this`; otherwise, creates a new `RGXWalker` with cloned tokens, source position, reduced value, share value, captures, named captures, branch errors, stopped state, and the `infinite`/`looping`/`contiguous`/`exact` flags.
