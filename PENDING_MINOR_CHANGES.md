@@ -121,3 +121,17 @@ Each entry has a `##` heading naming the change, followed by:
 - **Why**: Exact text is hidden from every custom flag (see "Exact text" in `docs/general.md`), but a flag that only wraps the pattern or rewrites its structure could need the full source to work correctly.
 - **Effort**: S.
 - **Notes**: Hiding must stay the default, or custom flags would start changing exact text. A transformer that opts in has to leave the marker groups in place.
+
+## JSON class argument descriptors
+
+- **Idea**: An optional descriptor for each JSON class (a static on the class, or an extra argument to `registerRGXJSONClass`) that names and types its positional `args`: token, token list, number, boolean, string, enum, constant name, or an options object, each with whether it's optional, its default and a label. Built-in classes get one. From a descriptor, core can convert between named objects and positional `args`, and validate them.
+- **Why**: JSON class args are positional (`RGXRepeatToken` is `[token, min, max, lazy]`), and each class checks them with a hand-written parser such as `parseRepeatJSONArgs` that returns one string for the first problem. Tools built on JSON tokens, like the planned form-based pattern builder package (a separate repo), need named fields and per-field errors without hard-coding every class's layout.
+- **Effort**: M.
+- **Notes**: Keep descriptors plain data, with no schema library dependency in core; a package that wants Zod can build schemas from them. Ideally the built-in `parse*JSONArgs` functions are derived from the descriptors, so there's one source of truth. The descriptor shape becomes public API once released, so settle it before shipping. A JSON Schema export is a possible follow-up. Pairs with "Path-based JSON token validation".
+
+## Path-based JSON token validation
+
+- **Idea**: A function such as `rgxValidateJSONToken(json)` that returns every problem in a JSON token tree as `{ path, message }[]` instead of throwing at the first one, including a final resolve to catch errors that only show up in context, such as an unbalanced interpolation.
+- **Why**: The existing asserts stop at the first error and don't say where in the tree it is, which is too coarse for an editor or form that needs to mark each bad field.
+- **Effort**: S to M, once "JSON class argument descriptors" exists.
+- **Notes**: The existing asserts and their errors stay as they are. Paths should follow the named fields from the descriptors where a class has one, and fall back to `args` indexes otherwise.
