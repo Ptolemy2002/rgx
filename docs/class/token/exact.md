@@ -34,7 +34,7 @@ type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXInte
 ```
 
 # RGXExactToken
-A class representing text that is matched exactly as written, whatever flags are around it. A native string token is escaped, but it still follows the flags around it: with the `i` flag it matches either case, and custom flags such as `a` (see [ExtRegExp.md](../../ExtRegExp.md)) change what it matches too. The text of an `RGXExactToken` is matched exactly: the `i` flag (of the pattern or of an enclosing modifier group) and custom flags don't change it, while the tokens around it keep following them. To make every native token in a pattern exact, use the `exact` option of `rgx`, `rgxa`, `rgxw` or `rgxwa` (see [general.md](../../general.md#exact-text) and [walker.md](../walker.md)).
+A class representing a native token whose text is matched exactly as written, whatever flags are around it. The text is what the native token resolves to: the string itself, a number or boolean converted to a string, or nothing for `null` and `undefined`. A native token is escaped, but it still follows the flags around it: with the `i` flag it matches either case, and custom flags such as `a` (see [ExtRegExp.md](../../ExtRegExp.md)) change what it matches too. The text of an `RGXExactToken` is matched exactly: the `i` flag (of the pattern or of an enclosing modifier group) and custom flags don't change it, while the tokens around it keep following them. To make every native token in a pattern exact, use the `exact` option of `rgx`, `rgxa`, `rgxw` or `rgxwa` (see [general.md](../../general.md#exact-text) and [walker.md](../walker.md)).
 
 ```typescript
 const pattern = rgxa([rgxInterpolation("^"), "id-", rgxExact("Café"), rgxInterpolation("$")], "ia");
@@ -49,18 +49,19 @@ The text is resolved to a named group with the reserved prefix `rgx_exact_`, suc
 ## Static Properties
 - `check(value: unknown): value is RGXExactToken`: A type guard that checks if the given value is an instance of `RGXExactToken`.
 - `assert(value: unknown): asserts value is RGXExactToken`: An assertion that checks if the given value is an instance of `RGXExactToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.
-- `fromJSON(json: RGXJSONClassToken): RGXExactToken`: Constructs an `RGXExactToken` from a JSON class token, passing `text` to the constructor. Throws `RGXInvalidJSONTokenError` if `json` is not a JSON class token for `"RGXExactToken"`, and `RGXJSONClassArgsValidationFailedError` if the arguments are invalid. The JSON arguments are `[text]`, where `text` must be a string.
+- `fromJSON(json: RGXJSONClassToken): RGXExactToken`: Constructs an `RGXExactToken` from a JSON class token, passing `value` to the constructor. Throws `RGXInvalidJSONTokenError` if `json` is not a JSON class token for `"RGXExactToken"`, and `RGXJSONClassArgsValidationFailedError` if the arguments are invalid. The JSON arguments are `[value]`, where `value` must be a JSON native token (a string, number, boolean, or `null`).
 
 ## Constructor
 ```typescript
-constructor(text: string)
+constructor(value: RGXNativeToken)
 ```
-- `text` (`string`): The text to match exactly. Throws `RGXInvalidTokenError` if it isn't a string.
+- `value` (`RGXNativeToken`): The native token whose text is matched exactly. Throws `RGXInvalidTokenError` if it isn't a native token.
 
 ## Properties
-- `text` (`string`): The text to match exactly. Setting this validates it the same way as the constructor.
+- `value` (`RGXNativeToken`): The native token whose text is matched exactly. Setting this validates it the same way as the constructor.
+- `text` (`string`): The text matched: `String(value)`, or an empty string when `value` is `null` or `undefined`. This property only has a getter.
 
 ## Methods
 - `toRgx(currentFlags?: string) => RegExp`: Resolves the text to a `RegExp` holding the escaped text in a marker group (see `exactRegex` in [general.md](../../general.md#exactregex)). Empty text resolves to an empty pattern. `currentFlags` (`string`, optional, defaults to `''`) is the flags in effect where the token is placed. The returned `RegExp` carries its localizable flags, so resolving the result in that context leaves those flags alone.
-- `clone(depth: CloneDepth = "max") => RGXExactToken`: Creates a clone of this token. When `depth` is `0`, returns `this`; otherwise, returns a new `RGXExactToken` with the same text.
-- `toJSON() => RGXJSONClassToken`: Returns a JSON class token with `class` set to `"RGXExactToken"` and `args` set to `[text]`. The result is accepted by `fromJSON` and by `rgxTokenFromJSON` (see [../../json.md](../../json.md)).
+- `clone(depth: CloneDepth = "max") => RGXExactToken`: Creates a clone of this token. When `depth` is `0`, returns `this`; otherwise, returns a new `RGXExactToken` with the same value.
+- `toJSON() => RGXJSONClassToken`: Returns a JSON class token with `class` set to `"RGXExactToken"` and `args` set to `[value]`, converted the way `rgxTokenToJSON` converts a native token: `undefined` is stored as `null`, and a non-finite number throws `RGXNotJSONSerializableError`. The result is accepted by `fromJSON` and by `rgxTokenFromJSON` (see [../../json.md](../../json.md)).

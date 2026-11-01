@@ -1,7 +1,7 @@
 import rgx, {
     applyRGXPatternTransformers, createRGXBounds, exactRegex, ExtRegExp, regexWithFlags, resolveRGXToken, rgxa, rgxClassInit,
     RGXExactToken, rgxExact, rgxInterpolation, rgxLexer, rgxTokenFromJSON, rgxTokenToJSON, rgxw, rgxwa, rgxConcat,
-    RGXReservedGroupNameError, RGXInvalidTokenError, RGXJSONClassArgsValidationFailedError, rgxGroup, rgxSubpattern, isRGXJSONLiteralToken,
+    RGXReservedGroupNameError, RGXInvalidTokenError, RGXNotJSONSerializableError, RGXJSONClassArgsValidationFailedError, rgxGroup, rgxSubpattern, isRGXJSONLiteralToken,
     rgxPart
 } from "src/index";
 import { ConstructFunction } from "src/internal";
@@ -19,11 +19,20 @@ function constructionTest(constructor: ConstructFunction<typeof RGXExactToken>) 
     it("constructs an instance of RGXExactToken", () => {
         const instance = constructor("abc");
         expect(instance).toBeInstanceOf(RGXExactToken);
+        expect(instance.value).toBe("abc");
         expect(instance.text).toBe("abc");
     });
 
-    it("rejects text that isn't a string", () => {
-        expect(() => constructor(5 as unknown as string)).toThrow(RGXInvalidTokenError);
+    it("accepts any native token, with the text it resolves to", () => {
+        expect(constructor(5).text).toBe("5");
+        expect(constructor(true).text).toBe("true");
+        expect(constructor(null).text).toBe("");
+        expect(constructor(undefined).text).toBe("");
+        expect(constructor(5).value).toBe(5);
+    });
+
+    it("rejects values that aren't native tokens", () => {
+        expect(() => constructor({} as unknown as string)).toThrow(RGXInvalidTokenError);
     });
 }
 
@@ -89,12 +98,25 @@ describe("RGXExactToken", () => {
 
         it("rejects invalid args", () => {
             expect(() => RGXExactToken.fromJSON({ $rgx: true, class: "RGXExactToken", args: [] })).toThrow(RGXJSONClassArgsValidationFailedError);
-            expect(() => RGXExactToken.fromJSON({ $rgx: true, class: "RGXExactToken", args: [1] })).toThrow(RGXJSONClassArgsValidationFailedError);
+            expect(() => RGXExactToken.fromJSON({ $rgx: true, class: "RGXExactToken", args: [{}] })).toThrow(RGXJSONClassArgsValidationFailedError);
+        });
+
+        it("stores other native tokens the way rgxTokenToJSON does", () => {
+            expect(rgxExact(5).toJSON().args).toEqual([5]);
+            expect((rgxTokenFromJSON(rgxExact(5).toJSON()) as RGXExactToken).value).toBe(5);
+            expect(rgxExact(undefined).toJSON().args).toEqual([null]);
+            expect(() => rgxExact(NaN).toJSON()).toThrow(RGXNotJSONSerializableError);
         });
     });
 });
 
 describe("exact text in patterns", () => {
+    it("matches native tokens other than strings by their text", () => {
+        const exact = rgxa([start, rgxExact(true), end], "i");
+        expect(exact.test("true")).toBe(true);
+        expect(exact.test("TRUE")).toBe(false);
+    });
+
     it("ignores the i flag", () => {
         const exact = rgxa([start, rgxExact("Ab"), end], "i");
         expect(exact.test("Ab")).toBe(true);
