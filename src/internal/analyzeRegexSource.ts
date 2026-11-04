@@ -116,20 +116,24 @@ const joinableEdge = /[\w{},<]/;
 // The units the source is read as, in order, with non-capturing groups that set no flags left out (their alternation
 // bars are kept). Removing such a group must not change these, which catches units merging across its edges, such as
 // an escape absorbing the digit after it, or a literal brace becoming a quantifier.
-function lexicalUnits(source: string, node: AST.Node, out: string[] = []): string[] {
+// Merging two groups leaves out the closing parenthesis of the first and the opening of the second, so those can be
+// skipped to compare the units before and after a merge.
+type LexicalUnitSkips = { close?: AST.Node, open?: AST.Node };
+
+function lexicalUnits(source: string, node: AST.Node, out: string[] = [], skips: LexicalUnitSkips = {}): string[] {
     const addAlternatives = (alternatives: readonly AST.Alternative[]) => alternatives.forEach((alternative, i) => {
         if (i > 0) out.push('|');
-        alternative.elements.forEach(element => lexicalUnits(source, element, out));
+        alternative.elements.forEach(element => lexicalUnits(source, element, out, skips));
     });
 
     if (node.type === 'Pattern' || (node.type === 'Group' && node.modifiers === null)) {
         addAlternatives(node.alternatives);
     } else if (node.type === 'Group' || node.type === 'CapturingGroup' || (node.type === 'Assertion' && (node.kind === 'lookahead' || node.kind === 'lookbehind'))) {
-        out.push(source.slice(node.start, node.alternatives[0]!.start));
+        if (node !== skips.open) out.push(source.slice(node.start, node.alternatives[0]!.start));
         addAlternatives(node.alternatives);
-        out.push(')');
+        if (node !== skips.close) out.push(')');
     } else if (node.type === 'Quantifier') {
-        lexicalUnits(source, node.element, out);
+        lexicalUnits(source, node.element, out, skips);
         out.push(`{${node.min},${node.max}}${node.greedy ? '' : '?'}`);
     } else {
         out.push(`${node.type}:${node.raw}`);
@@ -191,9 +195,44 @@ function withoutGroup(source: string, ast: AST.Pattern, group: AST.Group, isolat
     return candidate;
 }
 
-// Removes non-capturing groups that don't change how the source is read. Capturing, named, flag-modifier, and
-// lookaround groups are never removed. Sources that are not valid regexes (such as ones with unterminated groups)
-// are returned unchanged.
+// The flags a modifier group adds and removes, in a form that is the same for equivalent groups ("is" and "si").
+function modifierKey(modifiers: AST.Modifiers): string {
+    const sorted = (flags: AST.ModifierFlags | null) => [...(flags?.raw ?? '')].sort().join('');
+    return `${sorted(modifiers.add)}-${sorted(modifiers.remove)}`;
+}
+
+// Returns the source with the flag-modifier group merged into the one right after it, such as "(?i:a)(?i:b)" into
+// "(?i:ab)", or null if they can't be merged without changing how the source is read.
+function withMergedGroup(source: string, ast: AST.Pattern, group: AST.Group, options: ScanRegexSourceOptions): string | null {
+    if (group.modifiers === null) return null;
+    // A quantifier after either group applies only to that group.
+    if (group.parent.type !== 'Alternative') return null;
+
+    const alternative = group.parent;
+    const next = alternative.elements[alternative.elements.indexOf(group) + 1];
+    if (next?.type !== 'Group' || next.modifiers === null) return null;
+    if (modifierKey(group.modifiers) !== modifierKey(next.modifiers)) return null;
+
+    // Alternatives inside either group would take in the other group's contents ("(?i:a|b)(?i:c)" is not
+    // "(?i:a|bc)"). Wrapping them in another group to prevent that would not make the source any shorter.
+    if (group.alternatives.length > 1 || next.alternatives.length > 1) return null;
+
+    const candidate = source.slice(0, group.end - 1) + source.slice(next.alternatives[0]!.start);
+    const reparsed = parseRegexSource(candidate, options);
+    if (reparsed === null) return null;
+
+    // The contents must not merge across the join, such as "(?i:\1)(?i:0)" becoming "(?i:\10)".
+    const before = lexicalUnits(source, ast, [], { close: group, open: next });
+    const after = lexicalUnits(candidate, reparsed);
+    if (before.length !== after.length || before.some((unit, i) => unit !== after[i])) return null;
+
+    return candidate;
+}
+
+// Removes non-capturing groups that don't change how the source is read, and merges adjacent flag-modifier groups
+// that set the same flags (neither quantified nor containing alternation bars) into one. Capturing, named,
+// flag-modifier, and lookaround groups are never removed. Sources that are not valid regexes (such as ones with
+// unterminated groups) are returned unchanged.
 export function removeRedundantRegexGroups(source: string, { isolated = false, ...options }: RemoveRedundantRegexGroupsOptions = {}): string {
     let ast = parseRegexSource(source, options);
     if (ast === null) return source;
@@ -205,7 +244,7 @@ export function removeRedundantRegexGroups(source: string, { isolated = false, .
         removed = false;
 
         for (const group of groups(ast)) {
-            const candidate = withoutGroup(source, ast, group, isolated, options);
+            const candidate = withoutGroup(source, ast, group, isolated, options) ?? withMergedGroup(source, ast, group, options);
             if (candidate === null) continue;
 
             source = candidate;
