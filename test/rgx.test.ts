@@ -645,6 +645,18 @@ describe('redundant group removal', () => {
         expectRegexpEqual(rgx('', {verbatim: false})`(?<n>${/a/})(${/b/})${/c/i}`, '(?<n>a)(b)(?i:c)');
     });
 
+    it('merges adjacent inline modifier groups that set the same flags', () => {
+        const regex = rgxa([/a/, /b/i, /[c]/i, /d/]);
+        expectRegexpEqual(regex, 'a(?i:b[c])d');
+        expect(regex.test('aBCd')).toBe(true);
+        expect(regex.test('ABCd')).toBe(false);
+
+        expectRegexpEqual(rgxa([/a/i, /b/i], 'm'), '(?i-m:ab)');
+        expectRegexpEqual(rgxa([/a/i, /b/s]), '(?i:a)(?s:b)');
+        // "(?i:a|bc)" would mean something else.
+        expectRegexpEqual(rgxa([/a|b/i, /c/i]), '(?i:a|b)(?i:c)');
+    });
+
     it('keeps groups that separate a backreference from a following digit', () => {
         const regex = rgx('', {verbatim: false})`(a)${new RGXSubpatternToken(1)}${/0/}`;
         expectRegexpEqual(regex, '(a)\\1(?:0)');
