@@ -28,6 +28,11 @@ export type RGXListTokenOptions = {
     atomic?: boolean;
     // A token that must come right after the final separator, before the last item, such as "and" in "a, b, and c".
     preposition?: RGXToken;
+    // Whether a list of exactly two items with a preposition has a separator before it. With false, the two items are
+    // joined by the preposition alone, as in "a and b".
+    pairSeparator?: boolean;
+    // Whether the preposition may be left out before the last item, rather than being required.
+    optionalPreposition?: boolean;
     // Whether optional whitespace is allowed on each side of every separator, and after the preposition.
     padSeparator?: boolean;
 };
@@ -61,13 +66,15 @@ function parseListJSONArgs(args: RGXJSONValue[]): [RGXJSONListItem[], RGXJSONTok
 
     if (options !== undefined) {
         if (typeof options !== "object" || options === null || Array.isArray(options)) return "Argument 2 (options) must be an object, if present.";
-        const { min, max, trailing, atomic, preposition, padSeparator } = options as RGXJSONObject;
+        const { min, max, trailing, atomic, preposition, padSeparator, pairSeparator, optionalPreposition } = options as RGXJSONObject;
         if (min !== undefined && typeof min !== "number") return "Argument 2 (options) must have a number min, if present.";
         if (max !== undefined && max !== null && typeof max !== "number") return "Argument 2 (options) must have a number or null max, if present.";
         if (trailing !== undefined && typeof trailing !== "boolean") return "Argument 2 (options) must have a boolean trailing, if present.";
         if (atomic !== undefined && typeof atomic !== "boolean") return "Argument 2 (options) must have a boolean atomic, if present.";
         if (preposition !== undefined && !isRGXJSONToken(preposition, false)) return "Argument 2 (options) must have a JSON token preposition, if present.";
         if (padSeparator !== undefined && typeof padSeparator !== "boolean") return "Argument 2 (options) must have a boolean padSeparator, if present.";
+        if (pairSeparator !== undefined && typeof pairSeparator !== "boolean") return "Argument 2 (options) must have a boolean pairSeparator, if present.";
+        if (optionalPreposition !== undefined && typeof optionalPreposition !== "boolean") return "Argument 2 (options) must have a boolean optionalPreposition, if present.";
     }
 
     return [items as RGXJSONListItem[], separator, options as RGXJSONListTokenOptions | undefined];
@@ -92,6 +99,8 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
     // The token before the last item, or undefined for none. (null is a token that matches nothing.)
     preposition: RGXToken | undefined;
     padSeparator: boolean;
+    pairSeparator: boolean;
+    optionalPreposition: boolean;
 
     static check = createRGXClassGuardFunction(RGXListToken);
     static assert = createAssertRGXClassGuardFunction(RGXListToken);
@@ -122,7 +131,10 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
     // An array of items lists the alternatives an item can be. Anything else is the only alternative.
     constructor(
         items: RGXListItem<T> | RGXListItem<T>[], separator: RGXToken,
-        { min = 1, max = null, trailing = false, atomic = true, preposition, padSeparator = false }: RGXListTokenOptions = {}
+        {
+            min = 1, max = null, trailing = false, atomic = true, preposition, padSeparator = false, pairSeparator = true,
+            optionalPreposition = false
+        }: RGXListTokenOptions = {}
     ) {
         super();
         this.items = Array.isArray(items) ? [...items] : [items];
@@ -134,6 +146,21 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
         this.atomicItems = atomic;
         this.preposition = preposition;
         this.padSeparator = padSeparator;
+        this.pairSeparator = pairSeparator;
+        this.optionalPreposition = optionalPreposition;
+    }
+
+    // Whether two items are joined by the preposition alone (see pairSeparator).
+    private joinsPairWithPreposition(): boolean {
+        return this.hasPreposition() && !this.pairSeparator;
+    }
+
+    // The preposition as it joins a pair of items without a separator, with optional whitespace on each side when
+    // padSeparator is set, or undefined when pairs aren't joined that way.
+    pairJoinToken(): RGXToken | undefined {
+        if (!this.joinsPairWithPreposition()) return undefined;
+        if (!this.padSeparator) return this.preposition;
+        return new RGXGroupToken({ capturing: false }, [optionalWhitespace, this.preposition, optionalWhitespace]);
     }
 
     hasPreposition(): this is RGXListToken<T> & { preposition: RGXToken } {
@@ -177,10 +204,22 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
         if (preposition === undefined) {
             body.push(new RGXRepeatToken(pair, Math.max(this.min - 1, 0), this.max === null ? null : this.max - 1));
         } else if (this.max !== 1) {
-            // Every item after the first but the last, then the last one after the preposition.
-            const prepositioned = this.atomicItems ? new RGXAtomicToken([preposition]) : preposition;
-            const middle = new RGXRepeatToken(pair, Math.max(this.min - 2, 0), this.max === null ? null : this.max - 2);
-            const tail = new RGXGroupToken({ capturing: false }, [middle, separator, prepositioned, item]);
+            const atomic = (token: RGXToken) => this.atomicItems ? new RGXAtomicToken([token]) : token;
+            // The ways the items after the first can go: a separator and an item for each but the last, then the last
+            // one after a separator and the preposition. When pairs are joined by the preposition alone, that is only
+            // for three or more items.
+            const tails: RGXToken[] = [];
+            const middleMin = Math.max(this.min - 2, this.joinsPairWithPreposition() ? 1 : 0);
+            const middleMax = this.max === null ? null : this.max - 2;
+            if (middleMax === null || middleMax >= middleMin) {
+                tails.push(new RGXGroupToken({ capturing: false }, [new RGXRepeatToken(pair, middleMin, middleMax), separator, atomic(preposition), item]));
+            }
+            const pairJoin = this.pairJoinToken();
+            if (pairJoin !== undefined && this.min <= 2) tails.push(new RGXGroupToken({ capturing: false }, [atomic(pairJoin), item]));
+            // Without the preposition, a separator and an item for each.
+            if (this.optionalPreposition) tails.push(new RGXRepeatToken(pair, Math.max(this.min - 1, 1), this.max === null ? null : this.max - 1));
+
+            const tail = tails.length === 1 ? tails[0]! : new RGXGroupToken({ capturing: false }, [tails]);
             body.push(this.min >= 2 ? tail : new RGXRepeatToken(tail, 0, 1));
         }
         if (this.trailing) body.push(new RGXRepeatToken(separator, 0, 1));
@@ -190,7 +229,7 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
     }
 
     // The walker steps the items are parsed with. With flags, each token is put in a group that sets them.
-    private parseSteps(flags: string): [RGXWalkerStep<null>, RGXPart<null>, RGXPart<null>] {
+    private parseSteps(flags: string): [RGXWalkerStep<null>, RGXPart<null>, RGXPart<null>, RGXPart<null>] {
         const wrap = (token: RGXToken) => flags === "" ? token : new RGXGroupToken({ capturing: false, flags }, [token]);
         const tokens = this.itemTokens();
 
@@ -215,7 +254,8 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
         // Separators are matched without being recorded.
         const separator = new RGXPart<null>(wrap(this.separatorToken()), { beforeCapture: () => "silent" });
         const preposition = new RGXPart<null>(wrap(this.prepositionToken() ?? null), { beforeCapture: () => "silent" });
-        return [alternatives.length === 1 ? alternatives[0]! : alternatives, separator, preposition];
+        const pairJoin = new RGXPart<null>(wrap(this.pairJoinToken() ?? null), { beforeCapture: () => "silent" });
+        return [alternatives.length === 1 ? alternatives[0]! : alternatives, separator, preposition, pairJoin];
     }
 
     // Walks text the list matched, returning a capture for each item: its raw text and value (from the item's part, if
@@ -245,12 +285,20 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
             const full = this.max !== null && walker.captures.length >= this.max;
             if (full && !this.trailing) break;
 
+            // A pair can be joined by the preposition alone.
+            const second = walker.captures.length === 1;
+            if (!full && second && this.joinsPairWithPreposition() && this.tryPrepositionedEnd(walker, stepAt, 3)) {
+                endedWithPreposition = true;
+                break;
+            }
+
             stepAt(1);
             if (full || (walker.atSourceEnd() && this.trailing)) break;
 
             // The last item comes after the preposition, so if the preposition and an item end the list here, they are
-            // the end. Otherwise, the next item is an ordinary one.
-            if (this.hasPreposition() && this.tryPrepositionedEnd(walker, stepAt)) {
+            // the end. Otherwise, the next item is an ordinary one. When pairs are joined by the preposition alone, a
+            // second item can't come after a separator and the preposition.
+            if (this.hasPreposition() && !(second && this.joinsPairWithPreposition()) && this.tryPrepositionedEnd(walker, stepAt, 2)) {
                 endedWithPreposition = true;
                 break;
             }
@@ -259,7 +307,7 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
             if (walker.sourcePosition === start) break;
         }
 
-        if (this.hasPreposition() && walker.captures.length >= 2 && !endedWithPreposition && walker.atSourceEnd()) {
+        if (this.hasPreposition() && !this.optionalPreposition && walker.captures.length >= 2 && !endedWithPreposition && walker.atSourceEnd()) {
             throw new RGXListParseFailedError("The last item of a list with a preposition must come after the preposition", text, walker.sourcePosition);
         }
 
@@ -271,11 +319,12 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
         return walker.captures as RGXCapture<T>[];
     }
 
-    // Matches the preposition, an item, and a trailing separator if there is one, keeping them only if they end the text.
-    private tryPrepositionedEnd(walker: RGXWalker<null>, stepAt: (tokenPosition: number) => void): boolean {
+    // Matches the preposition (the step at joinStep), an item, and a trailing separator if there is one, keeping them only
+    // if they end the text.
+    private tryPrepositionedEnd(walker: RGXWalker<null>, stepAt: (tokenPosition: number) => void, joinStep: number): boolean {
         walker.snapshot("preposition", "sourcePosition", "captures", "namedCaptures");
         try {
-            stepAt(2);
+            stepAt(joinStep);
             stepAt(0);
             if (!walker.atSourceEnd() && this.trailing) stepAt(1);
             if (walker.atSourceEnd()) return true;
@@ -291,6 +340,7 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
         const items = this.items.map(item => RGXPart.check(item) ? item.clone(depthDecrement(depth, 1)) : cloneRGXToken(item, depthDecrement(depth, 1)));
         return new RGXListToken<T>(items, cloneRGXToken(this.separator, depthDecrement(depth, 1)), {
             min: this.min, max: this.max, trailing: this.trailing, atomic: this.atomicItems, padSeparator: this.padSeparator,
+            pairSeparator: this.pairSeparator, optionalPreposition: this.optionalPreposition,
             preposition: this.hasPreposition() ? cloneRGXToken(this.preposition, depthDecrement(depth, 1)) : undefined
         });
     }
@@ -315,7 +365,10 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
             }
             return { alias: item.alias };
         });
-        const options: RGXJSONObject = { min: this.min, max: this.max, trailing: this.trailing, atomic: this.atomicItems, padSeparator: this.padSeparator };
+        const options: RGXJSONObject = {
+            min: this.min, max: this.max, trailing: this.trailing, atomic: this.atomicItems, padSeparator: this.padSeparator,
+            pairSeparator: this.pairSeparator, optionalPreposition: this.optionalPreposition
+        };
         // Left out when there is none, since null is a token.
         if (this.hasPreposition()) options.preposition = rgxTokenToJSON(this.preposition);
         return createRGXJSONClassToken("RGXListToken", [items, rgxTokenToJSON(this.separator), options]);

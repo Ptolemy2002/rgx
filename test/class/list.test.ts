@@ -214,6 +214,8 @@ describe("RGXListToken", () => {
             expect(whole(list).test("a, b, and c")).toBe(true);
             expect(whole(list).test("a, b, c")).toBe(false);
             expect(whole(list).test("a, and b, c")).toBe(false);
+            expect(whole(words({ optionalPreposition: true, max: 3 })).test("a, b, c")).toBe(true);
+            expect(whole(words({ optionalPreposition: true, max: 3 })).test("a, b, c, d")).toBe(false);
 
             expect(list.parse("a").map(c => c.raw)).toEqual(["a"]);
             expect(list.parse("a, and b").map(c => c.raw)).toEqual(["a", "b"]);
@@ -263,17 +265,62 @@ describe("RGXListToken", () => {
             expect(whole(words({ atomic: false })).test("a, b, and c")).toBe(true);
         });
 
+        it("join a pair of items with the preposition alone when pairSeparator is false", () => {
+            const list = words({ pairSeparator: false });
+            expect(list.pairJoinToken()).toBeInstanceOf(Object);
+            expect(rgxList("a", ",", { preposition: " and ", pairSeparator: false }).pairJoinToken()).toBe(" and ");
+            expect(rgxList("a", ",", { pairSeparator: false }).pairJoinToken()).toBeUndefined();
+            expect(words().pairJoinToken()).toBeUndefined();
+
+            for (const [text, valid] of [["a", true], ["a and b", true], ["a, and b", false], ["a, b", false], ["a, b, and c", true], ["a and b, c", false]] as const) {
+                expect([text, whole(list).test(text)]).toEqual([text, valid]);
+                if (valid) expect(list.parse(text).length).toBeGreaterThan(0);
+                else expect(() => list.parse(text)).toThrow(RGXError);
+            }
+            expect(list.parse("a and b").map(c => c.raw)).toEqual(["a", "b"]);
+            expect(words({ pairSeparator: false, trailing: true }).parse("a and b,").map(c => c.raw)).toEqual(["a", "b"]);
+        });
+
+        it("respect the bounds when pairs are joined by the preposition", () => {
+            const pairsOnly = words({ pairSeparator: false, min: 2, max: 2 });
+            expect(whole(pairsOnly).test("a and b")).toBe(true);
+            expect(whole(pairsOnly).test("a, b, and c")).toBe(false);
+            const threeOrMore = words({ pairSeparator: false, min: 3 });
+            expect(whole(threeOrMore).test("a and b")).toBe(false);
+            expect(whole(threeOrMore).test("a, b, and c")).toBe(true);
+            expect(() => threeOrMore.parse("a and b")).toThrow(RGXError);
+            expect(threeOrMore.parse("a, b, and c").length).toBe(3);
+        });
+
+        it("accept the preposition without requiring it when optionalPreposition is true", () => {
+            const list = words({ optionalPreposition: true });
+            for (const text of ["a", "a, b", "a, and b", "a, b, c", "a, b, and c"]) {
+                expect([text, whole(list).test(text)]).toEqual([text, true]);
+            }
+            expect(whole(list).test("a, and b, c")).toBe(false);
+            expect(list.parse("a, b, c").map(c => c.raw)).toEqual(["a", "b", "c"]);
+            expect(list.parse("a, b, and c").map(c => c.raw)).toEqual(["a", "b", "c"]);
+
+            const both = words({ optionalPreposition: true, pairSeparator: false, min: 2 });
+            for (const text of ["a and b", "a, b", "a, b, c", "a, b, and c"]) {
+                expect([text, whole(both).test(text)]).toEqual([text, true]);
+                expect(both.parse(text).length).toBeGreaterThan(1);
+            }
+            expect(whole(both).test("a")).toBe(false);
+        });
+
         it("are cloned and stored in JSON", () => {
             const list = words({ preposition: rgxGroup({ capturing: false }, ["and"]) });
             const clone = list.clone();
             expect(clone.preposition).not.toBe(list.preposition);
             expect(clone.padSeparator).toBe(true);
+            expect(words({ pairSeparator: false, optionalPreposition: true }).clone()).toMatchObject({ pairSeparator: false, optionalPreposition: true });
             expect(clone.resolve()).toBe(list.resolve());
             expect(rgxList("a", ",").clone().preposition).toBeUndefined();
 
             registerRGXPartAlias("word", rgxPart(/\w+/));
             const json = rgxList(rgxPartAlias("word"), ",", { preposition: "or", padSeparator: true }).toJSON();
-            expect(json.args![2]).toEqual({ min: 1, max: null, trailing: false, atomic: true, padSeparator: true, preposition: "or" });
+            expect(json.args![2]).toEqual({ min: 1, max: null, trailing: false, atomic: true, padSeparator: true, pairSeparator: true, optionalPreposition: false, preposition: "or" });
             const result = rgxTokenFromJSON(json) as RGXListToken;
             expect(result.parse("a, b, or c").map(c => c.raw)).toEqual(["a", "b", "c"]);
             expect((rgxList("a", ",").toJSON().args![2] as object)).not.toHaveProperty("preposition");
@@ -281,6 +328,8 @@ describe("RGXListToken", () => {
             const reject = (options: unknown) => () => RGXListToken.fromJSON({ $rgx: true, class: "RGXListToken", args: [["a"], ",", options as never] });
             expect(reject({ preposition: { nope: 1 } })).toThrow(/preposition/);
             expect(reject({ padSeparator: 1 })).toThrow(/padSeparator/);
+            expect(reject({ pairSeparator: 1 })).toThrow(/pairSeparator/);
+            expect(reject({ optionalPreposition: 1 })).toThrow(/optionalPreposition/);
             expect(RGXListToken.fromJSON({ $rgx: true, class: "RGXListToken", args: [["a"], ",", {}] }).hasPreposition()).toBe(false);
         });
     });
@@ -309,7 +358,7 @@ describe("RGXListToken", () => {
             const json = list.toJSON();
             expect(json).toEqual({
                 $rgx: true, class: "RGXListToken",
-                args: [[{ alias: "number" }, { $rgx: true, source: "[a-z]+" }], ",", { min: 2, max: null, trailing: false, atomic: true, padSeparator: false }]
+                args: [[{ alias: "number" }, { $rgx: true, source: "[a-z]+" }], ",", { min: 2, max: null, trailing: false, atomic: true, padSeparator: false, pairSeparator: true, optionalPreposition: false }]
             });
             const result = rgxTokenFromJSON(JSON.parse(JSON.stringify(json))) as RGXListToken;
             expect(result).toBeInstanceOf(RGXListToken);
