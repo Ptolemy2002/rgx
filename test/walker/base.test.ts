@@ -1010,6 +1010,38 @@ describe("RGXWalker", () => {
         });
     });
 
+    describe("matching at the end of the source", () => {
+        it("captures an empty match at the end of the source", () => {
+            const walker = new RGXWalker("ab", ["ab", /.*/]);
+            walker.walk();
+            expect(walker.sourcePosition).toBe(2);
+            expect(walker.captures.map(c => [c.raw, c.start, c.end])).toEqual([["ab", 0, 2], ["", 2, 2]]);
+        });
+
+        it("captures an empty match in an empty source", () => {
+            const walker = new RGXWalker("", [/x*/]);
+            walker.walk();
+            expect(walker.captures.map(c => [c.raw, c.start, c.end])).toEqual([["", 0, 0]]);
+        });
+
+        it("captures an empty match at the end of the source when not contiguous", () => {
+            const walker = new RGXWalker("ab", ["ab", /$/], { contiguous: false });
+            walker.walk();
+            expect(walker.captures.map(c => [c.raw, c.start, c.end])).toEqual([["ab", 0, 2], ["", 2, 2]]);
+        });
+
+        it("doesn't match the last character again", () => {
+            const walker = new RGXWalker("ab", ["ab", "b"]);
+            expectError(() => walker.walk(), RGXRegexNotMatchedAtPositionError, e => expect(e.position).toBe(2));
+            expect(walker.sourcePosition).toBe(2);
+        });
+
+        it("throws a not matched after error at the end of the source when not contiguous", () => {
+            const walker = new RGXWalker("ab", ["ab", "b"], { contiguous: false });
+            expectError(() => walker.walk(), RGXRegexNotMatchedAfterPositionError, e => expect(e.position).toBe(2));
+        });
+    });
+
     describe("stepToToken", () => {
         describe("core", () => {
             it("has a default predicate that always returns true", () => {

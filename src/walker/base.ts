@@ -8,7 +8,7 @@ import { RGXPart, RGXCapture, RGXPartLossControl } from "./part";
 import { resolveRGXToken } from "src/resolve";
 import { rgxConcat } from "src/concat";
 import { applyDefaultRGXPatternTransformersToSource } from "src/pattern-transformer/default";
-import { assertRegexMatchesAfterPosition, assertRegexMatchesAtPosition, createRegex } from "src/utils";
+import { assertRegexMatchesAfterPosition, assertRegexMatchesAtPosition, createRegex, regexWithFlags } from "src/utils";
 import { RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { RGXCurrentTokenNotFoundError } from "src/errors/currentTokenNotFound";
@@ -316,20 +316,30 @@ export class RGXWalker<R, S = unknown> {
 
     // Matches the regex at the current position (or after it, if not contiguous), and moves past the match.
     private matchRegex(regex: RegExp): RegExpExecArray {
-        const args = [regex, this.source, Math.min(this.sourcePosition, this.source.length - 1), 10, true] as const;
         let match: RegExpExecArray;
-        let endPosition: number;
+        let startPosition: number;
 
-        if (this.contiguous) {
-            match = assertRegexMatchesAtPosition(...args);
-            endPosition = this.sourcePosition + match[0].length;
+        if (this.atSourceEnd()) {
+            // The match utilities only accept positions inside the source, but a step can still match the empty
+            // string at its end. Matching at or after the end are the same thing here.
+            const sticky = regexWithFlags(regex, "y");
+            sticky.lastIndex = this.source.length;
+            const endMatch = sticky.exec(this.source);
+            if (endMatch === null) {
+                const ErrorClass = this.contiguous ? RGXRegexNotMatchedAtPositionError : RGXRegexNotMatchedAfterPositionError;
+                const message = this.contiguous ? "Regex not matched at index" : "Regex not matched after index";
+                throw new ErrorClass(message, regex, this.source, this.source.length, 10);
+            }
+            match = endMatch;
+            startPosition = this.source.length;
+        } else if (this.contiguous) {
+            match = assertRegexMatchesAtPosition(regex, this.source, this.sourcePosition, 10, true);
+            startPosition = this.sourcePosition;
         } else {
-            const [startPosition, _match] = assertRegexMatchesAfterPosition(...args);
-            match = _match;
-            endPosition = startPosition + match[0].length;
+            [startPosition, match] = assertRegexMatchesAfterPosition(regex, this.source, this.sourcePosition, 10, true);
         }
 
-        this.sourcePosition = endPosition;
+        this.sourcePosition = startPosition + match[0].length;
         return match;
     }
 

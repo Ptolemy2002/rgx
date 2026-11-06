@@ -23,6 +23,7 @@ Changes to the exact regex source the library outputs aren't considered breaking
 ### Fixed
 
 - Patterns now work around V8 bugs with modifier groups that add or remove the `i` flag, which the library generates whenever a token's case-insensitivity differs from its surroundings. Without the `u` or `v` flag, a character class in a later alternative of such a group ignored the modifier, so `rgxa([/[a]|[b]/i])` didn't match `"B"`. With `u` or `v`, the modifier leaked into later character classes and escapes like `\w`, so `rgxa([/a/i, /[B]/], "v")` matched `"ab"`. Two built-in pattern transformers (`"modifier-group-alternatives"` and `"modifier-group-leaks"`) now rewrite these cases into equivalent patterns V8 reads correctly, including modifier groups written by hand.
+- A walker step at the end of the source could match the last character a second time, so a step that can match the empty string there (such as `/.*/`) threw `RGXOutOfBoundsError`, and a walker over an empty source couldn't match anything. Steps at the end of the source now match there, and one that can't match throws a not-matched error at the end position.
 
 ## 15.1.0 - 2026-10-26
 
