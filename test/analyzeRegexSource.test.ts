@@ -175,6 +175,49 @@ describe("removeRedundantRegexGroups", () => {
         expect(removeRedundantRegexGroups("x(?:a))")).toBe("x(?:a))");
     });
 
+    it("merges adjacent flag-modifier groups that set the same flags", () => {
+        expect(removeRedundantRegexGroups("x(?i:a)(?i:b)y")).toBe("x(?i:ab)y");
+        expect(removeRedundantRegexGroups("(?i:a)(?i:b)(?i:c)")).toBe("(?i:abc)");
+        expect(removeRedundantRegexGroups("(?i-m:a)(?i-m:[b])")).toBe("(?i-m:a[b])");
+        // The order of the flags doesn't matter. The first group's spelling is kept.
+        expect(removeRedundantRegexGroups("(?is:a)(?si:b)")).toBe("(?is:ab)");
+        expect(removeRedundantRegexGroups("(?i:a)(?i:b)|(?i:c)(?i:d)")).toBe("(?i:ab)|(?i:cd)");
+        expect(removeRedundantRegexGroups("(?i:a)(?i:(?<n>b))")).toBe("(?i:a(?<n>b))");
+        expect(removeRedundantRegexGroups("(?i:(?i:a)(?i:b))(?i:c)")).toBe("(?i:(?i:ab)c)");
+    });
+
+    it("doesn't merge flag-modifier groups that set different flags", () => {
+        for (const source of ["(?i:a)(?s:b)", "(?i:a)(?-i:b)", "(?i:a)(?i-m:b)", "(?is:a)(?i:b)"]) {
+            expect(removeRedundantRegexGroups(source)).toBe(source);
+        }
+    });
+
+    it("doesn't merge flag-modifier groups that aren't directly next to each other", () => {
+        for (const source of ["(?i:a)x(?i:b)", "(?i:a)(?:)(?i:b)", "(?i:a)|(?i:b)", "(?i:(?i:a))(?i:b)c"]) {
+            expect(removeRedundantRegexGroups(source)).not.toContain("(?i:ab)");
+        }
+    });
+
+    it("doesn't merge quantified flag-modifier groups", () => {
+        for (const source of ["(?i:a)*(?i:b)", "(?i:a)(?i:b)+", "(?i:a){2}(?i:b){2}"]) {
+            expect(removeRedundantRegexGroups(source)).toBe(source);
+        }
+    });
+
+    it("doesn't merge flag-modifier groups containing alternatives", () => {
+        for (const source of ["(?i:a|b)(?i:c)", "(?i:a)(?i:b|c)"]) {
+            expect(removeRedundantRegexGroups(source)).toBe(source);
+        }
+    });
+
+    it("doesn't merge flag-modifier groups whose contents would merge across the join", () => {
+        for (const source of ["(a)(?i:\\1)(?i:0)", "(?i:\\x4)(?i:1)", "(?i:x{)(?i:2})", "(?i:\\c)(?i:a)"]) {
+            expect(removeRedundantRegexGroups(source)).toBe(source);
+        }
+        // With the u flag, "\\10" is invalid when the pattern has fewer than 10 groups.
+        expect(removeRedundantRegexGroups("(a)(?i:\\1)(?i:0)", { unicode: true })).toBe("(a)(?i:\\1)(?i:0)");
+    });
+
     it("reads unicode escapes according to the flags", () => {
         // Without the u flag, "\\u{41}" is "u" repeated 41 times, so the group can still be removed when nothing follows it.
         expect(removeRedundantRegexGroups("x(?:\\u{41})y")).toBe("x\\u{41}y");
