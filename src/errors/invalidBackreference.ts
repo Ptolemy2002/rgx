@@ -14,7 +14,10 @@ export type RGXInvalidBackreferenceReason =
     | "negative-lookaround"
     // The reference is numeric and the walker step is a union, whose branches the walker wraps in groups that shift
     // every group number.
-    | "numeric-in-branches";
+    | "numeric-in-branches"
+    // The reference is numeric and an atomic group comes before its group, which shifts its number, since each atomic
+    // group adds a capture group.
+    | "numeric-after-atomic";
 
 export class RGXInvalidBackreferenceError extends RGXError {
     reference: string | number;

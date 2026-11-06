@@ -40,7 +40,7 @@ type RGXJSONClassTokenConstructor = {
 type RGXJSONBuiltinClassName =
     "RGXClassWrapperToken" | "RGXClassUnionToken" | "RGXGroupToken" | "RGXRepeatToken" |
     "RGXLookaheadToken" | "RGXLookbehindToken" | "RGXExclusionToken" | "RGXSubpatternToken" |
-    "RGXConstantToken" | "RGXExactToken";
+    "RGXConstantToken" | "RGXExactToken" | "RGXAtomicToken";
 type RGXJSONClassName = RGXJSONBuiltinClassName | (string & {});
 type RGXTokenToJSONOptions = {
     resolveConvertible?: boolean;

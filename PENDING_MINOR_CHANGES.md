@@ -22,13 +22,6 @@ Each entry has a `##` heading naming the change, followed by:
 - **Effort**: M to L.
 - **Notes**: Making `rgxParse` return this token for classes is breaking, and is tracked in [PENDING_BREAKING_CHANGES.md](./PENDING_BREAKING_CHANGES.md#parse-character-classes-into-class-tokens-in-rgxparse-by-default). Until then, `rgxParse` should only produce it behind a `parseClasses` option.
 
-## Possessive repeats and atomic groups
-
-- **Idea**: A `possessive` option on `RGXRepeatToken` and an `atomic()` method on class tokens, emulated with `(?=(?<g>x*))\k<g>`, since JavaScript has neither `(?>...)` nor `x*+`.
-- **Why**: They are the standard defense against catastrophic backtracking, which is easy to run into when composing tokens.
-- **Effort**: M.
-- **Notes**: The emulation needs a capture group, so it should use a reserved group name prefix (like `rgx_atomic_`), validated the way the walker reserves `rgx_branch_`, and left out of the walker's `capture.groups`.
-
 ## Separated list helper
 
 - **Idea**: `rgxList(item, separator, { min, max, trailing })`, producing `item(?:separator item)*` with the bounds worked out.

@@ -1,6 +1,8 @@
 import { RGXInvalidPatternTransformerKeyError, RGXInvalidRegexStringError, RGXPatternTransformerConflictError } from "src/errors";
 import { ExtRegExp } from "src/ExtRegExp";
 import { modifierGroupAlternativesPatternTransformer, modifierGroupLeaksPatternTransformer } from "./modifierGroup";
+import { renumberRGXAtomicGroups } from "src/internal/atomicGroups";
+import { scanOptionsFromFlags } from "src/internal/scanRegexSource";
 
 // A rewrite applied to every finished pattern the library compiles, usually to work around a regex engine bug. It
 // receives the pattern's source and vanilla flags, and returns a source that matches the same strings with the same
@@ -55,6 +57,8 @@ export function unregisterBuiltInRGXPatternTransformers() {
 
 export function applyRGXPatternTransformersToSource(source: string, flags: string = '', ids: readonly string[] | null = null): string {
     for (const id of ids ?? []) assertHasRGXPatternTransformer(id);
+    // Transformers are given a finished pattern, so its atomic groups have their final names.
+    source = renumberRGXAtomicGroups(source, scanOptionsFromFlags(flags));
 
     // The registration order is kept even when ids are given in a different order.
     for (const [id, { transformer }] of patternTransformers) {

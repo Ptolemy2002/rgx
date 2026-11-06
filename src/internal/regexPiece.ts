@@ -1,5 +1,6 @@
 import { RGXInvalidRegexStringError } from "src/errors";
 import { ValidRegexString } from "src/types";
+import { renumberRGXAtomicGroups } from "./atomicGroups";
 
 // The flags a piece of a pattern is compiled with: the localizable flags (which change what it matches) and the
 // unicode flags (which change how it is read) in effect where it is placed. Custom flags never use these letters.
@@ -23,7 +24,7 @@ export function createRegexPiece(source: string, currentFlags: string = ""): Reg
     let firstError: SyntaxError | null = null;
     for (const candidate of candidates) {
         try {
-            return new RegExp(source, candidate);
+            return new RegExp(renumberRGXAtomicGroups(source, { unicodeSets: candidate.includes("v") }), candidate);
         } catch (err) {
             // This is ignored because I don't know what kind of
             // unexpected errors might happen.

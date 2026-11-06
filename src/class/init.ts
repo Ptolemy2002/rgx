@@ -12,6 +12,7 @@ import { RGXClassWrapperToken } from "./wrapper";
 import { RGXSubpatternToken } from "./subpattern";
 import { RGXConstantToken } from "./constant";
 import { RGXExactToken } from "./exact";
+import { RGXAtomicToken } from "./atomic";
 import { hasRGXJSONClass, registerRGXJSONClassToken, RGXJSONBuiltinClassName, RGXJSONClassTokenConstructor } from "src/json";
 
 export const RGX_BUILTIN_JSON_CLASSES: Record<RGXJSONBuiltinClassName, RGXJSONClassTokenConstructor> = {
@@ -24,7 +25,8 @@ export const RGX_BUILTIN_JSON_CLASSES: Record<RGXJSONBuiltinClassName, RGXJSONCl
     RGXExclusionToken,
     RGXSubpatternToken,
     RGXConstantToken,
-    RGXExactToken
+    RGXExactToken,
+    RGXAtomicToken
 };
 
 export function registerBuiltinRGXJSONClasses() {
@@ -58,13 +60,14 @@ export function rgxClassInit() {
         return new RGXGroupToken(args, [this, ...others]);
     }
 
-    RGXClassToken.prototype.repeat = function (this: RGXClassToken, min: number = 1, max: number | null = min, lazy: boolean = false): RGXRepeatToken {
+    RGXClassToken.prototype.repeat = function (this: RGXClassToken, min: number = 1, max: number | null = min, lazy: boolean = false, possessive: boolean = false): RGXRepeatToken {
         if (RGXLookaroundToken.check(this)) throw new RGXNotSupportedError("RGXLookaroundToken.repeat()", "Lookaround tokens cannot be repeated or made optional.");
-        return new RGXRepeatToken(this, min, max, lazy);
+        return new RGXRepeatToken(this, min, max, lazy, possessive);
     }
 
-    RGXClassToken.prototype.optional = function (this: RGXClassToken, lazy: boolean = false): RGXRepeatToken {
-        if (RGXRepeatToken.check(this)) {
+    RGXClassToken.prototype.optional = function (this: RGXClassToken, lazy: boolean = false, possessive: boolean = false): RGXRepeatToken {
+        // A possessive repeat is atomic as a whole, so making it optional changes more than its minimum.
+        if (RGXRepeatToken.check(this) && !this.possessive && !possessive) {
             // Retun the self if already optional.
             if (this.min === 0) return this;
             // Simply set min to 0 if it's currently 1,
@@ -73,7 +76,11 @@ export function rgxClassInit() {
             // but they are equivalent for n = 1, assuming n is an integer.
             else if (this.min === 1) return new RGXRepeatToken(this.token, 0, this.max, lazy);
         }
-        return this.repeat(0, 1, lazy);
+        return this.repeat(0, 1, lazy, possessive);
+    }
+
+    RGXClassToken.prototype.atomic = function (this: RGXClassToken): RGXAtomicToken {
+        return new RGXAtomicToken([this]);
     }
 
     RGXClassToken.prototype.asLookahead = function (this: RGXClassToken, positive: boolean = true): RGXLookaheadToken {

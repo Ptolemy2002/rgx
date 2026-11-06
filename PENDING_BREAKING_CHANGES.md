@@ -86,3 +86,21 @@ Throw `RGXReservedGroupNameError` for any group name starting with `rgx_exact_` 
 ### Reverting the workaround
 
 Remove the early return in `assertRGXExactMarkerNames`, so every group with the prefix that the build didn't create throws, and update the "Exact text" section of `docs/general.md`, the walker's step validation docs in `docs/class/walker.md`, the changelog and `MIGRATION.md`.
+
+## Reserve the `rgx_atomic_` group name prefix in every pattern
+
+### Problem
+
+Atomic groups (`RGXAtomicToken`, and possessive `RGXRepeatToken`s) are emulated with a capture group and a backreference named `rgx_atomic_<6 characters>`, which the library renames whenever a pattern is compiled or parsed. To keep groups written by hand from being confused with them, the prefix should be reserved everywhere. Reserving it in patterns without atomic groups would reject group names that work today, so it is only reserved in patterns that have at least one atomic group.
+
+### Breaking change
+
+Throw `RGXReservedGroupNameError` for any group or backreference name starting with `rgx_atomic_` that isn't part of an atomic group, in a pattern built with `rgx`, `rgxa`, a walker step or a lexer definition, whether or not the pattern has atomic groups. Patterns that use such names today would throw.
+
+### Current workaround
+
+`assertValidRegexReferences` in `src/internal/validateReferences.ts` only checks the prefix when `findRGXAtomicPairs` finds at least one atomic group in the pattern.
+
+### Reverting the workaround
+
+Check the prefix in `assertValidRegexReferences` whether or not the pattern has atomic groups, and update the "Atomic groups" section of `docs/general.md`, the `RGXReservedGroupNameError` docs in `docs/class/RGXError.md`, the changelog and `MIGRATION.md`.

@@ -217,7 +217,7 @@ type RGXJSONClassTokenConstructor = {
 type RGXJSONBuiltinClassName =
     "RGXClassWrapperToken" | "RGXClassUnionToken" | "RGXGroupToken" | "RGXRepeatToken" |
     "RGXLookaheadToken" | "RGXLookbehindToken" | "RGXExclusionToken" | "RGXSubpatternToken" |
-    "RGXConstantToken" | "RGXExactToken";
+    "RGXConstantToken" | "RGXExactToken" | "RGXAtomicToken";
 type RGXJSONClassName = RGXJSONBuiltinClassName | (string & {});
 type RGXTokenToJSONOptions = {
     resolveConvertible?: boolean;
@@ -265,7 +265,8 @@ type RGXInvalidBackreferenceReason =
     | "inside-group"         // the reference is inside its own group
     | "other-branch"         // the reference and its group are in different alternatives
     | "negative-lookaround"  // the group is inside a negative lookaround the reference isn't in
-    | "numeric-in-branches"; // a numeric reference in a walker step that is a union
+    | "numeric-in-branches"   // a numeric reference in a walker step that is a union
+    | "numeric-after-atomic"; // a numeric reference to a group that comes after an atomic group
 
 type RGXLexemeLocation = {
     index: number;

@@ -65,7 +65,8 @@ type RGXInvalidBackreferenceReason =
     | "inside-group"         // the reference is inside its own group
     | "other-branch"         // the reference and its group are in different alternatives
     | "negative-lookaround"  // the group is inside a negative lookaround the reference isn't in
-    | "numeric-in-branches"; // a numeric reference in a walker step that is a union
+    | "numeric-in-branches"   // a numeric reference in a walker step that is a union
+    | "numeric-after-atomic"; // a numeric reference to a group that comes after an atomic group
 ```
 
 # RGXError
@@ -447,7 +448,7 @@ constructor(message: string, groupName: string, got: string)
 - `got` (`string`): The source of the pattern.
 
 ## RGXReservedGroupNameError
-A specific error class thrown when a walker step has a group whose name starts with `rgx_branch_`, which walkers reserve for the groups they wrap union branches in. See [Step validation](./walker.md#step-validation). The error code is set to `RESERVED_GROUP_NAME` on instantiation.
+A specific error class thrown when a pattern uses a group name the library reserves: a walker step with a group whose name starts with `rgx_branch_`, which walkers reserve for the groups they wrap union branches in (see [Step validation](./walker.md#step-validation)), a pattern with exact text with a group whose name starts with `rgx_exact_` (see [Exact text](../general.md#exact-text)), or a pattern with atomic groups with a group or backreference whose name starts with `rgx_atomic_` (see [Atomic groups](../general.md#atomic-groups)). The error code is set to `RESERVED_GROUP_NAME` on instantiation.
 
 ### Constructor
 ```typescript
@@ -455,11 +456,11 @@ constructor(message: string, groupName: string, got: string)
 ```
 - `message` (`string`): The error message.
 - `groupName` (`string`): The reserved name.
-- `got` (`string`): The source of the step.
+- `got` (`string`): The source of the step or pattern.
 
 ### Properties
 - `groupName` (`string`): The reserved name.
-- `got` (`string`): The source of the step.
+- `got` (`string`): The source of the step or pattern.
 
 ## RGXInvalidWalkerStepError
 A specific error class thrown when a walker step can't be matched on its own, because its parentheses are unbalanced. See [Step validation](./walker.md#step-validation). The error code is set to `INVALID_WALKER_STEP` on instantiation.

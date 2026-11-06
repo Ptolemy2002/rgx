@@ -152,6 +152,7 @@ Once the final pattern is built, and before it is compiled, its backreferences a
 - is inside its own group (`"inside-group"`), such as `(a\1)`.
 - is in a different alternative than its group (`"other-branch"`), such as `(a)|\1`. Captures are cleared at the start of each repetition, so this includes references to a group in another alternative of a repeated group, such as `(?:\1b|(a))+`.
 - points to a group inside a negative lookaround that the reference isn't in (`"negative-lookaround"`), such as `(?!(a))\1`, since the lookaround discards its captures.
+- is numeric and points to a group that comes after an atomic group (`"numeric-after-atomic"`), since each atomic group adds a capture group, which shifts the numbers of the groups after it (see [Atomic groups](#atomic-groups)).
 
 A name that several groups share (which is allowed when they are in different alternatives) is valid as long as one of those groups is. If two groups in the same alternative share a name, an `RGXDuplicateGroupNameError` naming the group is thrown instead of the engine's error.
 
@@ -165,6 +166,20 @@ Text from an `RGXExactToken` (see [exact.md](./class/token/exact.md)), or any na
 - The pattern with its markers is kept as the `ExtRegExp`'s `originalSource` and `markedSource`, and its `exactMarkers` property is `true` (see [ExtRegExp.md](./ExtRegExp.md)). Rebuilding it with other flags, and placing it in another pattern, keeps the text exact. When it is placed in another pattern, its markers are renamed to continue that pattern's numbering.
 
 In a pattern with exact text, group names starting with `rgx_exact_` are reserved, and a group written with one throws an `RGXReservedGroupNameError`. In a pattern without exact text, such groups are ordinary groups.
+
+## Atomic groups
+JavaScript has no atomic groups or possessive quantifiers, so `RGXAtomicToken` (see [atomic.md](./class/token/atomic.md)) and possessive `RGXRepeatToken`s emulate them with a lookahead that captures what it matched, followed by a backreference to the capture: `(?=(?<name>x))\k<name>`. Once the lookahead succeeds, it is never retried, so the backreference consumes exactly what `x` first matched.
+
+Every atomic group resolves to the same text, using the placeholder name `rgx_atomic_000000`, so resolving a token never depends on what else is in the pattern. Each capture group comes paired with its backreference, and pairs nest like parentheses, so the library finds them by scanning the source, skipping escapes and character classes, and renames them `rgx_atomic_000000`, `rgx_atomic_000001`, and so on, in the order they start:
+
+- when a pattern is compiled, whether by `rgx`, `rgxa`, the `ExtRegExp` constructor, `createRegex`, a walker step or a lexer definition, and before pattern transformers see it. A pattern with atomic groups that is placed in another pattern, even more than once, has its groups renamed along with the rest.
+- before a source is parsed or checked while a pattern is being built. The suffix always has six characters, so renaming never changes the length of a source.
+
+Unlike exact text, atomic groups stay in the compiled pattern, so each one adds a capture group: it shows up in `match.groups` (under a name starting with `rgx_atomic_`) and shifts the numbers of the groups after it. Because of that, a numeric backreference to a group that comes after an atomic group throws an `RGXInvalidBackreferenceError` with the reason `"numeric-after-atomic"` (see [Backreference validation](#backreference-validation)). Name the group and reference it by name instead. A walker leaves atomic groups out of a capture's `groups`.
+
+In a pattern with atomic groups, group names starting with `rgx_atomic_` are reserved, so a group written with one, or a backreference to one that isn't part of an atomic group, throws an `RGXReservedGroupNameError`. In a pattern without atomic groups, such groups are ordinary groups.
+
+Atomic groups can't be placed inside a lookbehind, which is matched from right to left, so the backreference would be matched before its group. Placing one there throws an `RGXInsertionRejectedError`.
 
 ## Parameters
   - `tokens` (`RGXToken[]`): The RGX tokens to be resolved and concatenated to form the regex pattern.

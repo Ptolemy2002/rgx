@@ -13,7 +13,7 @@ import { RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { RGXCurrentTokenNotFoundError } from "src/errors/currentTokenNotFound";
 import {
-    assertValidRegexReferences, collectRGXReferences, finishRGXExactMarkers, hasRegexParenErrors, isMergedWalkerStep, placeRGXToken,
+    assertValidRegexReferences, collectRGXReferences, isRGXAtomicGroupName, finishRGXExactMarkers, hasRegexParenErrors, isMergedWalkerStep, placeRGXToken,
     resolveFinishedRGXSource, withRGXExactScope, withRGXExactStrings, withRGXInsertionRoot
 } from "src/internal";
 
@@ -103,10 +103,11 @@ function branchesToken<R, S>(branches: readonly RGXWalkerBranch<R, S>[]): RGXTok
     return new RGXClassUnionToken(branches.map(branch => new RGXGroupToken({ name: `${branchGroupPrefix}${branch.index}` }, [branch.token])));
 }
 
-// The groups of a match, without the walker's branch groups, or null if there are none.
+// The groups of a match, without the walker's branch groups or atomic groups, or null if there are none.
 function userGroups(groups: Record<string, string> | undefined): Record<string, string> | null {
     if (!groups) return null;
-    const entries = Object.entries(groups).filter(([name]) => !name.startsWith(branchGroupPrefix));
+    // Atomic groups are an implementation detail too.
+    const entries = Object.entries(groups).filter(([name]) => !name.startsWith(branchGroupPrefix) && !isRGXAtomicGroupName(name));
     return entries.length > 0 ? Object.fromEntries(entries) : null;
 }
 

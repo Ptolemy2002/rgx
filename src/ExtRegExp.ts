@@ -2,6 +2,7 @@ import { RGXFlagTransformerConflictError, RGXInvalidFlagTransformerKeyError, RGX
 import { createConstructFunction } from "./internal";
 import { compileRGXExactMarkers, findRGXExactMarkers, replaceRGXExactMarkers } from "./internal/exactMarkers";
 import { scanOptionsFromFlags } from "./internal/scanRegexSource";
+import { renumberRGXAtomicGroups } from "./internal/atomicGroups";
 import { applyRGXPatternTransformersToSource } from "./pattern-transformer/register";
 import { registeredRGXPatternTransformers, resolveRGXPatternTransformerSelection, RGXPatternTransformerSelection } from "./pattern-transformer/default";
 import { isValidVanillaRegexFlags } from "./typeGuards";
@@ -32,7 +33,10 @@ export class ExtRegExp extends RegExp {
 
         // An ExtRegExp is rebuilt from its source before any custom flag transformations, so `flags` replaces its
         // custom flags the same way it replaces its vanilla ones.
-        const source = pattern instanceof ExtRegExp ? pattern.originalSource : pattern instanceof RegExp ? pattern.source : pattern;
+        // Atomic groups are given their final names here, since the pattern is finished. Renaming them keeps the length
+        // of the source, so it is safe to do before anything else.
+        const rawSource = pattern instanceof ExtRegExp ? pattern.originalSource : pattern instanceof RegExp ? pattern.source : pattern;
+        const source = renumberRGXAtomicGroups(rawSource, scanOptionsFromFlags(vanillaFlags));
 
         // An ExtRegExp that is rebuilt keeps marking exact text unless told otherwise.
         exactMarkers ??= pattern instanceof ExtRegExp && pattern.exactMarkers;

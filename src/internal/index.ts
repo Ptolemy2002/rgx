@@ -14,3 +14,4 @@ export * from "./regexPiece";
 export * from "./validateReferences";
 export * from "./accentVariants";
 export * from "./exactMarkers";
+export * from "./atomicGroups";

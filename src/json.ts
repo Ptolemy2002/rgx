@@ -24,7 +24,7 @@ export type RGXJSONClassTokenConstructor = {
 export type RGXJSONBuiltinClassName =
     "RGXClassWrapperToken" | "RGXClassUnionToken" | "RGXGroupToken" | "RGXRepeatToken" |
     "RGXLookaheadToken" | "RGXLookbehindToken" | "RGXExclusionToken" | "RGXSubpatternToken" |
-    "RGXConstantToken" | "RGXExactToken";
+    "RGXConstantToken" | "RGXExactToken" | "RGXAtomicToken";
 export type RGXJSONClassName = RGXJSONBuiltinClassName | (string & {});
 
 export type RGXTokenToJSONOptions = {
