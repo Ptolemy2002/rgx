@@ -373,6 +373,21 @@ constructor(message: string, got: string)
 ### Properties
 - `got` (`string`): The alias.
 
+## RGXListParseFailedError
+A specific error class thrown by `RGXListToken.parse()` when the list doesn't cover all of the text or has fewer items than its minimum (see [list.md](./token/list.md)). The error code is set to `LIST_PARSE_FAILED` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: string, position: number)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The text being parsed.
+- `position` (`number`): The position in the text where parsing stopped.
+
+### Properties
+- `got` (`string`): The text being parsed.
+- `position` (`number`): The position in the text where parsing stopped.
+
 ## RGXInvalidJSONTokenError
 A subclass of `RGXInvalidTokenError` for values that fail validation as a JSON token (see [json.md](../json.md)) or as one of its subtypes, including JSON class tokens that target the wrong class and strings that are not valid JSON. The error code is set to `INVALID_RGX_JSON_TOKEN` on instantiation. Since it extends `RGXInvalidTokenError`, it shares its `expected` and `got` properties and message format.
 

@@ -22,12 +22,6 @@ Each entry has a `##` heading naming the change, followed by:
 - **Effort**: M to L.
 - **Notes**: Making `rgxParse` return this token for classes is breaking, and is tracked in [PENDING_BREAKING_CHANGES.md](./PENDING_BREAKING_CHANGES.md#parse-character-classes-into-class-tokens-in-rgxparse-by-default). Until then, `rgxParse` should only produce it behind a `parseClasses` option.
 
-## Separated list helper
-
-- **Idea**: `rgxList(item, separator, { min, max, trailing })`, producing `item(?:separator item)*` with the bounds worked out.
-- **Why**: Comma-separated lists, path segments and argument lists come up constantly, and getting `min` and `max` right by hand is fiddly.
-- **Effort**: S.
-
 ## More built-in constants
 
 - **Idea**: Constants such as `integer`, `decimal`, `identifier`, `double-quoted-string` and `single-quoted-string` (with backslash escapes, reusing `non-escape-bound`), and Unicode-aware letters such as `unicode-letter` (`\p{L}`).

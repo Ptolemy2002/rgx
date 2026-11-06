@@ -13,6 +13,7 @@ import { RGXSubpatternToken } from "./subpattern";
 import { RGXConstantToken } from "./constant";
 import { RGXExactToken } from "./exact";
 import { RGXAtomicToken } from "./atomic";
+import { RGXListToken } from "./list";
 import { hasRGXJSONClass, registerRGXJSONClassToken, RGXJSONBuiltinClassName, RGXJSONClassTokenConstructor } from "src/json";
 
 export const RGX_BUILTIN_JSON_CLASSES: Record<RGXJSONBuiltinClassName, RGXJSONClassTokenConstructor> = {
@@ -26,7 +27,8 @@ export const RGX_BUILTIN_JSON_CLASSES: Record<RGXJSONBuiltinClassName, RGXJSONCl
     RGXSubpatternToken,
     RGXConstantToken,
     RGXExactToken,
-    RGXAtomicToken
+    RGXAtomicToken,
+    RGXListToken
 };
 
 export function registerBuiltinRGXJSONClasses() {
