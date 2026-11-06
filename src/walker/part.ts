@@ -3,8 +3,9 @@ import type { RGXTokenOrPart, RGXWalker } from "./base";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { cloneRGXToken } from "src/clone";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
-import { RGXInvalidPartError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError, RGXRegexNotMatchedAtPositionError } from "src/errors";
+import { RGXInvalidPartError, RGXNotSupportedError, RGXPartValidationFailedError, RGXRegexNotMatchedAfterPositionError, RGXRegexNotMatchedAtPositionError } from "src/errors";
 import { assertRGXToken } from "src/typeGuards";
+import { getRGXPartAlias } from "./partAlias";
 
 // Return values from beforeCapture to control walker behavior.
 // - void/undefined: proceed normally
@@ -64,34 +65,77 @@ export type RGXPartOptions<R, S = unknown, T=string> = {
 };
 
 export class RGXPart<R, S = unknown, T=string> {
-    id: string | null;
-    token: RGXPartToken<R, S, T>;
-
-    readonly rawTransform: RGXPartOptions<R, S, T>["rawTransform"];
-    readonly transform: RGXPartOptions<R, S, T>["transform"];
-    private readonly _validate: RGXPartOptions<R, S, T>["validate"];
-    readonly beforeCapture: RGXPartOptions<R, S, T>["beforeCapture"];
-    readonly afterCapture: RGXPartOptions<R, S, T>["afterCapture"];
-    readonly afterFailure: RGXPartOptions<R, S, T>["afterFailure"];
-    readonly afterValidationFailure: RGXPartOptions<R, S, T>["afterValidationFailure"];
-    readonly afterLoss: RGXPartOptions<R, S, T>["afterLoss"];
+    private _id: string | null;
+    private _token: RGXPartToken<R, S, T>;
+    private readonly _options: Omit<RGXPartOptions<R, S, T>, "id">;
+    // The alias this part refers to, or null for a part defined here.
+    readonly alias: string | null = null;
 
     static check = createRGXClassGuardFunction(RGXPart);
     static assert = createAssertRGXClassGuardFunction(RGXPart,
         (value, constructor) => new RGXInvalidPartError("Invalid Part", value, constructor.name)
     );
 
+    // A part that refers to the part registered under the alias (see registerRGXPartAlias), looking it up each time it
+    // is used. It behaves exactly like that part, and can be used anywhere a part can, such as a walker step.
+    static fromAlias<R, S = unknown, T = string>(alias: string): RGXPart<R, S, T> {
+        const part = new RGXPart<R, S, T>(null);
+        (part as { alias: string | null }).alias = alias;
+        return part;
+    }
+
+    // The part this one behaves as: the registered part for an alias, and itself otherwise.
+    target(): RGXPart<R, S, T> {
+        return this.alias === null ? this : getRGXPartAlias<R, S, T>(this.alias).target();
+    }
+
+    private assertNotAlias(property: string) {
+        if (this.alias !== null) throw new RGXNotSupportedError(`Setting ${property} on a part alias`, "A part alias takes its properties from the registered part.");
+    }
+
+    get id(): string | null {
+        return this.alias === null ? this._id : this.target().id;
+    }
+
+    set id(value: string | null) {
+        this.assertNotAlias("id");
+        this._id = value;
+    }
+
+    get token(): RGXPartToken<R, S, T> {
+        return this.alias === null ? this._token : this.target().token;
+    }
+
+    set token(value: RGXPartToken<R, S, T>) {
+        this.assertNotAlias("token");
+        this._token = value;
+    }
+
+    private option<K extends keyof RGXPartOptions<R, S, T>>(key: K): RGXPartOptions<R, S, T>[K] {
+        return (this.alias === null ? this._options : this.target()._options)[key as Exclude<K, "id">] as RGXPartOptions<R, S, T>[K];
+    }
+
+    get rawTransform() { return this.option("rawTransform"); }
+    get transform() { return this.option("transform"); }
+    get beforeCapture() { return this.option("beforeCapture"); }
+    get afterCapture() { return this.option("afterCapture"); }
+    get afterFailure() { return this.option("afterFailure"); }
+    get afterValidationFailure() { return this.option("afterValidationFailure"); }
+    get afterLoss() { return this.option("afterLoss"); }
+
     constructor(token: RGXPartToken<R, S, T>, options: Partial<RGXPartOptions<R, S, T>> = {}) {
-        this.id = options.id ?? null;
-        this.token = token;
-        this.rawTransform = options.rawTransform ?? (captured => captured);
-        this.transform = options.transform ?? ((captured: string) => captured as unknown as T);
-        this._validate = options.validate ?? (() => true);
-        this.beforeCapture = options.beforeCapture ?? null;
-        this.afterCapture = options.afterCapture ?? null;
-        this.afterFailure = options.afterFailure ?? null;
-        this.afterValidationFailure = options.afterValidationFailure ?? null;
-        this.afterLoss = options.afterLoss ?? null;
+        this._id = options.id ?? null;
+        this._token = token;
+        this._options = {
+            rawTransform: options.rawTransform ?? (captured => captured),
+            transform: options.transform ?? ((captured: string) => captured as unknown as T),
+            validate: options.validate ?? (() => true),
+            beforeCapture: options.beforeCapture ?? null,
+            afterCapture: options.afterCapture ?? null,
+            afterFailure: options.afterFailure ?? null,
+            afterValidationFailure: options.afterValidationFailure ?? null,
+            afterLoss: options.afterLoss ?? null,
+        };
     }
 
     hasId(): this is RGXPart<R, S, T> & { id: string } {
@@ -113,7 +157,7 @@ export class RGXPart<R, S = unknown, T=string> {
     }
 
     validate(capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) {
-        const result = this._validate(capture, context);
+        const result = this.option("validate")(capture, context);
         if (result === true) return;
         
         const message = typeof result === "string" ? result : "Part Validation Failed";
@@ -121,24 +165,20 @@ export class RGXPart<R, S = unknown, T=string> {
     }
 
     // Clone method
-    clone(depth: CloneDepth = "max") {
+    clone(depth: CloneDepth = "max"): RGXPart<R, S, T> {
         if (depth === 0) return this;
+        // An alias keeps referring to the registered part.
+        if (this.alias !== null) return RGXPart.fromAlias<R, S, T>(this.alias);
         // Functions are shared, the same way the callbacks are.
         const token = this.isDynamic() ? this.token : cloneRGXToken(this.token as RGXToken, depthDecrement(depth, 1));
-        return new RGXPart(token, {
-            id: this.id ?? undefined,
-            rawTransform: this.rawTransform,
-            transform: this.transform,
-            validate: this._validate,
-            beforeCapture: this.beforeCapture,
-            afterCapture: this.afterCapture,
-            afterFailure: this.afterFailure,
-            afterValidationFailure: this.afterValidationFailure,
-            afterLoss: this.afterLoss,
-        });
+        return new RGXPart(token, { id: this.id ?? undefined, ...this._options });
     }
 }
 
 export function rgxPart<R, S = unknown, T=string>(...args: ConstructorParameters<typeof RGXPart<R, S, T>>) {
     return new RGXPart(...args);
+}
+
+export function rgxPartAlias<R, S = unknown, T = string>(alias: string): RGXPart<R, S, T> {
+    return RGXPart.fromAlias<R, S, T>(alias);
 }

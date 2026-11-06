@@ -24,6 +24,10 @@ export function registerRGXPartAlias(name: string, part: RGXPart<any, any, any>)
     if (name === "") throw new RGXInvalidPartAliasError("Part aliases can't be empty.", name);
     if (hasRGXPartAlias(name)) throw new RGXPartAliasConflictError("Part alias already registered.", name);
     if (!RGXPart.check(part)) throw new RGXInvalidPartError("Invalid Part", part, "RGXPart");
+    // An alias part that leads back to this alias would refer to itself.
+    for (let alias = part.alias; alias !== null; alias = partAliases.get(alias)?.alias ?? null) {
+        if (alias === name) throw new RGXPartAliasConflictError("A part alias can't refer to itself.", name);
+    }
     partAliases.set(name, part);
     return part;
 }
