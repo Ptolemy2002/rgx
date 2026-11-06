@@ -4,7 +4,10 @@ import { RGXClassToken } from "./base";
 import { RGXAtomicToken } from "./atomic";
 import { RGXGroupToken } from "./group";
 import { RGXRepeatToken } from "./repeat";
-import { assertInRange, RGXListParseFailedError, RGXNotJSONSerializableError, RGXNotSupportedError } from "src/errors";
+import {
+    assertInRange, RGXListParseFailedError, RGXNotJSONSerializableError, RGXNotSupportedError, RGXPartValidationFailedError,
+    RGXRegexNotMatchedAtPositionError
+} from "src/errors";
 import { isRGXJSONToken } from "src/typeGuards";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
@@ -23,7 +26,16 @@ export type RGXListTokenOptions = {
     trailing?: boolean;
     // Whether the items and separators are matched atomically, the way a walker matches them (see RGXAtomicToken).
     atomic?: boolean;
+    // A token that must come right after the final separator, before the last item, such as "and" in "a, b, and c".
+    preposition?: RGXToken;
+    // Whether optional whitespace is allowed on each side of every separator, and after the preposition.
+    padSeparator?: boolean;
 };
+
+// The options as JSON, where the preposition is a JSON token.
+export type RGXJSONListTokenOptions = Omit<RGXListTokenOptions, "preposition"> & { preposition?: RGXJSONToken };
+
+const optionalWhitespace = /\s*/;
 
 export type RGXListParseOptions = {
     // The flags the list is matched with. Only the localizable flags (i, m and s) change what the walker matches.
@@ -38,7 +50,7 @@ function isJSONAliasItem(value: unknown): value is { alias: string } {
         && typeof (value as { alias?: unknown }).alias === "string" && Object.keys(value).length === 1;
 }
 
-function parseListJSONArgs(args: RGXJSONValue[]): [RGXJSONListItem[], RGXJSONToken, RGXListTokenOptions?] | string {
+function parseListJSONArgs(args: RGXJSONValue[]): [RGXJSONListItem[], RGXJSONToken, RGXJSONListTokenOptions?] | string {
     if (args.length < 2 || args.length > 3) return "Expected between 2 and 3 arguments (items, separator, options).";
     const [items, separator, options] = args;
 
@@ -49,14 +61,16 @@ function parseListJSONArgs(args: RGXJSONValue[]): [RGXJSONListItem[], RGXJSONTok
 
     if (options !== undefined) {
         if (typeof options !== "object" || options === null || Array.isArray(options)) return "Argument 2 (options) must be an object, if present.";
-        const { min, max, trailing, atomic } = options as RGXJSONObject;
+        const { min, max, trailing, atomic, preposition, padSeparator } = options as RGXJSONObject;
         if (min !== undefined && typeof min !== "number") return "Argument 2 (options) must have a number min, if present.";
         if (max !== undefined && max !== null && typeof max !== "number") return "Argument 2 (options) must have a number or null max, if present.";
         if (trailing !== undefined && typeof trailing !== "boolean") return "Argument 2 (options) must have a boolean trailing, if present.";
         if (atomic !== undefined && typeof atomic !== "boolean") return "Argument 2 (options) must have a boolean atomic, if present.";
+        if (preposition !== undefined && !isRGXJSONToken(preposition, false)) return "Argument 2 (options) must have a JSON token preposition, if present.";
+        if (padSeparator !== undefined && typeof padSeparator !== "boolean") return "Argument 2 (options) must have a boolean padSeparator, if present.";
     }
 
-    return [items as RGXJSONListItem[], separator, options as RGXListTokenOptions | undefined];
+    return [items as RGXJSONListItem[], separator, options as RGXJSONListTokenOptions | undefined];
 }
 
 function localizableFlags(flags: string): string {
@@ -75,6 +89,9 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
     // Whether the items and separators are matched atomically (the atomic option). Named differently from the atomic()
     // method every class token has.
     atomicItems: boolean;
+    // The token before the last item, or undefined for none. (null is a token that matches nothing.)
+    preposition: RGXToken | undefined;
+    padSeparator: boolean;
 
     static check = createRGXClassGuardFunction(RGXListToken);
     static assert = createAssertRGXClassGuardFunction(RGXListToken);
@@ -103,7 +120,10 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
     }
 
     // An array of items lists the alternatives an item can be. Anything else is the only alternative.
-    constructor(items: RGXListItem<T> | RGXListItem<T>[], separator: RGXToken, { min = 1, max = null, trailing = false, atomic = true }: RGXListTokenOptions = {}) {
+    constructor(
+        items: RGXListItem<T> | RGXListItem<T>[], separator: RGXToken,
+        { min = 1, max = null, trailing = false, atomic = true, preposition, padSeparator = false }: RGXListTokenOptions = {}
+    ) {
         super();
         this.items = Array.isArray(items) ? [...items] : [items];
         this.separator = separator;
@@ -112,6 +132,24 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
         this.min = min;
         this.trailing = trailing;
         this.atomicItems = atomic;
+        this.preposition = preposition;
+        this.padSeparator = padSeparator;
+    }
+
+    hasPreposition(): this is RGXListToken<T> & { preposition: RGXToken } {
+        return this.preposition !== undefined;
+    }
+
+    // The separator as it is matched, with optional whitespace around it when padSeparator is set.
+    separatorToken(): RGXToken {
+        if (!this.padSeparator) return this.separator;
+        return new RGXGroupToken({ capturing: false }, [optionalWhitespace, this.separator, optionalWhitespace]);
+    }
+
+    // The preposition as it is matched, with optional whitespace after it when padSeparator is set, or undefined.
+    prepositionToken(): RGXToken | undefined {
+        if (!this.hasPreposition() || !this.padSeparator) return this.preposition;
+        return new RGXGroupToken({ capturing: false }, [this.preposition, optionalWhitespace]);
     }
 
     // The token each item alternative is matched with. Dynamic parts produce their token from a walker's state, which a
@@ -131,11 +169,20 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
         const alternatives = this.itemTokens();
         const itemToken: RGXToken = alternatives.length === 1 ? alternatives[0]! : alternatives;
         const item = this.atomicItems ? new RGXAtomicToken([itemToken]) : itemToken;
-        const separator = this.atomicItems ? new RGXAtomicToken([this.separator]) : this.separator;
+        const separator = this.atomicItems ? new RGXAtomicToken([this.separatorToken()]) : this.separatorToken();
+        const pair = new RGXGroupToken({ capturing: false }, [separator, item]);
 
-        const restMin = Math.max(this.min - 1, 0);
-        const restMax = this.max === null ? null : this.max - 1;
-        const body: RGXToken[] = [item, new RGXRepeatToken(new RGXGroupToken({ capturing: false }, [separator, item]), restMin, restMax)];
+        const body: RGXToken[] = [item];
+        const preposition = this.prepositionToken();
+        if (preposition === undefined) {
+            body.push(new RGXRepeatToken(pair, Math.max(this.min - 1, 0), this.max === null ? null : this.max - 1));
+        } else if (this.max !== 1) {
+            // Every item after the first but the last, then the last one after the preposition.
+            const prepositioned = this.atomicItems ? new RGXAtomicToken([preposition]) : preposition;
+            const middle = new RGXRepeatToken(pair, Math.max(this.min - 2, 0), this.max === null ? null : this.max - 2);
+            const tail = new RGXGroupToken({ capturing: false }, [middle, separator, prepositioned, item]);
+            body.push(this.min >= 2 ? tail : new RGXRepeatToken(tail, 0, 1));
+        }
         if (this.trailing) body.push(new RGXRepeatToken(separator, 0, 1));
 
         const list = new RGXGroupToken({ capturing: false }, body);
@@ -143,7 +190,7 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
     }
 
     // The walker steps the items are parsed with. With flags, each token is put in a group that sets them.
-    private parseSteps(flags: string): [RGXWalkerStep<null>, RGXPart<null>] {
+    private parseSteps(flags: string): [RGXWalkerStep<null>, RGXPart<null>, RGXPart<null>] {
         const wrap = (token: RGXToken) => flags === "" ? token : new RGXGroupToken({ capturing: false, flags }, [token]);
         const tokens = this.itemTokens();
 
@@ -166,8 +213,9 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
         });
 
         // Separators are matched without being recorded.
-        const separator = new RGXPart<null>(wrap(this.separator), { beforeCapture: () => "silent" });
-        return [alternatives.length === 1 ? alternatives[0]! : alternatives, separator];
+        const separator = new RGXPart<null>(wrap(this.separatorToken()), { beforeCapture: () => "silent" });
+        const preposition = new RGXPart<null>(wrap(this.prepositionToken() ?? null), { beforeCapture: () => "silent" });
+        return [alternatives.length === 1 ? alternatives[0]! : alternatives, separator, preposition];
     }
 
     // Walks text the list matched, returning a capture for each item: its raw text and value (from the item's part, if
@@ -180,13 +228,16 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
             return [];
         }
 
-        const [item, separator] = this.parseSteps(localizableFlags(flags));
-        const walker = new RGXWalker<null>(text, [item, separator]);
+        const walker = new RGXWalker<null>(text, this.parseSteps(localizableFlags(flags)));
+        const stepAt = (tokenPosition: number) => {
+            walker.tokenPosition = tokenPosition;
+            walker.step();
+        };
+        let endedWithPreposition = false;
 
         while (true) {
             const start = walker.sourcePosition;
-            walker.tokenPosition = 0;
-            walker.step();
+            stepAt(0);
             // A part's hook can stop the walker.
             if (walker.stopped || walker.atSourceEnd()) break;
 
@@ -194,10 +245,22 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
             const full = this.max !== null && walker.captures.length >= this.max;
             if (full && !this.trailing) break;
 
-            walker.step();
+            stepAt(1);
             if (full || (walker.atSourceEnd() && this.trailing)) break;
+
+            // The last item comes after the preposition, so if the preposition and an item end the list here, they are
+            // the end. Otherwise, the next item is an ordinary one.
+            if (this.hasPreposition() && this.tryPrepositionedEnd(walker, stepAt)) {
+                endedWithPreposition = true;
+                break;
+            }
+
             // Items and separators that match the empty string would never finish.
             if (walker.sourcePosition === start) break;
+        }
+
+        if (this.hasPreposition() && walker.captures.length >= 2 && !endedWithPreposition && walker.atSourceEnd()) {
+            throw new RGXListParseFailedError("The last item of a list with a preposition must come after the preposition", text, walker.sourcePosition);
         }
 
         if (!walker.atSourceEnd()) throw new RGXListParseFailedError("The list doesn't match all of the text", text, walker.sourcePosition);
@@ -208,11 +271,27 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
         return walker.captures as RGXCapture<T>[];
     }
 
+    // Matches the preposition, an item, and a trailing separator if there is one, keeping them only if they end the text.
+    private tryPrepositionedEnd(walker: RGXWalker<null>, stepAt: (tokenPosition: number) => void): boolean {
+        walker.snapshot("preposition", "sourcePosition", "captures", "namedCaptures");
+        try {
+            stepAt(2);
+            stepAt(0);
+            if (!walker.atSourceEnd() && this.trailing) stepAt(1);
+            if (walker.atSourceEnd()) return true;
+        } catch (e) {
+            if (!(e instanceof RGXRegexNotMatchedAtPositionError || e instanceof RGXPartValidationFailedError)) throw e;
+        }
+        walker.restore("preposition");
+        return false;
+    }
+
     clone(depth: CloneDepth = "max") {
         if (depth === 0) return this;
         const items = this.items.map(item => RGXPart.check(item) ? item.clone(depthDecrement(depth, 1)) : cloneRGXToken(item, depthDecrement(depth, 1)));
         return new RGXListToken<T>(items, cloneRGXToken(this.separator, depthDecrement(depth, 1)), {
-            min: this.min, max: this.max, trailing: this.trailing, atomic: this.atomicItems
+            min: this.min, max: this.max, trailing: this.trailing, atomic: this.atomicItems, padSeparator: this.padSeparator,
+            preposition: this.hasPreposition() ? cloneRGXToken(this.preposition, depthDecrement(depth, 1)) : undefined
         });
     }
 
@@ -221,7 +300,9 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
         return new RGXListToken(
             items.map(item => isJSONAliasItem(item) ? rgxPartAlias(item.alias) : rgxTokenFromJSON(item)),
             rgxTokenFromJSON(separator),
-            options
+            options === undefined ? undefined : {
+                ...options, preposition: options.preposition === undefined ? undefined : rgxTokenFromJSON(options.preposition)
+            }
         );
     }
 
@@ -234,7 +315,9 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
             }
             return { alias: item.alias };
         });
-        const options = { min: this.min, max: this.max, trailing: this.trailing, atomic: this.atomicItems };
+        const options: RGXJSONObject = { min: this.min, max: this.max, trailing: this.trailing, atomic: this.atomicItems, padSeparator: this.padSeparator };
+        // Left out when there is none, since null is a token.
+        if (this.hasPreposition()) options.preposition = rgxTokenToJSON(this.preposition);
         return createRGXJSONClassToken("RGXListToken", [items, rgxTokenToJSON(this.separator), options]);
     }
 }

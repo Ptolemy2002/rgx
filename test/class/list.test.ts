@@ -187,6 +187,104 @@ describe("RGXListToken", () => {
         });
     });
 
+    describe("preposition and padSeparator", () => {
+        const words = (options = {}) => rgxList(rgxPart(/\w+/), ",", { padSeparator: true, preposition: "and", ...options });
+
+        it("stores the options, with no preposition and no padding by default", () => {
+            const list = rgxList("a", ",");
+            expect(list.preposition).toBeUndefined();
+            expect(list.hasPreposition()).toBe(false);
+            expect(list.padSeparator).toBe(false);
+            expect(list.separatorToken()).toBe(",");
+            expect(list.prepositionToken()).toBeUndefined();
+            expect(rgxList("a", ",", { preposition: "and" }).prepositionToken()).toBe("and");
+        });
+
+        it("allows optional whitespace around separators", () => {
+            const list = rgxList(/\d+/, ",", { padSeparator: true });
+            expect(whole(list).test("1 ,2,  3")).toBe(true);
+            expect(list.parse("1 ,2,  3").map(c => c.raw)).toEqual(["1", "2", "3"]);
+            expect(whole(rgxList(/\d+/, ",")).test("1, 2")).toBe(false);
+        });
+
+        it("requires the preposition before the last of two or more items", () => {
+            const list = words();
+            expect(whole(list).test("a")).toBe(true);
+            expect(whole(list).test("a, and b")).toBe(true);
+            expect(whole(list).test("a, b, and c")).toBe(true);
+            expect(whole(list).test("a, b, c")).toBe(false);
+            expect(whole(list).test("a, and b, c")).toBe(false);
+
+            expect(list.parse("a").map(c => c.raw)).toEqual(["a"]);
+            expect(list.parse("a, and b").map(c => c.raw)).toEqual(["a", "b"]);
+            expect(list.parse("a, b, and c").map(c => c.raw)).toEqual(["a", "b", "c"]);
+            expect(() => list.parse("a, b, c")).toThrow(RGXListParseFailedError);
+            expect(() => list.parse("a, and b, c")).toThrow(RGXRegexNotMatchedAtPositionError);
+        });
+
+        it("treats an item that looks like the preposition as an item unless it ends the list", () => {
+            const list = words();
+            expect(whole(list).test("a, and, and b")).toBe(true);
+            expect(list.parse("a, and, and b").map(c => c.raw)).toEqual(["a", "and", "b"]);
+        });
+
+        it("respects the bounds", () => {
+            const list = words({ min: 2, max: 3 });
+            expect(whole(list).test("a")).toBe(false);
+            expect(whole(list).test("a, b, and c")).toBe(true);
+            expect(whole(list).test("a, b, c, and d")).toBe(false);
+            expect(() => list.parse("a")).toThrow(RGXListParseFailedError);
+            expect(() => list.parse("a, b, c, and d")).toThrow(RGXListParseFailedError);
+            expect(whole(words({ min: 0 })).test("")).toBe(true);
+            expect(whole(words({ max: 1 })).test("a")).toBe(true);
+            expect(whole(words({ max: 1 })).test("a, and b")).toBe(false);
+        });
+
+        it("works with trailing separators", () => {
+            const list = words({ trailing: true });
+            expect(whole(list).test("a, b, and c,")).toBe(true);
+            expect(list.parse("a, b, and c ,").map(c => c.raw)).toEqual(["a", "b", "c"]);
+            expect(() => list.parse("a, b,")).toThrow(RGXListParseFailedError);
+            expect(words({ trailing: true, max: 2 }).parse("a, and b,").map(c => c.raw)).toEqual(["a", "b"]);
+        });
+
+        it("falls back when the item after the preposition fails validation", () => {
+            const list = rgxList(rgxPart(/\w+/, { validate: c => c.raw !== "x" }), ",", { padSeparator: true, preposition: "and" });
+            // "and" is then read as an ordinary item, which a separator has to follow.
+            expect(() => list.parse("a, and x")).toThrow(RGXRegexNotMatchedAtPositionError);
+        });
+
+        it("rethrows other errors from the item after the preposition", () => {
+            const list = rgxList(rgxPart(/\w+/, { afterCapture: c => { if (c.raw === "b") throw new Error("boom"); } }), ",", { preposition: "and " });
+            expect(() => list.parse("a,and b")).toThrow("boom");
+        });
+
+        it("matches without atomic items too", () => {
+            expect(whole(words({ atomic: false })).test("a, b, and c")).toBe(true);
+        });
+
+        it("are cloned and stored in JSON", () => {
+            const list = words({ preposition: rgxGroup({ capturing: false }, ["and"]) });
+            const clone = list.clone();
+            expect(clone.preposition).not.toBe(list.preposition);
+            expect(clone.padSeparator).toBe(true);
+            expect(clone.resolve()).toBe(list.resolve());
+            expect(rgxList("a", ",").clone().preposition).toBeUndefined();
+
+            registerRGXPartAlias("word", rgxPart(/\w+/));
+            const json = rgxList(rgxPartAlias("word"), ",", { preposition: "or", padSeparator: true }).toJSON();
+            expect(json.args![2]).toEqual({ min: 1, max: null, trailing: false, atomic: true, padSeparator: true, preposition: "or" });
+            const result = rgxTokenFromJSON(json) as RGXListToken;
+            expect(result.parse("a, b, or c").map(c => c.raw)).toEqual(["a", "b", "c"]);
+            expect((rgxList("a", ",").toJSON().args![2] as object)).not.toHaveProperty("preposition");
+
+            const reject = (options: unknown) => () => RGXListToken.fromJSON({ $rgx: true, class: "RGXListToken", args: [["a"], ",", options as never] });
+            expect(reject({ preposition: { nope: 1 } })).toThrow(/preposition/);
+            expect(reject({ padSeparator: 1 })).toThrow(/padSeparator/);
+            expect(RGXListToken.fromJSON({ $rgx: true, class: "RGXListToken", args: [["a"], ",", {}] }).hasPreposition()).toBe(false);
+        });
+    });
+
     describe("clone", () => {
         it("returns itself at depth 0", () => {
             const list = rgxList("a", ",");
@@ -211,7 +309,7 @@ describe("RGXListToken", () => {
             const json = list.toJSON();
             expect(json).toEqual({
                 $rgx: true, class: "RGXListToken",
-                args: [[{ alias: "number" }, { $rgx: true, source: "[a-z]+" }], ",", { min: 2, max: null, trailing: false, atomic: true }]
+                args: [[{ alias: "number" }, { $rgx: true, source: "[a-z]+" }], ",", { min: 2, max: null, trailing: false, atomic: true, padSeparator: false }]
             });
             const result = rgxTokenFromJSON(JSON.parse(JSON.stringify(json))) as RGXListToken;
             expect(result).toBeInstanceOf(RGXListToken);
