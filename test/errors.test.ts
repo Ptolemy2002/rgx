@@ -3,7 +3,7 @@ import {
     RGXNotImplementedError, RGXClassToken, RGXInvalidIdentifierError, RGXOutOfBoundsError,
     RGXInvalidRegexFlagsError, isInRange, assertInRange, RGXInvalidFlagTransformerKeyError,
     RGXFlagTransformerConflictError, RGXNotSupportedError, RGXInsertionRejectedError,
-    RGXConstantConflictError, RGXInvalidConstantKeyError, RGXRegexNotMatchedAtPositionError,
+    RGXConstantConflictError, RGXInvalidConstantKeyError, RGXPartAliasConflictError, RGXInvalidPartAliasError, RGXRegexNotMatchedAtPositionError,
     RGXPartValidationFailedError, RGXInvalidLexerModeError, RGXLexemeNotMatchedAtPositionError,
     RGXInvalidLexerError, RGXInvalidWalkerError, RGXInvalidPartError, isLexemeNotMatchedCauseError,
     RGXRegexNotMatchedAfterPositionError, RGXCurrentTokenNotFoundError, RGXInvalidRegexLocalizableFlagsError,
@@ -539,6 +539,60 @@ describe('RGXConstantConflictError', () => {
     it('formats the error message correctly', () => {
         const error = new RGXConstantConflictError('Constant conflict', 'CONSTANT_NAME');
         expect(error.toString()).toBe('RGXConstantConflictError: Constant conflict; Got: "CONSTANT_NAME"');
+    });
+});
+
+describe('RGXPartAliasConflictError', () => {
+    it('has the correct name', () => {
+        const error = new RGXPartAliasConflictError('Part alias problem', 'alias');
+        expect(error.name).toBe('RGXPartAliasConflictError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXPartAliasConflictError('Part alias problem', 'alias');
+        expect(error.code).toBe('PART_ALIAS_CONFLICT');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXPartAliasConflictError('Part alias problem', 'alias');
+        expect(error.got).toBe('alias');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXPartAliasConflictError('Part alias problem', 'alias');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXPartAliasConflictError('Part alias problem', 'alias');
+        expect(error.toString()).toBe('RGXPartAliasConflictError: Part alias problem; Got: "alias"');
+    });
+});
+
+describe('RGXInvalidPartAliasError', () => {
+    it('has the correct name', () => {
+        const error = new RGXInvalidPartAliasError('Part alias problem', 'alias');
+        expect(error.name).toBe('RGXInvalidPartAliasError');
+    });
+
+    it('has the correct code', () => {
+        const error = new RGXInvalidPartAliasError('Part alias problem', 'alias');
+        expect(error.code).toBe('INVALID_PART_ALIAS');
+    });
+
+    it('exposes the got property', () => {
+        const error = new RGXInvalidPartAliasError('Part alias problem', 'alias');
+        expect(error.got).toBe('alias');
+    });
+
+    it('is an instance of RGXError', () => {
+        const error = new RGXInvalidPartAliasError('Part alias problem', 'alias');
+        expect(error).toBeInstanceOf(RGXError);
+    });
+
+    it('formats the error message correctly', () => {
+        const error = new RGXInvalidPartAliasError('Part alias problem', 'alias');
+        expect(error.toString()).toBe('RGXInvalidPartAliasError: Part alias problem; Got: "alias"');
     });
 });
 

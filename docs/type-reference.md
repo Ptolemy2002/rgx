@@ -131,6 +131,8 @@ type RGXParseOptions = {
 
 type RGXPartControl = "skip" | "stop" | "silent" | "stop-silent" | void;
 type RGXPartLossControl = "silent" | "stop" | "stop-silent" | void;
+// A part, or the alias of a registered one (see Part Aliases in walker.md).
+type RGXPartReference<R = any, S = any, T = any> = RGXPart<R, S, T> | string;
 type RGXPartLossReason = "no-match" | "not-reached";
 type RGXPartLoss<R, S = unknown> = {
     reason: RGXPartLossReason;

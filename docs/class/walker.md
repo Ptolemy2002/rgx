@@ -79,6 +79,8 @@ type RGXWalkerSnapshot<R, S> = Partial<{
 
 type RGXPartControl = "skip" | "stop" | "silent" | "stop-silent" | void;
 type RGXPartLossControl = "silent" | "stop" | "stop-silent" | void;
+// A part, or the alias of a registered one (see Part Aliases in walker.md).
+type RGXPartReference<R = any, S = any, T = any> = RGXPart<R, S, T> | string;
 type RGXPartLossReason = "no-match" | "not-reached";
 type RGXPartLoss<R, S = unknown> = {
     reason: RGXPartLossReason;
@@ -250,6 +252,23 @@ constructor(token: RGXPartToken<R, S, T>, options?: Partial<RGXPartOptions<R, S,
 - `isDynamic() => this is RGXPart<R, S, T> & { token: (context: RGXPartContext<R, S, T>) => RGXToken }`: A type guard that checks if this part's token is a function (see [Dynamic Parts](#dynamic-parts)).
 - `resolveToken(walker: RGXWalker<R, S>) => RGXToken`: Returns the token to match this part with. For a static part, this is `token`. For a dynamic part, this calls `token` with `{ part: this, walker }` and returns the result, throwing an `RGXInvalidTokenError` if it isn't a valid token. The walker calls this each time it captures the part.
 - `validate(capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => void`: A method that calls the inner passed validation logic for this part, if any. If it returns `false`, a generic `RGXPartValidationFailedError` is thrown. If it returns a string, an `RGXPartValidationFailedError` is thrown with that string as the message. If it returns `true`, validation passed. This is called internally by the walker after capturing and transforming a part, before invoking `afterCapture`.
+
+# Part Aliases
+Parts hold functions, so they can't be serialized to JSON. A part can be registered under an alias, so a token that is configured with parts can store the alias instead and look the part up again whenever it uses it. An `RGXPartReference` is either a part or an alias. Since an alias is looked up each time, registering a different part under it changes what every reference to it uses, and the library can't tell whether the part behaves the same as when a token using it was serialized.
+
+```typescript
+registerRGXPartAlias("number", rgxPart(/\d+/, { transform: Number }));
+resolveRGXPartReference("number"); // the part registered above
+```
+
+- `registerRGXPartAlias(name: string, part: RGXPart) => RGXPart`: Registers `part` under `name` and returns it. Throws `RGXPartAliasConflictError` if a part is already registered under `name`, `RGXInvalidPartAliasError` if `name` is empty, and `RGXInvalidPartError` if `part` isn't an `RGXPart`.
+- `unregisterRGXPartAlias(name: string) => RGXPart`: Removes the alias and returns the part that was registered under it, so it can be registered again later. Throws `RGXInvalidPartAliasError` if nothing is registered under `name`.
+- `getRGXPartAlias<R, S, T>(name: string) => RGXPart<R, S, T>`: Returns the part registered under `name`. Throws `RGXInvalidPartAliasError` if nothing is.
+- `hasRGXPartAlias(name: string) => boolean`: Whether a part is registered under `name`.
+- `assertHasRGXPartAlias(name: string) => void`: Throws `RGXInvalidPartAliasError` if nothing is registered under `name`.
+- `listRGXPartAliases() => string[]`: The registered aliases, in the order they were registered.
+- `isRGXPartReference(value: unknown) => value is RGXPartReference`: Whether `value` is a part or a string. An alias doesn't have to be registered to count as a reference, since it is only looked up when it is used.
+- `resolveRGXPartReference<R, S, T>(reference: RGXPartReference<R, S, T>) => RGXPart<R, S, T>`: The part a reference refers to: the part itself, or the one registered under the alias now. Throws `RGXInvalidPartAliasError` for an alias that isn't registered.
 
 # RGXWalker\<R, S=unknown\>
 A class that walks through a sequence of RGX tokens (and/or `RGXPart` instances), matching each against a source string at the current position. The walker maintains a source position and a token position, advancing through both as tokens are matched. When an `RGXPart` is encountered, its `beforeCapture` callback can control behavior via return values (`RGXPartControl`), and its `afterCapture` callback is invoked with the typed capture result. All captures are stored as structured `RGXCapture` objects on the walker, and captures with ids are stored in the `namedCaptures` property also. The generic type `R` represents a user-defined "reduced" value that accumulates the ultimate result of the walk (e.g., built up via `RGXPart` callbacks and returned by `walk()`). The generic type `S` represents a user-defined "shared" value that works almost exactly like `reduced` — it is mutable state that parts can read and write via `context.walker.share` — but it is not considered the ultimate result of the walker. This means parts can freely contribute to `share` without those contributions needing to conform to type `R`, making `share` suitable for intermediate bookkeeping state while `reduced` carries the final result.

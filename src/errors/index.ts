@@ -33,3 +33,5 @@ export * from './reservedGroupName';
 export * from './invalidWalkerStep';
 export * from './patternTransformerConflict';
 export * from './invalidPatternTransformerKey';
+export * from './partAliasConflict';
+export * from './invalidPartAlias';
