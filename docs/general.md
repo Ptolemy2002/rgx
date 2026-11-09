@@ -166,6 +166,22 @@ Text from an `RGXExactToken` (see [exact.md](./class/token/exact.md)), or any na
 
 In a pattern with exact text, group names starting with `rgx_exact_` are reserved, and a group written with one throws an `RGXReservedGroupNameError`. In a pattern without exact text, such groups are ordinary groups.
 
+## Atomic groups
+JavaScript has no atomic groups or possessive quantifiers, so atomic `RGXGroupToken`s (see [group.md](./class/token/group.md)) and possessive `RGXRepeatToken`s emulate them with a lookahead that captures what it matched, followed by a backreference to the capture: `(?=(?<name>x))\k<name>`. Once the lookahead succeeds, it is never retried, so the backreference consumes exactly what `x` first matched.
+
+Every atomic group resolves to the same text, using the placeholder name `rgx_atomic_000000`, so resolving a token never depends on what else is in the pattern. Each capture group comes paired with its backreference, and pairs nest like parentheses, so the library finds them by scanning the source, skipping escapes and character classes. Before a source is parsed or checked while a pattern is being built, the pairs are renamed `rgx_atomic_000000`, `rgx_atomic_000001`, and so on, in the order they start. The suffix always has six characters, so renaming never changes the length of a source.
+
+Atomic groups are left out of group numbers while a pattern is built, so numeric backreferences count only the other groups: in `rgxa([rgxAtomic("a"), rgxGroup({}, ["b"]), rgxSubpattern(1)])`, `\1` refers to the group around `"b"`. When a pattern is compiled, whether by `rgx`, `rgxa`, the `ExtRegExp` constructor, `createRegex`, a walker step or a lexer definition, its atomic groups are finished, before pattern transformers see it:
+
+- each atomic group is given a final name, `rgx_atomic_final_0`, `rgx_atomic_final_1`, and so on (after any final names already in the source).
+- each numeric backreference is changed to the number its group has once the atomic groups are counted. A number past the last group that isn't atomic is left alone, and throws an `RGXInvalidBackreferenceError` with the reason `"missing-group"` when the pattern is checked (see [Backreference validation](#backreference-validation)).
+
+An `ExtRegExp` takes its atomic groups back out of each match its `exec` returns, so the match array, `groups` and the indices from the `d` flag are those of the pattern as it was built. `test`, `match`, `matchAll`, `replace` (including `$1` in a replacement) and `split` go through `exec`, so they leave them out too. A walker matches each step as an `ExtRegExp`, so its captures leave them out. A plain `RegExp` from `createRegex` keeps them. An `ExtRegExp` placed in another pattern is placed through its `markedSource`, from before its atomic groups were finished, so it can be finished again along with the rest. Final names are not placeholders, so the atomic groups of a compiled source placed in another pattern (such as the `source` of a plain `RegExp`) are ordinary groups there.
+
+In a pattern with atomic groups, group names starting with `rgx_atomic_` are reserved, apart from final names, so a group written with one, or a backreference to one that isn't part of an atomic group, throws an `RGXReservedGroupNameError`. In a pattern without atomic groups, such groups are ordinary groups.
+
+Atomic groups can't be placed inside a lookbehind, which is matched from right to left, so the backreference would be matched before its group. Placing one there throws an `RGXInsertionRejectedError`.
+
 ## Parameters
   - `tokens` (`RGXToken[]`): The RGX tokens to be resolved and concatenated to form the regex pattern.
   - `flags` (`string`, optional): The regex flags to apply to the resulting `ExtRegExp` object (e.g., 'g', 'i', 'm', or custom registered flags). If not provided, no flags will be applied. If provided and not valid regex flags (vanilla or registered custom), an `RGXInvalidRegexFlagsError` will be thrown.

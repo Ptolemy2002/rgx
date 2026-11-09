@@ -122,6 +122,7 @@ type RGXGroupTokenArgs = {
     capturing?: boolean;
     flags?: string | null; // the localizable flags in effect inside the group, or null to inherit them
     aliases?: string[];
+    atomic?: boolean; // whether the contents are matched atomically
 };
 
 type RGXParseOptions = {
@@ -131,6 +132,8 @@ type RGXParseOptions = {
 
 type RGXPartControl = "skip" | "stop" | "silent" | "stop-silent" | void;
 type RGXPartLossControl = "silent" | "stop" | "stop-silent" | void;
+// A part, or the alias of a registered one (see Part Aliases in walker.md).
+type RGXPartReference<R = any, S = any, T = any> = RGXPart<R, S, T> | string;
 type RGXPartLossReason = "no-match" | "not-reached";
 type RGXPartLoss<R, S = unknown> = {
     reason: RGXPartLossReason;
@@ -217,7 +220,7 @@ type RGXJSONClassTokenConstructor = {
 type RGXJSONBuiltinClassName =
     "RGXClassWrapperToken" | "RGXClassUnionToken" | "RGXGroupToken" | "RGXRepeatToken" |
     "RGXLookaheadToken" | "RGXLookbehindToken" | "RGXExclusionToken" | "RGXSubpatternToken" |
-    "RGXConstantToken" | "RGXExactToken";
+    "RGXConstantToken" | "RGXExactToken" | "RGXListToken";
 type RGXJSONClassName = RGXJSONBuiltinClassName | (string & {});
 type RGXTokenToJSONOptions = {
     resolveConvertible?: boolean;
@@ -265,7 +268,7 @@ type RGXInvalidBackreferenceReason =
     | "inside-group"         // the reference is inside its own group
     | "other-branch"         // the reference and its group are in different alternatives
     | "negative-lookaround"  // the group is inside a negative lookaround the reference isn't in
-    | "numeric-in-branches"; // a numeric reference in a walker step that is a union
+    | "numeric-in-branches";  // a numeric reference in a walker step that is a union
 
 type RGXLexemeLocation = {
     index: number;

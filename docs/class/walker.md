@@ -79,6 +79,8 @@ type RGXWalkerSnapshot<R, S> = Partial<{
 
 type RGXPartControl = "skip" | "stop" | "silent" | "stop-silent" | void;
 type RGXPartLossControl = "silent" | "stop" | "stop-silent" | void;
+// A part, or the alias of a registered one (see Part Aliases in walker.md).
+type RGXPartReference<R = any, S = any, T = any> = RGXPart<R, S, T> | string;
 type RGXPartLossReason = "no-match" | "not-reached";
 type RGXPartLoss<R, S = unknown> = {
     reason: RGXPartLossReason;
@@ -216,6 +218,7 @@ const walker = rgxwa(source, [
 ## Static Properties
 - `check(value: unknown): value is RGXPart`: A type guard that checks if the given value is an instance of `RGXPart`.
 - `assert(value: unknown): asserts value is RGXPart`: An assertion that checks if the given value is an instance of `RGXPart`. If the assertion fails, an `RGXInvalidPartError` will be thrown.
+- `fromAlias<R, S, T>(alias: string) => RGXPart<R, S, T>`: Creates a part that refers to the part registered under `alias` (see [Part Aliases](#part-aliases)), looking it up each time any of its properties or methods is used, so it behaves exactly like that part and can be a walker step. The alias doesn't have to be registered yet, but using the part throws `RGXInvalidPartAliasError` while it isn't. A function `rgxPartAlias(alias)` does the same.
 
 ## Constructor
 ```typescript
@@ -234,8 +237,9 @@ constructor(token: RGXPartToken<R, S, T>, options?: Partial<RGXPartOptions<R, S,
   - `validate` (`((capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => boolean | string) | null`, optional): A callback invoked during validation after capturing and transforming, but before `afterCapture`. Receives the capture result and an `RGXPartContext` object containing `part` and `walker`. Returns `true` if validation passes, `false` to fail with a generic error, or a string to fail with that string as the error message. Defaults to `null`.
 
 ## Properties
-- `id` (`string | null`): An optional identifier for this part.
-- `token` (`RGXPartToken<R, S, T>`): The wrapped token, or the function that produces it.
+- `alias` (`string | null`, readonly): The alias this part refers to, for a part created with `fromAlias`, or `null` for any other part. Every other property of an alias part is read from the registered part.
+- `id` (`string | null`): An optional identifier for this part. Setting it on an alias part throws `RGXNotSupportedError`.
+- `token` (`RGXPartToken<R, S, T>`): The wrapped token, or the function that produces it. Setting it on an alias part throws `RGXNotSupportedError`.
 - `rawTransform` (`(captured: string) => string`, readonly): The raw transform function applied to the matched string before it is stored as `raw` and before `transform` is called.
 - `transform` (`(captured: string) => T`, readonly): The transform function used to convert captured strings to values of type `T`.
 - `beforeCapture` (`((context: RGXPartContext<R, S, T>) => RGXPartControl) | null`, readonly): The before-capture callback, or `null`.
@@ -245,11 +249,32 @@ constructor(token: RGXPartToken<R, S, T>, options?: Partial<RGXPartOptions<R, S,
 - `afterLoss` (`((loss: RGXPartLoss<R, S>, context: RGXPartContext<R, S, T>) => RGXPartLossControl) | null`, readonly): The after-loss callback, or `null`.
 
 ## Methods
-- `clone(depth: CloneDepth = "max") => RGXPart`: Creates a clone of this part. When `depth` is `0`, returns `this`; otherwise, returns a new `RGXPart` with a cloned token (or the same function, for a dynamic part) and the same `rawTransform`, `transform`, `beforeCapture`, `afterCapture`, `afterFailure`, `afterValidationFailure`, and `afterLoss` references.
+- `clone(depth: CloneDepth = "max") => RGXPart`: Creates a clone of this part. When `depth` is `0`, returns `this`; for an alias part, returns a new part referring to the same alias; otherwise, returns a new `RGXPart` with a cloned token (or the same function, for a dynamic part) and the same `rawTransform`, `transform`, `beforeCapture`, `afterCapture`, `afterFailure`, `afterValidationFailure`, and `afterLoss` references.
+- `target() => RGXPart<R, S, T>`: The part this one behaves as: for an alias part, the part registered under its alias now (following aliases that refer to other aliases), and the part itself otherwise.
 - `hasId() => this is RGXPart<R, S, T> & { id: string }`: A type guard that checks if this part has a non-null `id`. If `true`, narrows the type to indicate that `id` is a string.
 - `isDynamic() => this is RGXPart<R, S, T> & { token: (context: RGXPartContext<R, S, T>) => RGXToken }`: A type guard that checks if this part's token is a function (see [Dynamic Parts](#dynamic-parts)).
 - `resolveToken(walker: RGXWalker<R, S>) => RGXToken`: Returns the token to match this part with. For a static part, this is `token`. For a dynamic part, this calls `token` with `{ part: this, walker }` and returns the result, throwing an `RGXInvalidTokenError` if it isn't a valid token. The walker calls this each time it captures the part.
 - `validate(capture: RGXCapture<T>, context: RGXPartContext<R, S, T>) => void`: A method that calls the inner passed validation logic for this part, if any. If it returns `false`, a generic `RGXPartValidationFailedError` is thrown. If it returns a string, an `RGXPartValidationFailedError` is thrown with that string as the message. If it returns `true`, validation passed. This is called internally by the walker after capturing and transforming a part, before invoking `afterCapture`.
+
+# Part Aliases
+Parts hold functions, so they can't be serialized to JSON. A part can be registered under an alias, so a token that is configured with parts can store the alias instead and look the part up again whenever it uses it. An `RGXPartReference` is either a part or an alias. Since an alias is looked up each time, registering a different part under it changes what every reference to it uses, and the library can't tell whether the part behaves the same as when a token using it was serialized.
+
+A walker step can't be a plain alias string, since a string step is text to match, so steps use an alias part instead, created with `rgxPartAlias(name)` (see `RGXPart.fromAlias`).
+
+```typescript
+registerRGXPartAlias("number", rgxPart(/\d+/, { id: "number", transform: Number }));
+resolveRGXPartReference("number"); // the part registered above
+rgxwa("12", [rgxPartAlias("number")]).walk(); // captures 12 as a number
+```
+
+- `registerRGXPartAlias(name: string, part: RGXPart) => RGXPart`: Registers `part` under `name` and returns it. `part` can itself be an alias part (see `RGXPart.fromAlias`). Throws `RGXPartAliasConflictError` if a part is already registered under `name` or `part` is an alias part that leads back to `name`, `RGXInvalidPartAliasError` if `name` is empty, and `RGXInvalidPartError` if `part` isn't an `RGXPart`.
+- `unregisterRGXPartAlias(name: string) => RGXPart`: Removes the alias and returns the part that was registered under it, so it can be registered again later. Throws `RGXInvalidPartAliasError` if nothing is registered under `name`.
+- `getRGXPartAlias<R, S, T>(name: string) => RGXPart<R, S, T>`: Returns the part registered under `name`. Throws `RGXInvalidPartAliasError` if nothing is.
+- `hasRGXPartAlias(name: string) => boolean`: Whether a part is registered under `name`.
+- `assertHasRGXPartAlias(name: string) => void`: Throws `RGXInvalidPartAliasError` if nothing is registered under `name`.
+- `listRGXPartAliases() => string[]`: The registered aliases, in the order they were registered.
+- `isRGXPartReference(value: unknown) => value is RGXPartReference`: Whether `value` is a part or a string. An alias doesn't have to be registered to count as a reference, since it is only looked up when it is used.
+- `resolveRGXPartReference<R, S, T>(reference: RGXPartReference<R, S, T>) => RGXPart<R, S, T>`: The part a reference refers to: the part itself, or the one registered under the alias now. Throws `RGXInvalidPartAliasError` for an alias that isn't registered.
 
 # RGXWalker\<R, S=unknown\>
 A class that walks through a sequence of RGX tokens (and/or `RGXPart` instances), matching each against a source string at the current position. The walker maintains a source position and a token position, advancing through both as tokens are matched. When an `RGXPart` is encountered, its `beforeCapture` callback can control behavior via return values (`RGXPartControl`), and its `afterCapture` callback is invoked with the typed capture result. All captures are stored as structured `RGXCapture` objects on the walker, and captures with ids are stored in the `namedCaptures` property also. The generic type `R` represents a user-defined "reduced" value that accumulates the ultimate result of the walk (e.g., built up via `RGXPart` callbacks and returned by `walk()`). The generic type `S` represents a user-defined "shared" value that works almost exactly like `reduced` — it is mutable state that parts can read and write via `context.walker.share` — but it is not considered the ultimate result of the walker. This means parts can freely contribute to `share` without those contributions needing to conform to type `R`, making `share` suitable for intermediate bookkeeping state while `reduced` carries the final result.
@@ -304,7 +329,7 @@ Each step (a plain token, or a part's inner token) is matched on its own as a fi
 - `tokenPosition` (`number`): The current index in the token collection. Setting this validates that the value is >= 0 and <= `tokens.length`, throwing `RGXOutOfBoundsError` if not. Non-integer values are floored before being stored.
 - `reduced` (`R`): The ultimate result value of the walk. Typically built up by `RGXPart` callbacks during walking and returned directly by `walk()`. All contributions to `reduced` must conform to type `R`.
 - `share` (`S`): A shared mutable value that works almost exactly like `reduced` — parts can read and write it freely via `context.walker.share` — but it is not considered the ultimate result of the walker. This means parts can contribute to `share` without those contributions needing to adhere to type `R`, making `share` well-suited for intermediate bookkeeping, cross-part coordination, or any accumulated state that is not itself the final answer.
-- `captures` (`RGXCapture[]`): An array of structured capture results recorded during walking. Each entry has a `raw` string (the `rawTransform` result for Parts, or the matched string for plain tokens), a `value` (the `transform` result for Parts, or the matched string for plain tokens), `start` and `end` indices in the source string, an `ownerId` that is the `id` of the Part that produced it (or `null` for captures from plain tokens or parts without ids), a `branch` index indicating which alternative of a union step (or of a part's union token) was matched, counted in the flattened union (or `0` if the step isn't a union), and the `groups` the match captured, without the walker's branch groups (or `null` if there are none).
+- `captures` (`RGXCapture[]`): An array of structured capture results recorded during walking. Each entry has a `raw` string (the `rawTransform` result for Parts, or the matched string for plain tokens), a `value` (the `transform` result for Parts, or the matched string for plain tokens), `start` and `end` indices in the source string, an `ownerId` that is the `id` of the Part that produced it (or `null` for captures from plain tokens or parts without ids), a `branch` index indicating which alternative of a union step (or of a part's union token) was matched, counted in the flattened union (or `0` if the step isn't a union), and the `groups` the match captured, without the walker's branch groups or atomic groups (or `null` if there are none).
 - `namedCaptures` (`Record<string, RGXCapture[]>`): An object mapping capture IDs to their corresponding `RGXCapture` results. Only Parts with non-null IDs are included. The captures occur in the same order as they appear in the `captures` array.
 - `branchErrors` (`RGXWalkerBranchError[]`): The validation errors of the union branches that failed in the latest `step()` (see [Unions of Parts](#unions-of-parts)), in the order they happened, including the error that was thrown if no branch was left. Each entry has the `error` (an `RGXPartValidationFailedError`), the `capture` that failed validation (with its `branch` and `ownerId`), and the `tokenPosition` of the step. Each step starts a new array, so an array read after one step keeps that step's errors. After a walk throws, it holds the errors of the step that threw. Steps that aren't unions of parts leave it empty.
 - `infinite` (`boolean`): Whether the walker is in infinite mode — stays at the last token when the token collection is exhausted until the source is consumed.

@@ -2,11 +2,12 @@ import { RGXFlagTransformerConflictError, RGXInvalidFlagTransformerKeyError, RGX
 import { createConstructFunction } from "./internal";
 import { compileRGXExactMarkers, findRGXExactMarkers, replaceRGXExactMarkers } from "./internal/exactMarkers";
 import { scanOptionsFromFlags } from "./internal/scanRegexSource";
+import { renumberRGXAtomicGroups } from "./internal/atomicGroups";
+import { finishRGXAtomicGroups, hideRGXAtomicCaptures } from "./internal/finishAtomicGroups";
 import { applyRGXPatternTransformersToSource } from "./pattern-transformer/register";
 import { registeredRGXPatternTransformers, resolveRGXPatternTransformerSelection, RGXPatternTransformerSelection } from "./pattern-transformer/default";
 import { isValidVanillaRegexFlags } from "./typeGuards";
 import { ValidRegexFlags } from "./types";
-import { createRegex } from "./utils";
 
 export type RegExpFlagTransformer = (exp: RegExp) => [string, string];
 const flagTransformers: Record<string, RegExpFlagTransformer> = {};
@@ -23,6 +24,8 @@ export class ExtRegExp extends RegExp {
     // The source after custom flag transformations, with exact text still marked, so the pattern can be placed in
     // another one without its exact text losing its protection.
     readonly markedSource: string;
+    private atomicGroups: readonly number[];
+    private atomicGroupNames: readonly string[];
 
     constructor(pattern: string | RegExp, flags='', patternTransformers: RGXPatternTransformerSelection = null, exactMarkers: boolean | null = null) {
         assertValidRegexFlags(flags);
@@ -44,7 +47,9 @@ export class ExtRegExp extends RegExp {
         const contents = new Map(markers.map(marker => [marker.name, source.slice(marker.contentStart, marker.contentEnd)]));
         const hiddenSource = replaceRGXExactMarkers(source, markers, marker => `(?<${marker.name}>)`);
 
-        const { source: transformed, flags: transformedFlags } = applyFlagTransformers(createRegex(hiddenSource, vanillaFlags), customFlags);
+        // Flag transformers are given the pattern as it was built, before its atomic groups are finished, which would
+        // change its numeric backreferences. Its atomic groups are only renamed so it compiles.
+        const { source: transformed, flags: transformedFlags } = applyFlagTransformers(compileUnfinished(hiddenSource, vanillaFlags), customFlags);
         const transformedScanOptions = scanOptionsFromFlags(transformedFlags);
         const markedSource = contents.size === 0 ? transformed : replaceRGXExactMarkers(
             transformed, findRGXExactMarkers(transformed, new Set(contents.keys()), transformedScanOptions),
@@ -58,13 +63,26 @@ export class ExtRegExp extends RegExp {
             patternTransformers = registeredRGXPatternTransformers(pattern.patternTransformers);
         }
         const transformerIds = resolveRGXPatternTransformerSelection(patternTransformers);
-        super(applyRGXPatternTransformersToSource(transformedSource, transformedFlags, transformerIds), transformedFlags);
+        // Atomic groups are given their final names, and numeric backreferences their final numbers, since the pattern
+        // is finished. The groups are taken back out of each match (see exec).
+        const finished = finishRGXAtomicGroups(transformedSource, transformedScanOptions);
+        super(applyRGXPatternTransformersToSource(finished.source, transformedFlags, transformerIds), transformedFlags);
 
         this.originalSource = source;
         this.patternTransformers = transformerIds;
         this.extFlags = customFlags;
         this.exactMarkers = exactMarkers;
         this.markedSource = markedSource;
+        this.atomicGroups = finished.atomicGroups;
+        this.atomicGroupNames = finished.atomicGroupNames;
+    }
+
+    // Atomic groups add capture groups to the compiled pattern, which are taken out of each match, so its numbers,
+    // groups and indices are the ones of the pattern as it was built. Other methods (match, replace, split, test and
+    // so on) go through this one.
+    exec(string: string): RegExpExecArray | null {
+        const match = super.exec(string);
+        return match === null ? null : hideRGXAtomicCaptures(match, this.atomicGroups, this.atomicGroupNames);
     }
 
     get flags(): string {
@@ -75,6 +93,19 @@ export class ExtRegExp extends RegExp {
     // of ExtRegExp rather than plain RegExp (preserves custom flags)
     static get [Symbol.species](): RegExpConstructor {
         return ExtRegExp as unknown as RegExpConstructor;
+    }
+}
+
+function compileUnfinished(source: string, flags: string): RegExp {
+    try {
+        return new RegExp(renumberRGXAtomicGroups(source, scanOptionsFromFlags(flags)), flags);
+    } catch (e: unknown) {
+        if (e instanceof SyntaxError) throw new RGXInvalidRegexStringError("Invalid regex string", source, e);
+
+        // This is ignored because I don't know what kind of
+        // unexpected errors might happen.
+        /* istanbul ignore next */
+        throw e;
     }
 }
 
@@ -106,7 +137,7 @@ export function applyFlagTransformers(regex: RegExp, flags: string, alreadyAppli
     // that passes `exp.flags` through doesn't produce invalid vanilla flags.
     if (Object.getPrototypeOf(regex) !== RegExp.prototype) {
         alreadyAppliedFlags += extractCustomRegexFlags(regex.flags);
-        regex = createRegex(regex.source, extractVanillaRegexFlags(regex.flags));
+        regex = new RegExp(regex.source, extractVanillaRegexFlags(regex.flags));
     }
 
     for (const flag in flagTransformers) {

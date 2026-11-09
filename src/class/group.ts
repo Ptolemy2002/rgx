@@ -1,13 +1,14 @@
 import { RGXClassToken } from "./base";
-import { createConstructFunction, createRegexPiece, localizableVanillaRegexFlagDiff, withRGXInsertionFlags } from "src/internal";
+import { atomicRegexSource, createConstructFunction, createRegexPiece, isNonConsumingRegexSource, localizableVanillaRegexFlagDiff, withRGXInsertionFlags, withoutRGXInsertionChecks } from "src/internal";
 import { rgxConcat } from "src/concat";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { assertValidIdentifier, assertValidRegexLocalizableFlags } from "src/typeGuards";
 import { CloneDepth, depthDecrement, extClone } from "@ptolemy2002/immutability-utils";
-import { RGXJSONClassToken, RGXJSONObject, RGXJSONToken, RGXJSONValue, RGXToken, ValidRegexFlags } from "src/types";
-import { RGXInvalidIdentifierError } from "src/errors";
+import { RGXInsertionContext, RGXJSONClassToken, RGXJSONObject, RGXJSONToken, RGXJSONValue, RGXToken, ValidRegexFlags } from "src/types";
+import { RGXError, RGXInvalidIdentifierError } from "src/errors";
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
 import { isRGXJSONToken } from "src/typeGuards";
+import { rejectRGXAtomicInLookbehind } from "./atomic";
 
 export type RGXGroupTokenArgs = {
     name?: string | null;
@@ -15,6 +16,8 @@ export type RGXGroupTokenArgs = {
     // The localizable flags in effect inside the group, or null to inherit the flags around it.
     flags?: string | null;
     aliases?: string[];
+    // Whether the contents are matched atomically: the first way they can match, without being backtracked into.
+    atomic?: boolean;
 };
 
 function parseGroupJSONArgs(args: RGXJSONValue[]): [RGXGroupTokenArgs?, RGXJSONToken?] | string {
@@ -27,6 +30,7 @@ function parseGroupJSONArgs(args: RGXJSONValue[]): [RGXGroupTokenArgs?, RGXJSONT
         if (groupArgs.capturing !== undefined && typeof groupArgs.capturing !== "boolean") return "Argument 0 (args) must have a boolean capturing property, if present.";
         if (groupArgs.flags !== undefined && groupArgs.flags !== null && typeof groupArgs.flags !== "string") return "Argument 0 (args) must have a string or null flags property, if present.";
         if (groupArgs.aliases !== undefined && (!Array.isArray(groupArgs.aliases) || groupArgs.aliases.some(alias => typeof alias !== "string"))) return "Argument 0 (args) must have an array of strings as its aliases property, if present.";
+        if (groupArgs.atomic !== undefined && typeof groupArgs.atomic !== "boolean") return "Argument 0 (args) must have a boolean atomic property, if present.";
     }
 
     if (tokens !== undefined && !isRGXJSONToken(tokens, false)) return "Argument 1 (tokens) must be a JSON token.";
@@ -39,6 +43,8 @@ export class RGXGroupToken extends RGXClassToken {
     _aliases: string[] = [];
     _flags: string | null = null;
     _capturing: boolean = true;
+    // Set with the atomic option. Named differently, since atomic() is a method of every class token.
+    isAtomic: boolean;
 
     static check = createRGXClassGuardFunction(RGXGroupToken);
     static assert = createAssertRGXClassGuardFunction(RGXGroupToken);
@@ -109,15 +115,36 @@ export class RGXGroupToken extends RGXClassToken {
         this._flags = value;
     }
 
-    constructor ({ name = null, capturing = true, flags = null, aliases = [] }: RGXGroupTokenArgs = {}, tokens: RGXToken = []) {
+    constructor ({ name = null, capturing = true, flags = null, aliases = [], atomic = false }: RGXGroupTokenArgs = {}, tokens: RGXToken = []) {
         super();
         this.name = name;
         this.aliases = aliases;
         this.capturing = capturing;
         this.flags = flags;
+        this.isAtomic = atomic;
 
         // An array lists the tokens to concatenate. Anything else, including a union, is a single token.
         this.tokens = Array.isArray(tokens) ? [...tokens] : [tokens];
+    }
+
+    // An atomic group is emulated with a backreference, which consumes characters whenever the contents do, so the
+    // contents decide.
+    get rgxIsRepeatable(): boolean | undefined {
+        if (!this.isAtomic) return undefined;
+        try {
+            return !isNonConsumingRegexSource(withoutRGXInsertionChecks(() => rgxConcat(this.tokens)));
+        } catch (err) {
+            if (err instanceof RGXError) return true;
+
+            // This is ignored because I don't know what kind of
+            // unexpected errors might happen.
+            /* istanbul ignore next */
+            throw err;
+        }
+    }
+
+    rgxAcceptInsertion(context: RGXInsertionContext): string | boolean {
+        return this.isAtomic ? rejectRGXAtomicInLookbehind(context) : true;
     }
 
     toRgx(currentFlags: string = '') {
@@ -129,6 +156,10 @@ export class RGXGroupToken extends RGXClassToken {
             () => rgxConcat(this.tokens, true, innerFlags(currentFlags))
         );
 
+        // An atomic group of nothing has nothing to backtrack into.
+        const atomic = this.isAtomic && result !== '';
+        if (atomic) result = atomicRegexSource(result);
+
         // Only the flags that change where the group is placed need a modifier.
         const flagDiff = this.flags === null ? '' : localizableVanillaRegexFlagDiff(currentFlags, this.flags);
 
@@ -136,7 +167,8 @@ export class RGXGroupToken extends RGXClassToken {
             // Each alias is another named group, nested inside the name in order.
             for (const name of this.allNames().reverse()) result = `(?<${name}>${result})`;
         } else if (!this.capturing) {
-            result = `(?${flagDiff}:${result})`;
+            // The atomic emulation is a sequence that the resolver groups wherever it needs to.
+            if (!(atomic && flagDiff === '')) result = `(?${flagDiff}:${result})`;
             return createRegexPiece(result, currentFlags);
         } else {
             result = `(${result})`;
@@ -149,7 +181,7 @@ export class RGXGroupToken extends RGXClassToken {
 
     clone(depth: CloneDepth="max") {
         if (depth === 0) return this;
-        return new RGXGroupToken({ name: this.name, capturing: this._capturing, flags: this.flags, aliases: this.aliases }, extClone(this.tokens, depthDecrement(depth, 1)));
+        return new RGXGroupToken({ name: this.name, capturing: this._capturing, flags: this.flags, aliases: this.aliases, atomic: this.isAtomic }, extClone(this.tokens, depthDecrement(depth, 1)));
     }
 
     static fromJSON(json: RGXJSONClassToken): RGXGroupToken {
@@ -161,6 +193,7 @@ export class RGXGroupToken extends RGXClassToken {
         const args: RGXJSONObject = { name: this.name, capturing: this._capturing, flags: this.flags };
         // Only included when there are any, so JSON for groups without aliases is unchanged.
         if (this._aliases.length > 0) args.aliases = this.aliases;
+        if (this.isAtomic) args.atomic = true;
 
         return createRGXJSONClassToken("RGXGroupToken", [
             args,
@@ -170,3 +203,8 @@ export class RGXGroupToken extends RGXClassToken {
 }
 
 export const rgxGroup = createConstructFunction(RGXGroupToken);
+
+// A non-capturing group that matches its tokens atomically.
+export function rgxAtomic(tokens: RGXToken = []): RGXGroupToken {
+    return new RGXGroupToken({ capturing: false, atomic: true }, tokens);
+}

@@ -3,6 +3,8 @@ import { RGXDuplicateGroupNameError, RGXInvalidBackreferenceError, RGXInvalidBac
 import { parseRegexSource } from "./analyzeRegexSource";
 import { RGXRecordedReference } from "./insertionContext";
 import { ScanRegexSourceOptions } from "./scanRegexSource";
+import { findRGXAtomicPairs, isRGXAtomicGroupName, renumberRGXAtomicGroups, rgxAtomicGroupPrefix } from "./atomicGroups";
+import { isFinishedRGXAtomicGroupName, rgxAtomicGroupNumbering } from "./finishAtomicGroups";
 
 export type AssertValidRegexReferencesOptions = ScanRegexSourceOptions & {
     // Group names starting with this are rejected, for names the library adds to the pattern itself.
@@ -16,6 +18,7 @@ const parser = new RegExpParser({ ecmaVersion: 2025 });
 // The engine reports duplicate names at the end of the second group's name, without saying which name it is.
 function duplicateGroupName(source: string, options: ScanRegexSourceOptions): string | null {
     const unicode = options.unicode || options.unicodeSets;
+    source = renumberRGXAtomicGroups(source, options);
     try {
         parser.parsePattern(source, 0, source.length, { unicode: unicode && !options.unicodeSets, unicodeSets: options.unicodeSets });
     } catch (err) {
@@ -91,12 +94,24 @@ export function assertValidRegexReferences(
         return;
     }
 
-    const groups: AST.CapturingGroup[] = [];
+    // Atomic groups are left out of group numbers (see finishRGXAtomicGroups), so numeric references count the others.
+    const { groups, userGroups, isAtomic } = rgxAtomicGroupNumbering(source, ast, options);
     const backreferences: AST.Backreference[] = [];
-    visitRegExpAST(ast, {
-        onCapturingGroupEnter: group => { groups.push(group); },
-        onBackreferenceEnter: backreference => { backreferences.push(backreference); },
-    });
+    visitRegExpAST(ast, { onBackreferenceEnter: backreference => { backreferences.push(backreference); } });
+
+    // Atomic groups have names the library gives them, so in a pattern that has any, the names are reserved, apart from
+    // the final names of atomic groups in a compiled pattern placed in it.
+    const atomicPairs = findRGXAtomicPairs(source, options);
+    if (atomicPairs.length > 0) {
+        const atomicReferenceStarts = new Set(atomicPairs.map(pair => pair.referenceName - 3));
+        const isForeign = (name: string | null | undefined): name is string => isRGXAtomicGroupName(name) && !isFinishedRGXAtomicGroupName(name!);
+        const foreignGroup = groups.find(group => isForeign(group.name) && !isAtomic(group));
+        const foreignReference = backreferences.find(reference => typeof reference.ref === "string" && isForeign(reference.ref) && !atomicReferenceStarts.has(reference.start));
+        const foreignName = foreignGroup?.name ?? (foreignReference?.ref as string | undefined);
+        if (foreignName !== undefined) {
+            throw new RGXReservedGroupNameError(`Group names starting with "${rgxAtomicGroupPrefix}" are reserved in patterns with atomic groups`, foreignName, source);
+        }
+    }
 
     if (reservedGroupPrefix !== null) {
         const reserved = groups.find(group => group.name?.startsWith(reservedGroupPrefix));
@@ -106,15 +121,23 @@ export function assertValidRegexReferences(
     for (const reference of references) {
         if (rejectNumeric && typeof reference === "number") throw invalidReference(reference, "numeric-in-branches", source);
 
-        const exists = typeof reference === "string" ? groups.some(group => group.name === reference) : reference <= groups.length;
+        const exists = typeof reference === "string" ? groups.some(group => group.name === reference) : reference <= userGroups.length;
         if (!exists) throw invalidReference(reference, "missing-group", source);
     }
 
     for (const backreference of backreferences) {
         if (rejectNumeric && typeof backreference.ref === "number") throw invalidReference(backreference.ref, "numeric-in-branches", source);
 
-        // A name used in several alternatives refers to all of their groups, and only one of them needs to work.
-        const targets = Array.isArray(backreference.resolved) ? backreference.resolved : [backreference.resolved];
+        // A name used in several alternatives refers to all of their groups, and only one of them needs to work. A number
+        // counts only the groups that aren't atomic, so one that counts past them has no group.
+        let targets: AST.CapturingGroup[];
+        if (typeof backreference.ref === "number") {
+            const group = userGroups[backreference.ref - 1];
+            if (group === undefined) throw invalidReference(backreference.ref, "missing-group", source);
+            targets = [group];
+        } else {
+            targets = Array.isArray(backreference.resolved) ? backreference.resolved : [backreference.resolved];
+        }
         const reasons = targets.map(group => invalidReason(backreference, group));
         if (reasons.every(reason => reason !== null)) throw invalidReference(backreference.ref, reasons[0]!, source);
     }

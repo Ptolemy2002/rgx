@@ -1,23 +1,25 @@
-import { RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken } from "src/types";
+import { RGXInsertionContext, RGXJSONClassToken, RGXJSONToken, RGXJSONValue, RGXToken } from "src/types";
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
 import { RGXClassToken } from "./base";
 import { isRGXConvertibleToken, isRGXJSONObjectToken, isRGXJSONToken, isRGXToken } from "src/typeGuards";
 import { assertInRange, RGXNotSupportedError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
-import { createConstructFunction, createRegexPiece, isNonConsumingRGXToken, scanOptionsFromFlags, toSingletonRegexSource } from "src/internal";
+import { atomicRegexSource, createConstructFunction, createRegexPiece, isNonConsumingRGXToken, scanOptionsFromFlags, toSingletonRegexSource } from "src/internal";
+import { rejectRGXAtomicInLookbehind } from "./atomic";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
 
-function parseRepeatJSONArgs(args: RGXJSONValue[]): [RGXJSONToken, number?, (number | null)?, boolean?] | string {
-    if (args.length < 1 || args.length > 4) return "Expected between 1 and 4 arguments (token, min, max, lazy).";
+function parseRepeatJSONArgs(args: RGXJSONValue[]): [RGXJSONToken, number?, (number | null)?, boolean?, boolean?] | string {
+    if (args.length < 1 || args.length > 5) return "Expected between 1 and 5 arguments (token, min, max, lazy, possessive).";
 
-    const [token, min, max, lazy] = args;
+    const [token, min, max, lazy, possessive] = args;
     if (!isRGXJSONToken(token, false)) return "Argument 0 (token) must be a JSON token.";
     if (min !== undefined && typeof min !== "number") return "Argument 1 (min) must be a number, if present.";
     if (max !== undefined && max !== null && typeof max !== "number") return "Argument 2 (max) must be a number or null, if present.";
     if (lazy !== undefined && typeof lazy !== "boolean") return "Argument 3 (lazy) must be a boolean, if present.";
-    return [token, min, max, lazy];
+    if (possessive !== undefined && typeof possessive !== "boolean") return "Argument 4 (possessive) must be a boolean, if present.";
+    return [token, min, max, lazy, possessive];
 }
 
 // Tokens already warned about, so each token is only warned about once even though it may be repeated many times.
@@ -43,6 +45,9 @@ export class RGXRepeatToken extends RGXClassToken {
     _min: number;
     _max: number | null = null;
     lazy: boolean = false;
+    // Whether the repetition is atomic: once it has matched, it isn't backtracked into to give characters back (or, if
+    // it is also lazy, to take more).
+    possessive: boolean = false;
 
     static check = createRGXClassGuardFunction(RGXRepeatToken);
     static assert = createAssertRGXClassGuardFunction(RGXRepeatToken);
@@ -97,12 +102,18 @@ export class RGXRepeatToken extends RGXClassToken {
     }
 
     // By default, repeat a fixed number of times.
-    constructor(token: RGXToken, min: number = 1, max: number | null = min, lazy=false) {
+    constructor(token: RGXToken, min: number = 1, max: number | null = min, lazy=false, possessive=false) {
         super();
         this.token = token;
         this.min = min;
         this.max = max;
         this.lazy = lazy;
+        this.possessive = possessive;
+    }
+
+    rgxAcceptInsertion(context: RGXInsertionContext): string | boolean {
+        // Possessive repeats are emulated with an atomic group.
+        return this.possessive ? rejectRGXAtomicInLookbehind(context) : true;
     }
 
     get repeaterSuffix() {
@@ -132,22 +143,25 @@ export class RGXRepeatToken extends RGXClassToken {
         // The quantifier must apply to the whole token, so normalize it to a singleton before adding it. This adds a
         // group when the token isn't a singleton, and removes groups that only wrap one.
         const resolvedSource = toSingletonRegexSource(resolveRGXToken(this.token, { currentFlags }), scanOptionsFromFlags(currentFlags));
-        return createRegexPiece(`${resolvedSource}${this.repeaterSuffix}`, currentFlags);
+        const source = `${resolvedSource}${this.repeaterSuffix}`;
+        return createRegexPiece(this.possessive ? atomicRegexSource(source) : source, currentFlags);
     }
 
     clone(depth: CloneDepth="max") {
         if (depth === 0) return this;
-        return new RGXRepeatToken(cloneRGXToken(this.token, depthDecrement(depth, 1)), this.min, this.max, this.lazy);
+        return new RGXRepeatToken(cloneRGXToken(this.token, depthDecrement(depth, 1)), this.min, this.max, this.lazy, this.possessive);
     }
 
     static fromJSON(json: RGXJSONClassToken): RGXRepeatToken {
-        const [token, min, max, lazy] = rgxJSONClassArgs(json, "RGXRepeatToken", parseRepeatJSONArgs);
+        const [token, min, max, lazy, possessive] = rgxJSONClassArgs(json, "RGXRepeatToken", parseRepeatJSONArgs);
         const resolvedMin = min ?? 1;
-        return new RGXRepeatToken(rgxTokenFromJSON(token), resolvedMin, max === undefined ? resolvedMin : max, lazy ?? false);
+        return new RGXRepeatToken(rgxTokenFromJSON(token), resolvedMin, max === undefined ? resolvedMin : max, lazy ?? false, possessive ?? false);
     }
 
     toJSON(): RGXJSONClassToken {
-        return createRGXJSONClassToken("RGXRepeatToken", [rgxTokenToJSON(this.token), this.min, this.max, this.lazy]);
+        // possessive is left out when it is false, so JSON from before it existed stays the same.
+        const args = [rgxTokenToJSON(this.token), this.min, this.max, this.lazy];
+        return createRGXJSONClassToken("RGXRepeatToken", this.possessive ? [...args, true] : args);
     }
 }
 

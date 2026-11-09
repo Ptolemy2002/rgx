@@ -68,6 +68,10 @@ describe("rgxClassInit", () => {
         expect(testToken1.subtract).toThrow(RGXNotImplementedError);
     });
 
+    it("doesn't implement the atomic method before being called", () => {
+        expect(testToken1.atomic).toThrow(RGXNotImplementedError);
+    });
+
 
     it("implements the or method after being called", () => {
         rgxClassInit();

@@ -65,7 +65,7 @@ type RGXInvalidBackreferenceReason =
     | "inside-group"         // the reference is inside its own group
     | "other-branch"         // the reference and its group are in different alternatives
     | "negative-lookaround"  // the group is inside a negative lookaround the reference isn't in
-    | "numeric-in-branches"; // a numeric reference in a walker step that is a union
+    | "numeric-in-branches";  // a numeric reference in a walker step that is a union
 ```
 
 # RGXError
@@ -346,6 +346,47 @@ constructor(message: string, got: string)
 ### Properties
 - `got` (`string`): The conflicting constant name.
 
+## RGXPartAliasConflictError
+A specific error class thrown when registering a part under an alias that is already registered (see [Part Aliases](./walker.md#part-aliases)). The error code is set to `PART_ALIAS_CONFLICT` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The conflicting alias.
+
+### Properties
+- `got` (`string`): The conflicting alias.
+
+## RGXInvalidPartAliasError
+A specific error class thrown when looking up a part alias that isn't registered, or registering an empty one (see [Part Aliases](./walker.md#part-aliases)). The error code is set to `INVALID_PART_ALIAS` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: string)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The alias.
+
+### Properties
+- `got` (`string`): The alias.
+
+## RGXListParseFailedError
+A specific error class thrown by `RGXListToken.parse()` when the list doesn't cover all of the text or has fewer items than its minimum (see [list.md](./token/list.md)). The error code is set to `LIST_PARSE_FAILED` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: string, position: number)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The text being parsed.
+- `position` (`number`): The position in the text where parsing stopped.
+
+### Properties
+- `got` (`string`): The text being parsed.
+- `position` (`number`): The position in the text where parsing stopped.
+
 ## RGXInvalidJSONTokenError
 A subclass of `RGXInvalidTokenError` for values that fail validation as a JSON token (see [json.md](../json.md)) or as one of its subtypes, including JSON class tokens that target the wrong class and strings that are not valid JSON. The error code is set to `INVALID_RGX_JSON_TOKEN` on instantiation. Since it extends `RGXInvalidTokenError`, it shares its `expected` and `got` properties and message format.
 
@@ -447,7 +488,7 @@ constructor(message: string, groupName: string, got: string)
 - `got` (`string`): The source of the pattern.
 
 ## RGXReservedGroupNameError
-A specific error class thrown when a walker step has a group whose name starts with `rgx_branch_`, which walkers reserve for the groups they wrap union branches in. See [Step validation](./walker.md#step-validation). The error code is set to `RESERVED_GROUP_NAME` on instantiation.
+A specific error class thrown when a pattern uses a group name the library reserves: a walker step with a group whose name starts with `rgx_branch_`, which walkers reserve for the groups they wrap union branches in (see [Step validation](./walker.md#step-validation)), a pattern with exact text with a group whose name starts with `rgx_exact_` (see [Exact text](../general.md#exact-text)), or a pattern with atomic groups with a group or backreference whose name starts with `rgx_atomic_` (see [Atomic groups](../general.md#atomic-groups)). The error code is set to `RESERVED_GROUP_NAME` on instantiation.
 
 ### Constructor
 ```typescript
@@ -455,11 +496,11 @@ constructor(message: string, groupName: string, got: string)
 ```
 - `message` (`string`): The error message.
 - `groupName` (`string`): The reserved name.
-- `got` (`string`): The source of the step.
+- `got` (`string`): The source of the step or pattern.
 
 ### Properties
 - `groupName` (`string`): The reserved name.
-- `got` (`string`): The source of the step.
+- `got` (`string`): The source of the step or pattern.
 
 ## RGXInvalidWalkerStepError
 A specific error class thrown when a walker step can't be matched on its own, because its parentheses are unbalanced. See [Step validation](./walker.md#step-validation). The error code is set to `INVALID_WALKER_STEP` on instantiation.

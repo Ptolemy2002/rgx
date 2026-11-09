@@ -1,7 +1,7 @@
 import * as t from "./types";
 import * as e from "./errors";
 import isCallable from "is-callable";
-import { isConstructor, isNonConsumingRGXToken, isSingletonRegexSource, withoutRGXInsertionChecks } from "./internal";
+import { isConstructor, isNonConsumingRGXToken, isSingletonRegexSource, renumberRGXAtomicGroups, scanOptionsFromFlags, withoutRGXInsertionChecks } from "./internal";
 import { resolveRGXToken } from "./resolve";
 import { RGXClassToken } from "./class";
 import { ExtRegExp } from "./ExtRegExp";
@@ -376,7 +376,7 @@ export function isValidRegexString(value: string, flags: string = ''): value is 
     assertValidRegexFlags(flags);
 
     try {
-        new RegExp(value, extractVanillaRegexFlags(flags));
+        new RegExp(renumberRGXAtomicGroups(value, scanOptionsFromFlags(flags)), extractVanillaRegexFlags(flags));
         return true;
     } catch (e) {
         if (e instanceof SyntaxError) {
@@ -393,7 +393,7 @@ export function isValidRegexString(value: string, flags: string = ''): value is 
 export function assertValidRegexString(value: string, flags: string = ''): asserts value is t.ValidRegexString {
     if (!isValidRegexString(value, flags)) {
         try {
-            new RegExp(value, extractVanillaRegexFlags(flags));
+            new RegExp(renumberRGXAtomicGroups(value, scanOptionsFromFlags(flags)), extractVanillaRegexFlags(flags));
         } catch (err) {
             if (err instanceof SyntaxError) {
                 throw new e.RGXInvalidRegexStringError("Invalid regex string", value, err);

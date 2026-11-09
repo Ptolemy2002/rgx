@@ -1,5 +1,6 @@
 import { AST, RegExpParser, RegExpSyntaxError } from "@eslint-community/regexpp";
 import { ScanRegexSourceOptions } from "./scanRegexSource";
+import { renumberRGXAtomicGroups } from "./atomicGroups";
 
 const parser = new RegExpParser({ ecmaVersion: 2025 });
 
@@ -17,7 +18,10 @@ export function parseRegexSource(source: string, { unicode = false, unicodeSets 
 
     let result: AST.Pattern | null;
     try {
-        result = parser.parsePattern(source, 0, source.length, { unicode: unicode && !unicodeSets, unicodeSets });
+        // Atomic groups share a placeholder name until the pattern is compiled, which the parser would reject as a
+        // duplicate. Renaming them keeps the length of the source, so positions in the result are still valid.
+        const renamed = renumberRGXAtomicGroups(source, { unicodeSets });
+        result = parser.parsePattern(renamed, 0, renamed.length, { unicode: unicode && !unicodeSets, unicodeSets });
     } catch (err) {
         // This is ignored because I don't know what kind of
         // unexpected errors might happen.

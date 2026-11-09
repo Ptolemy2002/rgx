@@ -62,12 +62,16 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
         throw new RGXNotImplementedError('RGXClassToken.group(args)', 'call rgxClassInit() first.');
     }
 
-    repeat(min: number = 1, max: number | null = min, lazy: boolean = false): RGXRepeatToken {
-        throw new RGXNotImplementedError('RGXClassToken.repeat(min, max, lazy)', 'call rgxClassInit() first.');
+    repeat(min: number = 1, max: number | null = min, lazy: boolean = false, possessive: boolean = false): RGXRepeatToken {
+        throw new RGXNotImplementedError('RGXClassToken.repeat(min, max, lazy, possessive)', 'call rgxClassInit() first.');
     }
 
-    optional(lazy: boolean = false): RGXRepeatToken {
-        throw new RGXNotImplementedError('RGXClassToken.optional(lazy)', 'call rgxClassInit() first.');
+    optional(lazy: boolean = false, possessive: boolean = false): RGXRepeatToken {
+        throw new RGXNotImplementedError('RGXClassToken.optional(lazy, possessive)', 'call rgxClassInit() first.');
+    }
+
+    atomic(): RGXGroupToken {
+        throw new RGXNotImplementedError('RGXClassToken.atomic()', 'call rgxClassInit() first.');
     }
 
     asLookahead(positive: boolean = true): RGXLookaheadToken {
