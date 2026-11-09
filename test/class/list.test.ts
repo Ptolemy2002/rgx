@@ -270,6 +270,11 @@ describe("RGXListToken", () => {
             expect(list.pairJoinToken()).toBeInstanceOf(Object);
             expect(rgxList("a", ",", { preposition: " and ", pairSeparator: false }).pairJoinToken()).toBe(" and ");
             expect(rgxList("a", ",", { pairSeparator: false }).pairJoinToken()).toBeUndefined();
+            // Without a preposition, two items still need a separator.
+            const noPreposition = rgxList(/\w+/, ",", { pairSeparator: false });
+            expect(rgxa([rgxInterpolation("^"), noPreposition, rgxInterpolation("$")]).test("a,b")).toBe(true);
+            expect(rgxa([rgxInterpolation("^"), noPreposition, rgxInterpolation("$")]).test("a b")).toBe(false);
+            expect(noPreposition.parse("a,b").map(c => c.raw)).toEqual(["a", "b"]);
             expect(words().pairJoinToken()).toBeUndefined();
 
             for (const [text, valid] of [["a", true], ["a and b", true], ["a, and b", false], ["a, b", false], ["a, b, and c", true], ["a and b, c", false]] as const) {

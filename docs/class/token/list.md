@@ -86,7 +86,7 @@ names.parse("Ann, Bo, and Cy").map(item => item.raw); // ["Ann", "Bo", "Cy"]
 names.parse("Ann, Bo, Cy"); // throws: the last item must come after the preposition
 ```
 
-With `pairSeparator: false`, two items are joined by the preposition alone (`"Ann and Bo"`), and with `optionalPreposition: true`, the preposition is accepted before the last item without being required (`"Ann, Bo, Cy"` parses too).
+With a preposition and `pairSeparator: false`, two items are joined by the preposition alone (`"Ann and Bo"`). Without a preposition, `pairSeparator` does nothing, so two items still need a separator between them. With `optionalPreposition: true`, the preposition is accepted before the last item without being required (`"Ann, Bo, Cy"` parses too).
 
 Each item token appears more than once in the pattern (once for the first item, and once in the repeated part), so items can't contain named groups, which would repeat.
 
