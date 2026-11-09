@@ -7,13 +7,12 @@ import { RGXToken, ValidRegexFlags } from "src/types";
 import { RGXPart, RGXCapture, RGXPartLossControl } from "./part";
 import { resolveRGXToken } from "src/resolve";
 import { rgxConcat } from "src/concat";
-import { applyDefaultRGXPatternTransformersToSource } from "src/pattern-transformer/default";
 import { assertRegexMatchesAfterPosition, assertRegexMatchesAtPosition, createRegex, regexWithFlags } from "src/utils";
 import { RGXClassUnionToken, RGXGroupToken } from "src/class";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { RGXCurrentTokenNotFoundError } from "src/errors/currentTokenNotFound";
 import {
-    assertValidRegexReferences, collectRGXReferences, isRGXAtomicGroupName, finishRGXExactMarkers, hasRegexParenErrors, isMergedWalkerStep, placeRGXToken,
+    assertValidRegexReferences, collectRGXReferences, finishRGXExactMarkers, hasRegexParenErrors, isMergedWalkerStep, placeRGXToken,
     resolveFinishedRGXSource, withRGXExactScope, withRGXExactStrings, withRGXInsertionRoot
 } from "src/internal";
 
@@ -103,11 +102,11 @@ function branchesToken<R, S>(branches: readonly RGXWalkerBranch<R, S>[]): RGXTok
     return new RGXClassUnionToken(branches.map(branch => new RGXGroupToken({ name: `${branchGroupPrefix}${branch.index}` }, [branch.token])));
 }
 
-// The groups of a match, without the walker's branch groups or atomic groups, or null if there are none.
+// The groups of a match, without the walker's branch groups, or null if there are none. Steps are compiled as
+// ExtRegExps, which already leave atomic groups out.
 function userGroups(groups: Record<string, string> | undefined): Record<string, string> | null {
     if (!groups) return null;
-    // Atomic groups are an implementation detail too.
-    const entries = Object.entries(groups).filter(([name]) => !name.startsWith(branchGroupPrefix) && !isRGXAtomicGroupName(name));
+    const entries = Object.entries(groups).filter(([name]) => !name.startsWith(branchGroupPrefix));
     return entries.length > 0 ? Object.fromEntries(entries) : null;
 }
 
@@ -287,7 +286,7 @@ export class RGXWalker<R, S = unknown> {
         const plain = this.resolveStepToken(token);
         // Without branch groups, group numbers don't shift.
         const source = this.checkStep(token, plain, false);
-        const match = this.matchRegex(createRegex(applyDefaultRGXPatternTransformersToSource(source)));
+        const match = this.matchRegex(createRegex(source, "", true));
         return includeMatch ? match : match[0];
     }
 
@@ -538,7 +537,8 @@ export class RGXWalker<R, S = unknown> {
         while (true) {
             let match: RegExpExecArray;
             try {
-                match = this.matchRegex(createRegex(applyDefaultRGXPatternTransformersToSource(singleSource ?? resolveFinishedRGXSource(() => withRGXExactStrings(this.exact, () => resolveRGXToken(branchesToken(branches)))))));
+                // Compiled as an ExtRegExp, which takes atomic groups out of the match.
+                match = this.matchRegex(createRegex(singleSource ?? resolveFinishedRGXSource(() => withRGXExactStrings(this.exact, () => resolveRGXToken(branchesToken(branches)))), "", true));
             } catch (e) {
                 if (e instanceof RGXRegexNotMatchedAtPositionError || e instanceof RGXRegexNotMatchedAfterPositionError) {
                     const owners = [...new Set(branches.flatMap(branch => branch.owner === null ? [] : [branch.owner]))];

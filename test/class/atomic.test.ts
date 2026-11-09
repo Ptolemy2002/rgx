@@ -1,9 +1,9 @@
 import {
-    rgxa, rgxClassInit, RGXAtomicToken, rgxAtomic, rgxInterpolation, rgxTokenFromJSON, rgxTokenToJSON, rgxwa, rgxGroup, rgxSubpattern,
+    rgxa, rgxClassInit, RGXGroupToken, rgxAtomic, rgxInterpolation, rgxTokenFromJSON, rgxTokenToJSON, rgxwa, rgxGroup, rgxSubpattern,
     rgxLookahead, rgxLookbehind, rgxRepeat, RGXRepeatToken, RGXClassToken, RGXInsertionRejectedError, RGXInvalidBackreferenceError,
     RGXReservedGroupNameError, RGXInvalidTokenError, RGXJSONClassToken, RGXNotSupportedError, RGXJSONClassArgsValidationFailedError, rgxPart, resolveRGXToken
 } from "src/index";
-import { ConstructFunction, rgxAtomicGroupPrefix } from "src/internal";
+import { rgxAtomicGroupPrefix } from "src/internal";
 import { expectError } from "../utils";
 
 rgxClassInit();
@@ -21,51 +21,69 @@ class TestClassToken extends RGXClassToken {
     }
 }
 
-function constructionTest(constructor: ConstructFunction<typeof RGXAtomicToken>) {
-    it("constructs an instance of RGXAtomicToken with no tokens by default", () => {
-        const instance = constructor();
-        expect(instance).toBeInstanceOf(RGXAtomicToken);
-        expect(instance.tokens).toEqual([]);
+describe("atomic groups", () => {
+    describe("rgxAtomic", () => {
+        it("constructs a non-capturing atomic group with no tokens by default", () => {
+            const instance = rgxAtomic();
+            expect(instance).toBeInstanceOf(RGXGroupToken);
+            expect(instance.isAtomic).toBe(true);
+            expect(instance.capturing).toBe(false);
+            expect(instance.tokens).toEqual([]);
+        });
+
+        it("takes an array of tokens to concatenate, or a single token", () => {
+            const token = new TestClassToken();
+            expect(rgxAtomic([token, "a"]).tokens).toEqual([token, "a"]);
+            expect(rgxAtomic(token).tokens).toEqual([token]);
+        });
     });
 
-    it("takes an array of tokens to concatenate, or a single token", () => {
-        const token = new TestClassToken();
-        expect(constructor([token, "a"]).tokens).toEqual([token, "a"]);
-        expect(constructor(token).tokens).toEqual([token]);
-    });
-}
+    describe("the atomic option", () => {
+        it("defaults to false", () => {
+            expect(rgxGroup().isAtomic).toBe(false);
+            expect(rgxGroup({ atomic: true }).isAtomic).toBe(true);
+        });
 
-describe("RGXAtomicToken", () => {
-    describe("constructor", () => constructionTest((...args) => new RGXAtomicToken(...args)));
-    describe("construct function", () => constructionTest(rgxAtomic));
-
-    describe("type guards", () => {
-        it("checks and asserts instances", () => {
-            expect(RGXAtomicToken.check(rgxAtomic("a"))).toBe(true);
-            expect(RGXAtomicToken.check("a")).toBe(false);
-            expect(() => RGXAtomicToken.assert(rgxAtomic("a"))).not.toThrow();
-            expect(() => RGXAtomicToken.assert("a")).toThrow(RGXInvalidTokenError);
+        it("keeps the group's name, capture and flags", () => {
+            const named = rgxa([start, rgxGroup({ name: "x", atomic: true }, [/a+/]), "a", end]);
+            expect(named.test("aaa")).toBe(false);
+            expect(rgxa([rgxGroup({ name: "x", atomic: true }, [/a+/]), "b"]).exec("aab")!.groups).toEqual({ x: "aa" });
+            expect([...rgxa([rgxGroup({ atomic: true }, [/a+/]), "b"]).exec("aab")!]).toEqual(["aab", "aa"]);
+            expect(rgxa([start, rgxGroup({ capturing: false, flags: "i", atomic: true }, [rgxRepeat("a", 1, null)]), "a", end]).test("AAa")).toBe(false);
+            expect(rgxa([start, rgxGroup({ capturing: false, flags: "i", atomic: true }, [rgxRepeat("a", 1, null)]), "b", end]).test("AAb")).toBe(true);
         });
     });
 
     describe("atomic", () => {
-        it("wraps a class token in an atomic token", () => {
+        it("wraps a class token in a non-capturing atomic group", () => {
             const token = new TestClassToken();
             const atomic = token.atomic();
-            expect(atomic).toBeInstanceOf(RGXAtomicToken);
+            expect(atomic).toBeInstanceOf(RGXGroupToken);
+            expect(atomic.isAtomic).toBe(true);
+            expect(atomic.capturing).toBe(false);
             expect(atomic.tokens).toEqual([token]);
         });
 
-        it("returns an atomic token itself", () => {
+        it("returns an atomic group itself", () => {
             const token = rgxAtomic("a");
             expect(token.atomic()).toBe(token);
+        });
+
+        it("makes a copy of any other group atomic", () => {
+            const inner = new TestClassToken();
+            const group = rgxGroup({ name: "x" }, [inner]);
+            const atomic = group.atomic();
+            expect(atomic).not.toBe(group);
+            expect(group.isAtomic).toBe(false);
+            expect(atomic.isAtomic).toBe(true);
+            expect(atomic.name).toBe("x");
+            expect(atomic.tokens[0]).toBe(inner);
         });
     });
 
     describe("toRgx", () => {
-        it("resolves to nothing without tokens", () => {
-            expect(rgxAtomic().toRgx()).toBeNull();
-            expect(rgxAtomic([]).resolve()).toBe("");
+        it("is an empty group without tokens", () => {
+            expect(rgxAtomic().resolve()).toBe("(?:)");
         });
 
         it("resolves the same way every time", () => {
@@ -89,7 +107,7 @@ describe("RGXAtomicToken", () => {
             const atomic = rgxAtomic(/a+/);
             const regex = rgxa([start, atomic, "-", atomic, "-", rgxAtomic([atomic, "b"]), "-", rgxRepeat(rgxAtomic(/ab/), 2), end]);
             expect(regex.test("a-aa-aab-abab")).toBe(true);
-            expect(regex.source).toContain(`${rgxAtomicGroupPrefix}000003`);
+            expect(regex.source).toContain(`${rgxAtomicGroupPrefix}final_4`);
         });
 
         it("works in a pattern placed in another pattern more than once", () => {
@@ -108,6 +126,23 @@ describe("RGXAtomicToken", () => {
         });
     });
 
+    describe("matches", () => {
+        it("leave atomic groups out of the match, its groups and its indices", () => {
+            const regex = rgxa([rgxAtomic("a"), rgxGroup({}, ["b"]), rgxAtomic(["c", rgxGroup({ name: "n" }, ["d"])])], "d");
+            const match = regex.exec("abcd")!;
+            expect([...match]).toEqual(["abcd", "b", "d"]);
+            expect(match.groups).toEqual({ n: "d" });
+            expect([...(match as unknown as { indices: number[][] }).indices]).toEqual([[0, 4], [1, 2], [3, 4]]);
+        });
+
+        it("are used by the methods built on exec", () => {
+            const regex = rgxa([rgxAtomic("a"), rgxGroup({}, ["b"])], "g");
+            expect("abab".replace(regex, "[$1]")).toBe("[b][b]");
+            expect([..."abab".matchAll(regex)].map(match => [...match])).toEqual([["ab", "b"], ["ab", "b"]]);
+            expect("xaby".split(rgxa([rgxAtomic("a"), rgxGroup({}, ["b"])]))).toEqual(["x", "b", "y"]);
+        });
+    });
+
     describe("lookbehinds", () => {
         it("can't be placed inside one", () => {
             expect(() => rgxa([rgxLookbehind(rgxAtomic("a")), "b"])).toThrow(RGXInsertionRejectedError);
@@ -123,20 +158,40 @@ describe("RGXAtomicToken", () => {
     });
 
     describe("references", () => {
-        it("rejects numeric references to groups after an atomic group", () => {
+        it("leaves atomic groups out of the numbers numeric references count", () => {
+            const regex = rgxa([start, rgxAtomic("a"), rgxGroup({}, ["b"]), rgxAtomic(["c", rgxGroup({}, ["d"])]), rgxSubpattern(1), rgxSubpattern(2), end]);
+            expect(regex.test("abcdbd")).toBe(true);
+            expect(regex.test("abcddb")).toBe(false);
+            expect(rgxa([start, rgxAtomic("a"), /(b)\1/, end]).test("abb")).toBe(true);
+            expect(rgxa([rgxGroup({}, ["b"]), rgxAtomic("a"), rgxSubpattern(1)]).test("bab")).toBe(true);
+            expect(rgxa([rgxAtomic("a"), rgxGroup({ name: "x" }, ["b"]), rgxSubpattern("x")]).test("abb")).toBe(true);
+        });
+
+        it("keeps a reference followed by a digit apart from it", () => {
+            const regex = rgxa([start, rgxAtomic("a"), rgxGroup({}, ["b"]), rgxSubpattern(1), "1", end]);
+            expect(regex.source).toContain("(?:\\2)1");
+            expect(regex.test("abb1")).toBe(true);
+        });
+
+        it("rejects numbers that only count atomic groups", () => {
             expectError(
-                () => rgxa([rgxAtomic("a"), rgxGroup({}, ["b"]), rgxSubpattern(1)]),
-                RGXInvalidBackreferenceError, e => expect(e.reason).toBe("numeric-after-atomic")
+                () => rgxa([rgxAtomic("a"), rgxGroup({}, ["b"]), rgxSubpattern(2)]),
+                RGXInvalidBackreferenceError, e => expect(e.reason).toBe("missing-group")
             );
             expectError(
-                () => rgxa([rgxAtomic("a"), /(b)\1/]),
-                RGXInvalidBackreferenceError, e => expect(e.reason).toBe("numeric-after-atomic")
+                () => rgxa([rgxAtomic("a"), rgxGroup({}, ["b"]), rgxInterpolation("\\2")]),
+                RGXInvalidBackreferenceError, e => {
+                    expect(e.reason).toBe("missing-group");
+                    expect(e.reference).toBe(2);
+                }
             );
         });
 
-        it("allows numeric references to groups before every atomic group, and named references", () => {
-            expect(rgxa([rgxGroup({}, ["b"]), rgxAtomic("a"), rgxSubpattern(1)]).test("bab")).toBe(true);
-            expect(rgxa([rgxAtomic("a"), rgxGroup({ name: "x" }, ["b"]), rgxSubpattern("x")]).test("abb")).toBe(true);
+        it("checks references against the groups they count", () => {
+            expectError(
+                () => rgxa([rgxAtomic("a"), rgxSubpattern(1), rgxGroup({}, ["b"])]),
+                RGXInvalidBackreferenceError, e => expect(e.reason).toBe("before-group")
+            );
         });
 
         it("reserves the prefix in patterns with atomic groups", () => {
@@ -148,6 +203,11 @@ describe("RGXAtomicToken", () => {
                 () => rgxa([rgxAtomic("a"), rgxInterpolation(`\\k<${rgxAtomicGroupPrefix}000000>`)]),
                 RGXReservedGroupNameError, e => expect(e.groupName).toBe(`${rgxAtomicGroupPrefix}000000`)
             );
+            // The final names of atomic groups in a compiled pattern are ordinary groups.
+            const compiled = new RegExp(rgxa([rgxAtomic("a"), rgxGroup({}, ["b"]), rgxSubpattern(1)]).source);
+            const placed = rgxa([start, compiled, rgxAtomic("c"), rgxGroup({}, ["d"]), rgxSubpattern(3), end]);
+            expect(placed.source).toContain(`${rgxAtomicGroupPrefix}final_1`);
+            expect(placed.test("abbcdd")).toBe(true);
             // Without atomic groups, the names are left to the user.
             expect(() => rgxa([rgxGroup({ name: `${rgxAtomicGroupPrefix}x` }, ["b"])])).not.toThrow();
         });
@@ -188,36 +248,31 @@ describe("RGXAtomicToken", () => {
     });
 
     describe("clone", () => {
-        it("returns itself at depth 0", () => {
-            const token = rgxAtomic("a");
-            expect(token.clone(0)).toBe(token);
-        });
-
-        it("copies its tokens", () => {
+        it("copies its tokens and stays atomic", () => {
             const inner = new TestClassToken();
             const token = rgxAtomic([inner]);
             const clone = token.clone();
             expect(clone).not.toBe(token);
             expect(clone.tokens).not.toBe(token.tokens);
             expect(clone.tokens[0]).not.toBe(inner);
+            expect(clone.isAtomic).toBe(true);
             expect(clone.resolve()).toBe(token.resolve());
         });
     });
 
     describe("JSON", () => {
-        it("round trips", () => {
+        it("stores atomic only when it is set", () => {
+            expect(rgxGroup({}, ["a"]).toJSON().args![0]).not.toHaveProperty("atomic");
             const token = rgxAtomic(["a", /b/]);
             const json = token.toJSON();
-            expect(json).toEqual({ $rgx: true, class: "RGXAtomicToken", args: [["a", { $rgx: true, source: "b" }]] });
-            const result = rgxTokenFromJSON(json) as RGXAtomicToken;
-            expect(result).toBeInstanceOf(RGXAtomicToken);
+            expect(json.args![0]).toEqual({ name: null, capturing: false, flags: null, atomic: true });
+            const result = rgxTokenFromJSON(json) as RGXGroupToken;
+            expect(result.isAtomic).toBe(true);
             expect(resolveRGXToken(result)).toBe(resolveRGXToken(token));
         });
 
-        it("defaults to no tokens and validates its args", () => {
-            expect(RGXAtomicToken.fromJSON({ $rgx: true, class: "RGXAtomicToken" }).tokens).toEqual([]);
-            expect(() => RGXAtomicToken.fromJSON({ $rgx: true, class: "RGXAtomicToken", args: ["a", "b"] })).toThrow(RGXJSONClassArgsValidationFailedError);
-            expect(() => RGXAtomicToken.fromJSON({ $rgx: true, class: "RGXAtomicToken", args: [{ nope: 1 }] })).toThrow(RGXJSONClassArgsValidationFailedError);
+        it("validates the option", () => {
+            expect(() => RGXGroupToken.fromJSON({ $rgx: true, class: "RGXGroupToken", args: [{ atomic: "yes" }] })).toThrow(RGXJSONClassArgsValidationFailedError);
         });
     });
 });

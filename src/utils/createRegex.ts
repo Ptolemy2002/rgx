@@ -1,7 +1,8 @@
 import { RGXInvalidRegexStringError } from "src/errors";
 import { ExtRegExp } from "src/ExtRegExp";
 import { assertValidVanillaRegexFlags } from "src/typeGuards";
-import { renumberRGXAtomicGroups } from "src/internal/atomicGroups";
+import { scanOptionsFromFlags } from "src/internal/scanRegexSource";
+import { finishRGXAtomicGroups } from "src/internal/finishAtomicGroups";
 
 export function createRegex(pattern: string, flags?: string): RegExp;
 export function createRegex(pattern: string, flags: string, extended: false): RegExp;
@@ -13,8 +14,8 @@ export function createRegex(pattern: string, flags="", extended = false, exactMa
 
     try {
         if (extended) return new ExtRegExp(pattern, flags, null, exactMarkers);
-        // Atomic groups are given unique names once the pattern is compiled (ExtRegExp does this itself).
-        else return new RegExp(renumberRGXAtomicGroups(pattern, { unicodeSets: flags.includes("v") }), flags);
+        // Atomic groups are finished once the pattern is compiled (ExtRegExp does this itself).
+        else return new RegExp(finishRGXAtomicGroups(pattern, scanOptionsFromFlags(flags)).source, flags);
     } catch (e: unknown) {
         if (e instanceof SyntaxError) {
             throw new RGXInvalidRegexStringError("Invalid regex string", pattern, e);

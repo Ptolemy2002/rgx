@@ -22,6 +22,9 @@ A function `extRegExp` is provided with the same parameters as this class' const
 ## Static Properties
 - `[Symbol.species]` (`RegExpConstructor`): Returns `ExtRegExp`, ensuring that derived `RegExp` methods (like those returning new regex instances) produce `ExtRegExp` instances rather than plain `RegExp`.
 
+## Methods
+- `exec(string: string) => RegExpExecArray | null`: Matches like `RegExp.prototype.exec`, then takes the capture groups that emulate atomic groups out of the match array, its `groups` (left `undefined` when no other named group remains) and its `indices` (from the `d` flag), so they are those of the pattern as it was built (see [Atomic groups](./general.md#atomic-groups)). `test`, `match`, `matchAll`, `replace` and `split` go through this method.
+
 ## Constructor
 ```typescript
 constructor(pattern: string | RegExp, flags?: string, patternTransformers?: RGXPatternTransformerSelection, exactMarkers?: boolean | null)
@@ -35,8 +38,8 @@ constructor(pattern: string | RegExp, flags?: string, patternTransformers?: RGXP
 - `patternTransformers` (`readonly string[]`, readonly): The ids of the pattern transformers applied to the source, in the order they were applied.
 - `flags` (`string`): Returns the combination of the vanilla flags (from the underlying `RegExp`) and any custom flags that were applied during construction.
 - `exactMarkers` (`boolean`, readonly): Whether the pattern marks exact text, as set by the constructor.
-- `markedSource` (`string`, readonly): The pattern after custom flag transformations, with its exact text still marked. It is the same as `source` for a pattern without exact text, apart from pattern transformers. When `exactMarkers` is `true`, this is what is used when the `ExtRegExp` is embedded in a larger pattern, so its text stays exact there.
-- `originalSource` (`string`, readonly): The pattern before any custom flag transformations were applied, with any exact text still marked. `source` is the transformed pattern, which is what is used when the `ExtRegExp` is embedded in a larger pattern. `new ExtRegExp(regex.originalSource, regex.flags, null, regex.exactMarkers)` rebuilds an equivalent `ExtRegExp`, which is how JSON literal tokens store it (see [json.md](./json.md)), and passing other flags rebuilds it with those instead, adding or removing custom flags.
+- `markedSource` (`string`, readonly): The pattern after custom flag transformations, with its exact text still marked. Its atomic groups aren't finished yet: they still have placeholder names, and numeric backreferences don't count them. Otherwise, it is the same as `source` for a pattern without exact text, apart from pattern transformers. This is what is used when the `ExtRegExp` is embedded in a larger pattern, so its text stays exact and its atomic groups are finished along with that pattern's.
+- `originalSource` (`string`, readonly): The pattern before any custom flag transformations were applied, with any exact text still marked and any atomic groups not yet finished. `source` is the transformed and finished pattern. `new ExtRegExp(regex.originalSource, regex.flags, null, regex.exactMarkers)` rebuilds an equivalent `ExtRegExp`, which is how JSON literal tokens store it (see [json.md](./json.md)), and passing other flags rebuilds it with those instead, adding or removing custom flags.
 
 # Functions
 ## isFlagKeyAvailable

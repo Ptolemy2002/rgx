@@ -12,7 +12,6 @@ import { RGXClassWrapperToken } from "./wrapper";
 import { RGXSubpatternToken } from "./subpattern";
 import { RGXConstantToken } from "./constant";
 import { RGXExactToken } from "./exact";
-import { RGXAtomicToken } from "./atomic";
 import { RGXListToken } from "./list";
 import { hasRGXJSONClass, registerRGXJSONClassToken, RGXJSONBuiltinClassName, RGXJSONClassTokenConstructor } from "src/json";
 
@@ -27,7 +26,6 @@ export const RGX_BUILTIN_JSON_CLASSES: Record<RGXJSONBuiltinClassName, RGXJSONCl
     RGXSubpatternToken,
     RGXConstantToken,
     RGXExactToken,
-    RGXAtomicToken,
     RGXListToken
 };
 
@@ -81,8 +79,15 @@ export function rgxClassInit() {
         return this.repeat(0, 1, lazy, possessive);
     }
 
-    RGXClassToken.prototype.atomic = function (this: RGXClassToken): RGXAtomicToken {
-        return new RGXAtomicToken([this]);
+    RGXClassToken.prototype.atomic = function (this: RGXClassToken): RGXGroupToken {
+        // A group is made atomic itself, keeping its name and flags.
+        if (RGXGroupToken.check(this)) {
+            if (this.isAtomic) return this;
+            const copy = this.clone(1);
+            copy.isAtomic = true;
+            return copy;
+        }
+        return new RGXGroupToken({ capturing: false, atomic: true }, [this]);
     }
 
     RGXClassToken.prototype.asLookahead = function (this: RGXClassToken, positive: boolean = true): RGXLookaheadToken {

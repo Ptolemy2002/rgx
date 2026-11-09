@@ -12,7 +12,6 @@ import type { RGXRepeatToken } from "./repeat";
 import type { RGXLookaheadToken } from "./lookahead";
 import type { RGXLookbehindToken } from "./lookbehind";
 import type { RGXExclusionToken } from "./exclusion";
-import type { RGXAtomicToken } from "./atomic";
 
 export abstract class RGXClassToken implements RGXConvertibleToken {
     // currentFlags are the flags in effect where the token is placed, including the flags of enclosing modifier groups.
@@ -71,7 +70,7 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
         throw new RGXNotImplementedError('RGXClassToken.optional(lazy, possessive)', 'call rgxClassInit() first.');
     }
 
-    atomic(): RGXAtomicToken {
+    atomic(): RGXGroupToken {
         throw new RGXNotImplementedError('RGXClassToken.atomic()', 'call rgxClassInit() first.');
     }
 

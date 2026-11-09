@@ -91,7 +91,7 @@ Remove the early return in `assertRGXExactMarkerNames`, so every group with the 
 
 ### Problem
 
-Atomic groups (`RGXAtomicToken`, and possessive `RGXRepeatToken`s) are emulated with a capture group and a backreference named `rgx_atomic_<6 characters>`, which the library renames whenever a pattern is compiled or parsed. To keep groups written by hand from being confused with them, the prefix should be reserved everywhere. Reserving it in patterns without atomic groups would reject group names that work today, so it is only reserved in patterns that have at least one atomic group.
+Atomic groups (atomic `RGXGroupToken`s, and possessive `RGXRepeatToken`s) are emulated with a capture group and a backreference named `rgx_atomic_<6 characters>`, which the library renames whenever a pattern is parsed, and gives a final name (`rgx_atomic_final_<n>`) when it is compiled. To keep groups written by hand from being confused with them, the prefix should be reserved everywhere. Reserving it in patterns without atomic groups would reject group names that work today, so it is only reserved in patterns that have at least one atomic group.
 
 ### Breaking change
 

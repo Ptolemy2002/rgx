@@ -15,3 +15,4 @@ export * from "./validateReferences";
 export * from "./accentVariants";
 export * from "./exactMarkers";
 export * from "./atomicGroups";
+export * from "./finishAtomicGroups";

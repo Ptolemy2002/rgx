@@ -1,7 +1,7 @@
 import { RGXJSONClassToken, RGXJSONObject, RGXJSONToken, RGXJSONValue, RGXToken } from "src/types";
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
 import { RGXClassToken } from "./base";
-import { RGXAtomicToken } from "./atomic";
+import { rgxAtomic } from "./group";
 import { RGXGroupToken } from "./group";
 import { RGXRepeatToken } from "./repeat";
 import {
@@ -24,7 +24,7 @@ export type RGXListTokenOptions = {
     max?: number | null;
     // Whether a separator may follow the last item.
     trailing?: boolean;
-    // Whether the items and separators are matched atomically, the way a walker matches them (see RGXAtomicToken).
+    // Whether the items and separators are matched atomically, the way a walker matches them (see the atomic option of RGXGroupToken).
     atomic?: boolean;
     // A token that must come right after the final separator, before the last item, such as "and" in "a, b, and c".
     preposition?: RGXToken;
@@ -195,8 +195,8 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
 
         const alternatives = this.itemTokens();
         const itemToken: RGXToken = alternatives.length === 1 ? alternatives[0]! : alternatives;
-        const item = this.atomicItems ? new RGXAtomicToken([itemToken]) : itemToken;
-        const separator = this.atomicItems ? new RGXAtomicToken([this.separatorToken()]) : this.separatorToken();
+        const item = this.atomicItems ? rgxAtomic([itemToken]) : itemToken;
+        const separator = this.atomicItems ? rgxAtomic([this.separatorToken()]) : this.separatorToken();
         const pair = new RGXGroupToken({ capturing: false }, [separator, item]);
 
         const body: RGXToken[] = [item];
@@ -204,7 +204,7 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
         if (preposition === undefined) {
             body.push(new RGXRepeatToken(pair, Math.max(this.min - 1, 0), this.max === null ? null : this.max - 1));
         } else if (this.max !== 1) {
-            const atomic = (token: RGXToken) => this.atomicItems ? new RGXAtomicToken([token]) : token;
+            const atomic = (token: RGXToken) => this.atomicItems ? rgxAtomic([token]) : token;
             // The ways the items after the first can go: a separator and an item for each but the last, then the last
             // one after a separator and the preposition. When pairs are joined by the preposition alone, that is only
             // for three or more items.

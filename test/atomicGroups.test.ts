@@ -1,6 +1,6 @@
 import {
     atomicRegexSource, findRGXAtomicPairs, isRGXAtomicGroupName, parseRegexSource, renumberRGXAtomicGroups, rgxAtomicGroupPrefix,
-    createRegexPiece, assertValidRegexReferences
+    createRegexPiece, assertValidRegexReferences, finishRGXAtomicGroups, hideRGXAtomicCaptures, isFinishedRGXAtomicGroupName
 } from "src/internal";
 import { applyRGXPatternTransformersToSource, createRegex, ExtRegExp, isValidRegexString, RGXDuplicateGroupNameError } from "src/index";
 import { expectError } from "./utils";
@@ -106,12 +106,13 @@ describe("atomic groups", () => {
             expect(createRegex(source).test("ab")).toBe(true);
             expect(createRegex(source, "v").test("ab")).toBe(true);
             const ext = new ExtRegExp(source);
-            expect(ext.source).toContain(`${rgxAtomicGroupPrefix}000001`);
+            expect(ext.source).toContain(`${rgxAtomicGroupPrefix}final_1`);
+            expect(createRegex(source).source).toContain(`${rgxAtomicGroupPrefix}final_1`);
             expect(ext.test("ab")).toBe(true);
         });
 
         it("are given unique names before pattern transformers see them", () => {
-            expect(applyRGXPatternTransformersToSource(source)).toContain(`${rgxAtomicGroupPrefix}000001`);
+            expect(applyRGXPatternTransformersToSource(source)).toContain(`${rgxAtomicGroupPrefix}final_1`);
         });
 
         it("report duplicate names that aren't atomic groups", () => {
@@ -120,6 +121,59 @@ describe("atomic groups", () => {
                 RGXDuplicateGroupNameError,
                 e => expect(e.groupName).toBe("x")
             );
+        });
+    });
+
+    describe("finishRGXAtomicGroups", () => {
+        it("leaves sources without atomic groups alone", () => {
+            expect(finishRGXAtomicGroups("(a)\\1")).toEqual({ source: "(a)\\1", atomicGroups: [], atomicGroupNames: [] });
+        });
+
+        it("gives atomic groups final names and numeric references their final numbers", () => {
+            const result = finishRGXAtomicGroups(`${pair("a")}(b)${pair("(c)")}\\1\\2\\k<x>(?<x>d)\\4\\3`);
+            const name = (n: number) => `${rgxAtomicGroupPrefix}final_${n}`;
+            expect(result.source).toBe(`(?=(?<${name(0)}>a))\\k<${name(0)}>(b)(?=(?<${name(1)}>(c)))\\k<${name(1)}>\\2\\4\\k<x>(?<x>d)\\4\\5`);
+            expect(result.atomicGroups).toEqual([1, 3]);
+            expect(result.atomicGroupNames).toEqual([name(0), name(1)]);
+            // Finished names aren't placeholders, so finishing again changes nothing.
+            expect(finishRGXAtomicGroups(result.source).source).toBe(result.source);
+            expect(isFinishedRGXAtomicGroupName(name(0))).toBe(true);
+            expect(isFinishedRGXAtomicGroupName(placeholder)).toBe(false);
+        });
+
+        it("doesn't repeat final names already in the source", () => {
+            const finished = finishRGXAtomicGroups(pair("a")).source;
+            expect(finishRGXAtomicGroups(finished + pair("b")).atomicGroupNames).toEqual([`${rgxAtomicGroupPrefix}final_1`]);
+        });
+
+        it("only renames the atomic groups of an invalid source", () => {
+            expect(finishRGXAtomicGroups(`${pair("a")}${pair("b")}(`)).toEqual({
+                source: renumberRGXAtomicGroups(`${pair("a")}${pair("b")}(`), atomicGroups: [], atomicGroupNames: []
+            });
+        });
+    });
+
+    describe("hideRGXAtomicCaptures", () => {
+        it("takes the atomic groups out of a match, its groups and its indices", () => {
+            const { source, atomicGroups, atomicGroupNames } = finishRGXAtomicGroups(`${pair("a")}(?<b>b)`);
+            const match = hideRGXAtomicCaptures(new RegExp(source, "d").exec("ab")!, atomicGroups, atomicGroupNames);
+            expect([...match]).toEqual(["ab", "b"]);
+            expect(match.groups).toEqual({ b: "b" });
+            const indices = (match as unknown as { indices: [number, number][] & { groups: object } }).indices;
+            expect([...indices]).toEqual([[0, 2], [1, 2]]);
+            expect(indices.groups).toEqual({ b: [1, 2] });
+        });
+
+        it("leaves groups undefined when only atomic groups were named", () => {
+            const { source, atomicGroups, atomicGroupNames } = finishRGXAtomicGroups(`${pair("a")}(b)`);
+            const match = hideRGXAtomicCaptures(new RegExp(source).exec("ab")!, atomicGroups, atomicGroupNames);
+            expect([...match]).toEqual(["ab", "b"]);
+            expect(match.groups).toBeUndefined();
+        });
+
+        it("leaves matches alone without atomic groups", () => {
+            const match = /a/.exec("a")!;
+            expect(hideRGXAtomicCaptures(match, [], [])).toBe(match);
         });
     });
 });

@@ -59,10 +59,11 @@ export function resolveRGXToken(token: t.RGXToken, options: ResolveRGXTokenOptio
         if (tg.isRGXNoOpToken(token)) return '';
 
         if (tg.isRGXLiteralToken(token)) {
-            // A pattern built separately keeps its exact text marked, with names from this build so they don't repeat.
-            const source = token instanceof ExtRegExp && token.exactMarkers
-                ? renumberRGXExactMarkers(token.markedSource, null, scanOptionsFromFlags(token.flags))
-                : token.source;
+            // A pattern built separately is placed as it was built, before its atomic groups were finished, and keeps its
+            // exact text marked, with names from this build so they don't repeat.
+            const source = !(token instanceof ExtRegExp) ? token.source
+                : token.exactMarkers ? renumberRGXExactMarkers(token.markedSource, null, scanOptionsFromFlags(token.flags))
+                : token.markedSource;
             const localizableFlagDiff = localizableVanillaRegexFlagDiff(currentFlags, token.flags);
             if (!localizableFlagDiff) {
                 if (groupWrap) return '(?:' + source + ')';

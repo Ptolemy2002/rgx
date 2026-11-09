@@ -32,13 +32,12 @@ Because there is so much to document, it has been broken up into multiple files.
   - [lexer](./docs/class/lexer.md) - Details on `RGXLexer`, which tokenizes a source string into structured lexemes using named lexeme definitions grouped by mode.
   - `token` - A directory containing documentation for all token classes in the library, which are classes that represent specific types of tokens that can be used in regular expressions.
     - [base](./docs/class/token/base.md) - The `RGXClassToken` class, which is the base class for all token classes in the library.
-    - [group](./docs/class/token/group.md) - The `RGXGroupToken` class, which represents a group of tokens that can be treated as a single unit in a regular expression.
+    - [group](./docs/class/token/group.md) - The `RGXGroupToken` class, which represents a group of tokens that can be treated as a single unit in a regular expression, optionally matched atomically.
     - [repeat](./docs/class/token/repeat.md) - The `RGXRepeatToken` class, which represents a token that can be repeated a range of times in a regular expression. This also covers optional syntax.
     - [union](./docs/class/token/union.md) - The `RGXClassUnionToken` class, which represents a union of tokens that can match any one of the tokens in the union.
     - [subpattern](./docs/class/token/subpattern.md) - The `RGXSubpatternToken` class, which re-matching the content of a previous capturing group.
     - [exact](./docs/class/token/exact.md) - The `RGXExactToken` class, which matches text exactly, whatever flags are around it.
     - [list](./docs/class/token/list.md) - The `RGXListToken` class, which matches a list of items with a separator between them, and parses the items out of the text it matched.
-    - [atomic](./docs/class/token/atomic.md) - The `RGXAtomicToken` class, which matches its tokens the first way they can match and is never backtracked into.
     - [wrapper](./docs/class/token/wrapper.md) - The `RGXClassWrapperToken` class, which represents a class token that can wrap any arbitrary token (even non-class), giving you the benefit of the class API for any token.
     - [constant](./docs/class/token/constant.md) - The `RGXConstantToken` class, which refers to a constant by name, so the link to the constant survives JSON serialization.
     - [exclusion](./docs/class/token/exclusion.md) - The `RGXExclusionToken` class, which matches a token while excluding specific alternatives using lookahead-based subtraction.
