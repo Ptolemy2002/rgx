@@ -104,3 +104,21 @@ Throw `RGXReservedGroupNameError` for any group or backreference name starting w
 ### Reverting the workaround
 
 Check the prefix in `assertValidRegexReferences` whether or not the pattern has atomic groups, and update the "Atomic groups" section of `docs/general.md`, the `RGXReservedGroupNameError` docs in `docs/class/RGXError.md`, the changelog and `MIGRATION.md`.
+
+## Take repeat flags as an options object
+
+### Problem
+
+Repeats take their flags as positional booleans: `rgxRepeat(token, min, max, lazy, possessive)`, `repeat(min, max, lazy, possessive)` and `optional(lazy, possessive)`. A call like `rgxRepeat("a", 1, null, false, true)` doesn't say which flag is set, and every new flag adds another positional argument. The JSON arguments of `RGXRepeatToken` have the same shape.
+
+### Breaking change
+
+Replace the boolean arguments with one options object: `new RGXRepeatToken(token, min, max, { lazy, possessive })`, `rgxRepeat` the same way, `repeat(min, max, { lazy, possessive })` and `optional({ lazy, possessive })`, and store the options in JSON as `[token, min, max, { lazy?, possessive? }]` (each one only when `true`). Code that passes `lazy` or `possessive` positionally, and JSON with booleans in those positions, would break.
+
+### Current workaround
+
+None. The flags are still positional in `src/class/repeat.ts` (`RGXRepeatToken` constructor, `parseRepeatJSONArgs`, `toJSON`), `src/class/base.ts` and `src/class/init.ts` (`repeat()` and `optional()`).
+
+### Reverting the workaround
+
+Nothing to revert. Update the signatures and JSON parsing above, `docs/class/token/repeat.md`, `docs/class/token/base.md` and `docs/json.md`, and add the migration to `MIGRATION.md`.
