@@ -8,7 +8,7 @@ import { resolveRGXToken, ResolveRGXTokenOptions } from "src/resolve";
 import { CloneDepth } from "@ptolemy2002/immutability-utils";
 import type { RGXClassUnionToken } from "./union";
 import type { RGXGroupToken, RGXGroupTokenArgs } from "./group";
-import type { RGXRepeatToken } from "./repeat";
+import type { RGXRepeatToken, RGXRepeatOptions } from "./repeat";
 import type { RGXLookaheadToken } from "./lookahead";
 import type { RGXLookbehindToken } from "./lookbehind";
 import type { RGXExclusionToken } from "./exclusion";
@@ -62,11 +62,19 @@ export abstract class RGXClassToken implements RGXConvertibleToken {
         throw new RGXNotImplementedError('RGXClassToken.group(args)', 'call rgxClassInit() first.');
     }
 
-    repeat(min: number = 1, max: number | null = min, lazy: boolean = false, possessive: boolean = false): RGXRepeatToken {
+    // The third argument can be an options object instead of the lazy and possessive flags. Only the perOption and
+    // inner options can produce something other than a repeat token.
+    repeat(min?: number, max?: number | null, lazy?: boolean, possessive?: boolean): RGXRepeatToken;
+    repeat(min: number | undefined, max: number | null | undefined, options: RGXRepeatOptions & { perOption?: false, inner?: false }): RGXRepeatToken;
+    repeat(min: number | undefined, max: number | null | undefined, options: RGXRepeatOptions): RGXRepeatToken | RGXClassUnionToken | RGXGroupToken;
+    repeat(min: number = 1, max: number | null = min, lazy: boolean | RGXRepeatOptions = false, possessive: boolean = false): RGXRepeatToken | RGXClassUnionToken | RGXGroupToken {
         throw new RGXNotImplementedError('RGXClassToken.repeat(min, max, lazy, possessive)', 'call rgxClassInit() first.');
     }
 
-    optional(lazy: boolean = false, possessive: boolean = false): RGXRepeatToken {
+    optional(lazy?: boolean, possessive?: boolean): RGXRepeatToken;
+    optional(options: RGXRepeatOptions & { perOption?: false, inner?: false }): RGXRepeatToken;
+    optional(options: RGXRepeatOptions): RGXRepeatToken | RGXClassUnionToken | RGXGroupToken;
+    optional(lazy: boolean | RGXRepeatOptions = false, possessive: boolean = false): RGXRepeatToken | RGXClassUnionToken | RGXGroupToken {
         throw new RGXNotImplementedError('RGXClassToken.optional(lazy, possessive)', 'call rgxClassInit() first.');
     }
 

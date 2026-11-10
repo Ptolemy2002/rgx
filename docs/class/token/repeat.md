@@ -32,6 +32,12 @@ type RGXJSONObjectToken = RGXJSONLiteralToken | RGXJSONClassToken | RGXJSONInter
 type RGXJSONToken = RGXJSONNativeToken | RGXJSONObjectToken | RGXJSONToken[];
 type RGXToken = RGXNativeToken | RGXLiteralToken | RGXConvertibleToken | RGXInterpolationToken | RGXJSONObjectToken | RGXToken[];
 
+type RGXRepeatOptions = {
+    lazy?: boolean;
+    possessive?: boolean;
+    perOption?: boolean; // on a union, repeat each option instead of the union
+    inner?: boolean;     // on a capturing group, repeat its contents inside the group instead of the group
+};
 ```
 
 # RGXRepeatToken

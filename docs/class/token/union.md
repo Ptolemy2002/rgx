@@ -41,6 +41,8 @@ A class representing a union (alternation) of RGX tokens. This is typically crea
 
 A function `rgxClassUnion` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
 
+Repeating a union repeats the alternation as a whole, so each repetition can match a different option. To repeat each option instead, pass the `perOption` option to `repeat()` or `optional()` (see [base.md](./base.md)).
+
 ## Static Properties
 - `check(value: unknown): value is RGXClassUnionToken`: A type guard that checks if the given value is an instance of `RGXClassUnionToken`.
 - `assert(value: unknown): asserts value is RGXClassUnionToken`: An assertion that checks if the given value is an instance of `RGXClassUnionToken`. If the assertion fails, an `RGXInvalidTokenError` will be thrown.

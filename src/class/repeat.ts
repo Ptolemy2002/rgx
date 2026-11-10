@@ -10,6 +10,16 @@ import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
 
+// Options for the repeat() and optional() methods of class tokens, given in place of the lazy and possessive flags.
+export type RGXRepeatOptions = {
+    lazy?: boolean;
+    possessive?: boolean;
+    // On a union, repeat each of its options instead of the union as a whole.
+    perOption?: boolean;
+    // On a capturing group, repeat its contents inside the group instead of the group itself.
+    inner?: boolean;
+};
+
 function parseRepeatJSONArgs(args: RGXJSONValue[]): [RGXJSONToken, number?, (number | null)?, boolean?, boolean?] | string {
     if (args.length < 1 || args.length > 5) return "Expected between 1 and 5 arguments (token, min, max, lazy, possessive).";
 

@@ -125,6 +125,13 @@ type RGXGroupTokenArgs = {
     atomic?: boolean; // whether the contents are matched atomically
 };
 
+type RGXRepeatOptions = {
+    lazy?: boolean;
+    possessive?: boolean;
+    perOption?: boolean; // on a union, repeat each option instead of the union
+    inner?: boolean;     // on a capturing group, repeat its contents inside the group instead of the group
+};
+
 type RGXParseOptions = {
     flags?: string;
     mergeAliases?: boolean;

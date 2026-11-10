@@ -47,6 +47,8 @@ A class representing a group (capturing, non-capturing, or named) wrapping one o
 
 A function `rgxGroup` is provided with the same parameters as this class' constructor, for easier instantiation without needing to use the `new` keyword.
 
+A repeated capturing group only captures its last repetition. To repeat a group's contents inside it, so it captures every repetition, pass the `inner` option to `repeat()` or `optional()` (see [base.md](./base.md)).
+
 A group can be made atomic with the `atomic` option: its tokens are matched, in order, the first way they can match, and once they have matched, the pattern never backtracks into them to try another way. This is how each step of a walker behaves, and it is the standard defense against catastrophic backtracking. For example, `/a+/` followed by `"a"` matches `"aaa"`, since `a+` gives back its last `a`, but an atomic `/a+/` followed by `"a"` never matches. An atomic union commits to the first alternative that matches, the same way a walker picks a branch. The function `rgxAtomic(tokens?: RGXToken) => RGXGroupToken` creates a non-capturing atomic group, and any class token can be made atomic with its `atomic()` method (see [base.md](./base.md)).
 
 ```typescript

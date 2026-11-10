@@ -113,12 +113,12 @@ Repeats take their flags as positional booleans: `rgxRepeat(token, min, max, laz
 
 ### Breaking change
 
-Replace the boolean arguments with one options object: `new RGXRepeatToken(token, min, max, { lazy, possessive })`, `rgxRepeat` the same way, `repeat(min, max, { lazy, possessive })` and `optional({ lazy, possessive })`, and store the options in JSON as `[token, min, max, { lazy?, possessive? }]` (each one only when `true`). Code that passes `lazy` or `possessive` positionally, and JSON with booleans in those positions, would break.
+Replace the boolean arguments with one options object: `new RGXRepeatToken(token, min, max, { lazy, possessive })`, `rgxRepeat` the same way, `repeat(min, max, options)` and `optional(options)` (taking `RGXRepeatOptions` only), and store the options in JSON as `[token, min, max, { lazy?, possessive? }]` (each one only when `true`). Code that passes `lazy` or `possessive` positionally, and JSON with booleans in those positions, would break.
 
 ### Current workaround
 
-None. The flags are still positional in `src/class/repeat.ts` (`RGXRepeatToken` constructor, `parseRepeatJSONArgs`, `toJSON`), `src/class/base.ts` and `src/class/init.ts` (`repeat()` and `optional()`).
+`repeat()` and `optional()` already take an `RGXRepeatOptions` object (`src/class/repeat.ts`) in place of `lazy`, which `normalizeRGXRepeatOptions` in `src/class/init.ts` turns into the same shape as the boolean arguments, and the overloads in `src/class/base.ts` accept both forms. The constructor, `rgxRepeat` and the JSON arguments are still positional only (`RGXRepeatToken` constructor, `parseRepeatJSONArgs` and `toJSON` in `src/class/repeat.ts`).
 
 ### Reverting the workaround
 
-Nothing to revert. Update the signatures and JSON parsing above, `docs/class/token/repeat.md`, `docs/class/token/base.md` and `docs/json.md`, and add the migration to `MIGRATION.md`.
+Remove the boolean overloads of `repeat()` and `optional()` in `src/class/base.ts` and `normalizeRGXRepeatOptions` in `src/class/init.ts` (keeping only the defaults for a missing options object), update the constructor and JSON parsing above, `docs/class/token/repeat.md`, `docs/class/token/base.md` and `docs/json.md`, and add the migration to `MIGRATION.md`.
