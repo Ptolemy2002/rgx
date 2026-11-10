@@ -4,32 +4,37 @@ import { RGXClassToken } from "./base";
 import { isRGXConvertibleToken, isRGXJSONObjectToken, isRGXJSONToken, isRGXToken } from "src/typeGuards";
 import { assertInRange, RGXNotSupportedError } from "src/errors";
 import { resolveRGXToken } from "src/resolve";
-import { atomicRegexSource, createConstructFunction, createRegexPiece, isNonConsumingRGXToken, scanOptionsFromFlags, toSingletonRegexSource } from "src/internal";
+import { atomicRegexSource, createConstructFunction, normalizeRGXRepeatOptions, createRegexPiece, isNonConsumingRGXToken, scanOptionsFromFlags, toSingletonRegexSource } from "src/internal";
 import { rejectRGXAtomicInLookbehind } from "./atomic";
 import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "src/utils";
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
+import { expandRgxUnionTokens, RGXClassUnionToken } from "./union";
+import { RGXGroupToken } from "./group";
 
-// Options for the repeat() and optional() methods of class tokens, given in place of the lazy and possessive flags.
+// Options for RGXRepeatToken, given in place of the lazy and possessive flags.
 export type RGXRepeatOptions = {
     lazy?: boolean;
     possessive?: boolean;
-    // On a union, repeat each of its options instead of the union as a whole.
+    // On a union (a union token or an array), repeat each of its options instead of the union as a whole.
     perOption?: boolean;
     // On a capturing group, repeat its contents inside the group instead of the group itself.
     inner?: boolean;
 };
 
-function parseRepeatJSONArgs(args: RGXJSONValue[]): [RGXJSONToken, number?, (number | null)?, boolean?, boolean?] | string {
-    if (args.length < 1 || args.length > 5) return "Expected between 1 and 5 arguments (token, min, max, lazy, possessive).";
+const REPEAT_JSON_FLAG_NAMES = ["lazy", "possessive", "perOption", "inner"] as const;
 
-    const [token, min, max, lazy, possessive] = args;
+function parseRepeatJSONArgs(args: RGXJSONValue[]): [RGXJSONToken, number?, (number | null)?, ...(boolean | undefined)[]] | string {
+    if (args.length < 1 || args.length > 7) return "Expected between 1 and 7 arguments (token, min, max, lazy, possessive, perOption, inner).";
+
+    const [token, min, max, ...flags] = args;
     if (!isRGXJSONToken(token, false)) return "Argument 0 (token) must be a JSON token.";
     if (min !== undefined && typeof min !== "number") return "Argument 1 (min) must be a number, if present.";
     if (max !== undefined && max !== null && typeof max !== "number") return "Argument 2 (max) must be a number or null, if present.";
-    if (lazy !== undefined && typeof lazy !== "boolean") return "Argument 3 (lazy) must be a boolean, if present.";
-    if (possessive !== undefined && typeof possessive !== "boolean") return "Argument 4 (possessive) must be a boolean, if present.";
-    return [token, min, max, lazy, possessive];
+    for (const [i, flag] of flags.entries()) {
+        if (flag !== undefined && typeof flag !== "boolean") return `Argument ${i + 3} (${REPEAT_JSON_FLAG_NAMES[i]}) must be a boolean, if present.`;
+    }
+    return [token, min, max, ...flags as (boolean | undefined)[]];
 }
 
 // Tokens already warned about, so each token is only warned about once even though it may be repeated many times.
@@ -58,6 +63,10 @@ export class RGXRepeatToken extends RGXClassToken {
     // Whether the repetition is atomic: once it has matched, it isn't backtracked into to give characters back (or, if
     // it is also lazy, to take more).
     possessive: boolean = false;
+    _perOption: boolean = false;
+    // Whether a capturing group's contents are repeated inside it, so it captures every repetition instead of only the
+    // last one. Other tokens are repeated as a whole.
+    inner: boolean = false;
 
     static check = createRGXClassGuardFunction(RGXRepeatToken);
     static assert = createAssertRGXClassGuardFunction(RGXRepeatToken);
@@ -107,18 +116,50 @@ export class RGXRepeatToken extends RGXClassToken {
             }
         }
 
+        // Each option is repeated on its own, so each one has to be repeatable.
+        if (this.perOption) this.optionRepeats(value);
         warnIfRepeatingNonConsuming(value);
         this._token = value;
     }
 
-    // By default, repeat a fixed number of times.
-    constructor(token: RGXToken, min: number = 1, max: number | null = min, lazy=false, possessive=false) {
+    // Whether each option of a union (a union token or an array) is repeated instead of the union as a whole, so every
+    // repetition matches the same option. Other tokens are repeated as a whole.
+    get perOption() {
+        return this._perOption;
+    }
+
+    set perOption(value: boolean) {
+        if (value) this.optionRepeats(this.token);
+        this._perOption = value;
+    }
+
+    // By default, repeat a fixed number of times. The lazy argument can be an options object instead, in which case the
+    // possessive argument is ignored.
+    constructor(token: RGXToken, min: number = 1, max: number | null = min, lazy: boolean | RGXRepeatOptions = false, possessive: boolean = false) {
         super();
+        const options = normalizeRGXRepeatOptions(lazy, possessive);
         this.token = token;
         this.min = min;
         this.max = max;
-        this.lazy = lazy;
-        this.possessive = possessive;
+        this.lazy = options.lazy;
+        this.possessive = options.possessive;
+        this.perOption = options.perOption;
+        this.inner = options.inner;
+    }
+
+    get options(): Required<RGXRepeatOptions> {
+        return { lazy: this.lazy, possessive: this.possessive, perOption: this.perOption, inner: this.inner };
+    }
+
+    // The repeat of each option of a union, with the same options, so options that are unions or capturing groups are
+    // handled the same way. Returns null for tokens that aren't unions, and for empty unions, which have no options to
+    // repeat. Throws if an option can't be repeated.
+    optionRepeats(token: RGXToken = this.token): RGXRepeatToken[] | null {
+        if (!Array.isArray(token) && !RGXClassUnionToken.check(token)) return null;
+
+        const options = expandRgxUnionTokens(token);
+        if (options.length === 0) return null;
+        return options.map(option => new RGXRepeatToken(option, this.min, this.max, this.options));
     }
 
     rgxAcceptInsertion(context: RGXInsertionContext): string | boolean {
@@ -149,7 +190,22 @@ export class RGXRepeatToken extends RGXClassToken {
     toRgx(currentFlags: string = ''): RGXToken {
         // No-op if we're repeating zero times.
         if (this.min === 0 && this.max === 0) return null;
-        
+
+        if (this.perOption) {
+            const repeats = this.optionRepeats();
+            if (repeats !== null) return new RGXClassUnionToken(repeats).toRgx(currentFlags);
+        }
+
+        if (this.inner && RGXGroupToken.check(this.token) && this.token.capturing) {
+            // The contents are repeated in a non-capturing group, which is left out of the source when it isn't
+            // needed. An atomic group stays atomic for each repetition, as it was when the group itself was repeated.
+            const contents = new RGXGroupToken({ capturing: false, atomic: this.token.isAtomic }, this.token.tokens);
+            const copy = this.token.clone(1);
+            copy.isAtomic = false;
+            copy.tokens = [new RGXRepeatToken(contents, this.min, this.max, this.lazy, this.possessive)];
+            return createRegexPiece(resolveRGXToken(copy, { currentFlags }), currentFlags);
+        }
+
         // The quantifier must apply to the whole token, so normalize it to a singleton before adding it. This adds a
         // group when the token isn't a singleton, and removes groups that only wrap one.
         const resolvedSource = toSingletonRegexSource(resolveRGXToken(this.token, { currentFlags }), scanOptionsFromFlags(currentFlags));
@@ -159,19 +215,21 @@ export class RGXRepeatToken extends RGXClassToken {
 
     clone(depth: CloneDepth="max") {
         if (depth === 0) return this;
-        return new RGXRepeatToken(cloneRGXToken(this.token, depthDecrement(depth, 1)), this.min, this.max, this.lazy, this.possessive);
+        return new RGXRepeatToken(cloneRGXToken(this.token, depthDecrement(depth, 1)), this.min, this.max, this.options);
     }
 
     static fromJSON(json: RGXJSONClassToken): RGXRepeatToken {
-        const [token, min, max, lazy, possessive] = rgxJSONClassArgs(json, "RGXRepeatToken", parseRepeatJSONArgs);
+        const [token, min, max, lazy, possessive, perOption, inner] = rgxJSONClassArgs(json, "RGXRepeatToken", parseRepeatJSONArgs);
         const resolvedMin = min ?? 1;
-        return new RGXRepeatToken(rgxTokenFromJSON(token), resolvedMin, max === undefined ? resolvedMin : max, lazy ?? false, possessive ?? false);
+        return new RGXRepeatToken(rgxTokenFromJSON(token), resolvedMin, max === undefined ? resolvedMin : max, { lazy, possessive, perOption, inner });
     }
 
     toJSON(): RGXJSONClassToken {
-        // possessive is left out when it is false, so JSON from before it existed stays the same.
-        const args = [rgxTokenToJSON(this.token), this.min, this.max, this.lazy];
-        return createRGXJSONClassToken("RGXRepeatToken", this.possessive ? [...args, true] : args);
+        // The flags after lazy are left out while they and the ones after them are false, so JSON from before they
+        // existed stays the same.
+        const flags = [this.lazy, this.possessive, this.perOption, this.inner];
+        while (flags.length > 1 && !flags[flags.length - 1]) flags.pop();
+        return createRGXJSONClassToken("RGXRepeatToken", [rgxTokenToJSON(this.token), this.min, this.max, ...flags]);
     }
 }
 

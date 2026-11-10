@@ -16,3 +16,4 @@ export * from "./accentVariants";
 export * from "./exactMarkers";
 export * from "./atomicGroups";
 export * from "./finishAtomicGroups";
+export * from "./repeatOptions";

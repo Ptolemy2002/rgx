@@ -1,4 +1,4 @@
-import { RGXClassToken, RGXClassUnionToken, RGXGroupToken, RGXLookaheadToken, RGXRepeatToken } from "src/class";
+import { RGXClassToken, RGXClassUnionToken, RGXGroupToken, RGXLookaheadToken, RGXRepeatToken, rgxRepeat } from "src/class";
 import { RGXNotSupportedError } from "src/errors";
 import { rgxa } from "src/index";
 
@@ -14,36 +14,60 @@ class TestClassToken extends RGXClassToken {
 
 const testToken1 = new TestClassToken();
 
-describe("RGXClassToken.repeat options", () => {
-    it("accepts lazy and possessive in an options object", () => {
-        const result = testToken1.repeat(2, 5, { lazy: true, possessive: true });
-        expect(result).toBeInstanceOf(RGXRepeatToken);
-        expect(result.token).toBe(testToken1);
-        expect(result.lazy).toBe(true);
-        expect(result.possessive).toBe(true);
+describe("RGXRepeatToken options", () => {
+    it("accepts an options object in place of the lazy and possessive flags", () => {
+        const token = new RGXRepeatToken("a", 2, 5, { lazy: true, possessive: true, perOption: true, inner: true });
+        expect(token.lazy).toBe(true);
+        expect(token.possessive).toBe(true);
+        expect(token.perOption).toBe(true);
+        expect(token.inner).toBe(true);
+        expect(token.options).toEqual({ lazy: true, possessive: true, perOption: true, inner: true });
 
-        const defaults = testToken1.repeat(2, 5, {});
-        expect(defaults.lazy).toBe(false);
-        expect(defaults.possessive).toBe(false);
+        const defaults = rgxRepeat("a", 2, 5, {});
+        expect(defaults.options).toEqual({ lazy: false, possessive: false, perOption: false, inner: false });
+
+        const flags = new RGXRepeatToken("a", 2, 5, true, true);
+        expect(flags.options).toEqual({ lazy: true, possessive: true, perOption: false, inner: false });
+    });
+
+    it("keeps the options when cloned", () => {
+        const token = new RGXRepeatToken(["a", "b"], 2, 5, { perOption: true, inner: true, lazy: true });
+        const clone = token.clone();
+        expect(clone).not.toBe(token);
+        expect(clone.options).toEqual(token.options);
+        expect(clone.resolve()).toBe(token.resolve());
+    });
+
+    it("stores perOption and inner in JSON only when they are set", () => {
+        expect(new RGXRepeatToken("a", 1, 2).toJSON().args).toEqual(["a", 1, 2, false]);
+        expect(new RGXRepeatToken(["a", "b"], 1, 2, { perOption: true }).toJSON().args).toEqual([["a", "b"], 1, 2, false, false, true]);
+        expect(new RGXRepeatToken("a", 1, 2, { inner: true }).toJSON().args).toEqual(["a", 1, 2, false, false, false, true]);
+
+        const token = new RGXRepeatToken(["a", "b"], 1, 2, { perOption: true, inner: true });
+        const restored = RGXRepeatToken.fromJSON(token.toJSON());
+        expect(restored.options).toEqual(token.options);
+        expect(restored.resolve()).toBe(token.resolve());
+
+        expect(RGXRepeatToken.fromJSON({ $rgx: true, class: "RGXRepeatToken", args: ["a"] }).options)
+            .toEqual({ lazy: false, possessive: false, perOption: false, inner: false });
+        expect(() => RGXRepeatToken.fromJSON({ $rgx: true, class: "RGXRepeatToken", args: ["a", 1, 1, false, false, "x"] })).toThrow(/perOption/);
+        expect(() => RGXRepeatToken.fromJSON({ $rgx: true, class: "RGXRepeatToken", args: ["a", 1, 1, false, false, false, "x"] })).toThrow(/inner/);
     });
 
     describe("perOption", () => {
         it("repeats each option of a union", () => {
             const union = new RGXClassUnionToken(["a", /bc/, testToken1]);
             const result = union.repeat(2, null, { perOption: true, lazy: true });
-            expect(result).toBeInstanceOf(RGXClassUnionToken);
-
-            const tokens = (result as RGXClassUnionToken).tokens as RGXRepeatToken[];
-            expect(tokens).toHaveLength(3);
-            for (const [i, token] of tokens.entries()) {
-                expect(token).toBeInstanceOf(RGXRepeatToken);
-                expect(token.token).toBe(union.tokens[i]);
-                expect(token.min).toBe(2);
-                expect(token.max).toBe(null);
-                expect(token.lazy).toBe(true);
-            }
-
+            expect(result).toBeInstanceOf(RGXRepeatToken);
+            expect(result.token).toBe(union);
+            expect(result.perOption).toBe(true);
             expect(rgxa([result]).source).toBe("a{2,}?|(?:bc){2,}?|(?:test){2,}?");
+        });
+
+        it("repeats each option of an array", () => {
+            expect(rgxa([new RGXRepeatToken(["a", ["b", "c"]], 1, null, { perOption: true })]).source).toBe("a+|b+|c+");
+            // An array with one option is repeated the same way as without the option.
+            expect(rgxa([new RGXRepeatToken(["ab"], 2, 2, { perOption: true })]).source).toBe("(?:ab){2}");
         });
 
         it("matches repeats of one option only", () => {
@@ -55,36 +79,43 @@ describe("RGXClassToken.repeat options", () => {
             expect("aab".match(plain)?.[0]).toBe("aab");
         });
 
-        it("passes the options on to class tokens among the options", () => {
+        it("passes the options on to the options", () => {
             const group = new RGXGroupToken({ name: "x" }, "a");
             const union = new RGXClassUnionToken([group, "b"]);
             expect(rgxa([union.repeat(2, 2, { perOption: true, inner: true })]).source).toBe("(?<x>a{2})|b{2}");
             expect(rgxa([union.repeat(2, 2, { perOption: true })]).source).toBe("(?<x>a){2}|b{2}");
         });
 
-        it("repeats a union as a whole without the option", () => {
-            const union = new RGXClassUnionToken(["a", "b"]);
-            const result = union.repeat(2, 2, { perOption: false });
-            expect(result).toBeInstanceOf(RGXRepeatToken);
-            expect((result as RGXRepeatToken).token).toBe(union);
+        it("applies at resolve time, so later changes to the repeat are used", () => {
+            const token = new RGXRepeatToken(["a", "b"], 2, 2);
+            expect(rgxa([token]).source).toBe("(?:a|b){2}");
+            token.perOption = true;
+            token.min = 1;
+            token.max = null;
+            expect(rgxa([token]).source).toBe("a+|b+");
         });
 
-        it("repeats tokens other than unions as usual", () => {
-            const result = testToken1.repeat(2, 2, { perOption: true });
-            expect(result).toBeInstanceOf(RGXRepeatToken);
-            expect((result as RGXRepeatToken).token).toBe(testToken1);
+        it("repeats tokens other than unions as a whole", () => {
+            expect(rgxa([testToken1.repeat(2, 2, { perOption: true })]).source).toBe("(?:test){2}");
+            expect(rgxa([new RGXRepeatToken(/a|b/, 2, 2, { perOption: true })]).source).toBe("(?:a|b){2}");
         });
 
         it("repeats an empty union as a whole", () => {
             const union = new RGXClassUnionToken([]);
-            const result = union.repeat(2, 2, { perOption: true });
-            expect(result).toBeInstanceOf(RGXRepeatToken);
-            expect((result as RGXRepeatToken).token).toBe(union);
+            expect(rgxa([union.repeat(2, 2, { perOption: true })]).source).toBe(rgxa([union.repeat(2, 2)]).source);
         });
 
         it("throws when an option can't be repeated", () => {
             const union = new RGXClassUnionToken(["a", new RGXLookaheadToken(["b"])]);
             expect(() => union.repeat(2, 2, { perOption: true })).toThrow(RGXNotSupportedError);
+
+            const token = union.repeat(2, 2);
+            expect(() => { token.perOption = true; }).toThrow(RGXNotSupportedError);
+            expect(token.perOption).toBe(false);
+
+            const perOption = new RGXRepeatToken("a", 2, 2, { perOption: true });
+            expect(() => { perOption.token = union; }).toThrow(RGXNotSupportedError);
+            expect(perOption.token).toBe("a");
         });
     });
 
@@ -92,24 +123,13 @@ describe("RGXClassToken.repeat options", () => {
         it("repeats the contents of a named group inside it", () => {
             const group = new RGXGroupToken({ name: "x", aliases: ["y"], flags: "i" }, ["a", "b"]);
             const result = group.repeat(2, 3, { inner: true, lazy: true });
-            expect(result).toBeInstanceOf(RGXGroupToken);
-            expect(result).not.toBe(group);
+            expect(result).toBeInstanceOf(RGXRepeatToken);
+            expect(result.token).toBe(group);
+            expect(result.inner).toBe(true);
 
-            const copy = result as RGXGroupToken;
-            expect(copy.name).toBe("x");
-            expect(copy.aliases).toEqual(["y"]);
-            expect(copy.flags).toBe("i");
-            expect(copy.tokens).toHaveLength(1);
-
-            const repeat = copy.tokens[0] as RGXRepeatToken;
-            expect(repeat).toBeInstanceOf(RGXRepeatToken);
-            expect(repeat.min).toBe(2);
-            expect(repeat.max).toBe(3);
-            expect(repeat.lazy).toBe(true);
-
+            expect(rgxa([result]).source).toBe("(?i:(?<x>(?<y>(?:ab){2,3}?)))");
             // The original group is left alone.
             expect(group.tokens).toEqual(["a", "b"]);
-            expect(rgxa([result]).source).toBe("(?i:(?<x>(?<y>(?:ab){2,3}?)))");
         });
 
         it("captures every repetition instead of only the last", () => {
@@ -119,41 +139,31 @@ describe("RGXClassToken.repeat options", () => {
             expect("123".match(rgxa([group.repeat(1, null)]))?.groups?.x).toBe("3");
         });
 
-        it("leaves out the group around a single token that doesn't need one", () => {
-            const group = new RGXGroupToken({ name: "x" }, "a");
-            expect(rgxa([group.repeat(2, 2, { inner: true })]).source).toBe("(?<x>a{2})");
-        });
-
         it("applies to unnamed capturing groups", () => {
             const group = new RGXGroupToken({}, ["a", "b"]);
             expect(rgxa([group.repeat(2, 2, { inner: true })]).source).toBe("((?:ab){2})");
         });
 
-        it("repeats non-capturing groups as a whole", () => {
+        it("repeats non-capturing groups and other tokens as a whole", () => {
             const group = new RGXGroupToken({ capturing: false }, ["a", "b"]);
-            const result = group.repeat(2, 2, { inner: true });
-            expect(result).toBeInstanceOf(RGXRepeatToken);
-            expect((result as RGXRepeatToken).token).toBe(group);
+            expect(rgxa([group.repeat(2, 2, { inner: true })]).source).toBe("(?:ab){2}");
+            expect(rgxa([testToken1.repeat(2, 2, { inner: true })]).source).toBe("(?:test){2}");
         });
 
         it("keeps each repetition of an atomic group atomic", () => {
             const group = new RGXGroupToken({ name: "x", atomic: true }, ["a", "b"]);
-            const copy = group.repeat(2, 2, { inner: true }) as RGXGroupToken;
-            expect(copy.isAtomic).toBe(false);
-
-            const contents = (copy.tokens[0] as RGXRepeatToken).token as RGXGroupToken;
-            expect(contents).toBeInstanceOf(RGXGroupToken);
-            expect(contents.isAtomic).toBe(true);
-            expect(contents.capturing).toBe(false);
-            expect(contents.tokens).toEqual(["a", "b"]);
-
-            expect("abab".match(rgxa([copy]))?.groups?.x).toBe("abab");
+            const result = group.repeat(2, 2, { inner: true });
+            expect(result.resolve()).toBe(new RGXGroupToken({ name: "x" }, [
+                new RGXRepeatToken(new RGXGroupToken({ capturing: false, atomic: true }, ["a", "b"]), 2, 2)
+            ]).resolve());
+            expect(group.isAtomic).toBe(true);
+            expect("abab".match(rgxa([result]))?.groups?.x).toBe("abab");
         });
 
-        it("repeats tokens other than groups as usual", () => {
-            const result = testToken1.repeat(2, 2, { inner: true });
-            expect(result).toBeInstanceOf(RGXRepeatToken);
-            expect((result as RGXRepeatToken).token).toBe(testToken1);
+        it("keeps a possessive repetition inside the group", () => {
+            const group = new RGXGroupToken({ name: "x" }, "a");
+            expect(group.repeat(1, null, { inner: true, possessive: true }).resolve())
+                .toBe(new RGXGroupToken({ name: "x" }, [new RGXRepeatToken("a", 1, null, { possessive: true })]).resolve());
         });
     });
 });
@@ -183,5 +193,19 @@ describe("RGXClassToken.optional options", () => {
         expect(rgxa([result]).source).toBe("(?<x>a?)");
         // The group always takes part in the match, so it captures an empty string instead of being undefined.
         expect("".match(rgxa([result]))?.groups?.x).toBe("");
+    });
+
+    it("keeps perOption when relaxing the minimum of a repeat", () => {
+        const relaxed = new RGXClassUnionToken(["a", "b"]).repeat(1, null, { perOption: true }).optional();
+        expect(relaxed.perOption).toBe(true);
+        expect(rgxa([relaxed]).source).toBe("a*|b*");
+    });
+
+    it("wraps a repeat of a group's contents instead of relaxing its minimum", () => {
+        const repeat = new RGXGroupToken({ name: "x" }, "a").repeat(1, null, { inner: true });
+        const result = repeat.optional();
+        expect(result.token).toBe(repeat);
+        // The group doesn't take part in the match when nothing matches.
+        expect("".match(rgxa([result]))?.groups?.x).toBeUndefined();
     });
 });

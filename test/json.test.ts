@@ -498,7 +498,7 @@ describe("built-in class token round trips", () => {
         const minOnly = RGXRepeatToken.fromJSON({ $rgx: true, class: "RGXRepeatToken", args: ["a", 3] });
         expect(minOnly.max).toBe(3);
 
-        expect(fromJSONRejection(RGXRepeatToken, [])).toMatch(/between 1 and 5/);
+        expect(fromJSONRejection(RGXRepeatToken, [])).toMatch(/between 1 and 7/);
         expect(fromJSONRejection(RGXRepeatToken, [{ nope: 1 }])).toMatch(/token/);
         expect(fromJSONRejection(RGXRepeatToken, ["a", "1"])).toMatch(/min/);
         expect(fromJSONRejection(RGXRepeatToken, ["a", 1, "2"])).toMatch(/max/);

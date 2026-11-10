@@ -128,7 +128,7 @@ type RGXGroupTokenArgs = {
 type RGXRepeatOptions = {
     lazy?: boolean;
     possessive?: boolean;
-    perOption?: boolean; // on a union, repeat each option instead of the union
+    perOption?: boolean; // on a union (union token or array), repeat each option instead of the union
     inner?: boolean;     // on a capturing group, repeat its contents inside the group instead of the group
 };
 
