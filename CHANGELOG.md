@@ -8,7 +8,7 @@ Changes to the exact regex source the library outputs aren't considered breaking
 
 ---
 
-## Unreleased
+## 15.2.0 - 2026-11-11
 
 ### Added
 
