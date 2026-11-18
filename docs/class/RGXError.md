@@ -387,6 +387,21 @@ constructor(message: string, got: string, position: number)
 - `got` (`string`): The text being parsed.
 - `position` (`number`): The position in the text where parsing stopped.
 
+## RGXPermutationParseFailedError
+A specific error class thrown by `RGXPermutationToken.parse()` when an item appears more or fewer times than its bounds allow, the permutation has more or fewer items than its total bounds, or it doesn't cover all of the text (see [permutation.md](./token/permutation.md)). The error code is set to `PERMUTATION_PARSE_FAILED` on instantiation.
+
+### Constructor
+```typescript
+constructor(message: string, got: string, position: number)
+```
+- `message` (`string`): The error message.
+- `got` (`string`): The text being parsed.
+- `position` (`number`): The position in the text where parsing stopped.
+
+### Properties
+- `got` (`string`): The text being parsed.
+- `position` (`number`): The position in the text where parsing stopped.
+
 ## RGXInvalidJSONTokenError
 A subclass of `RGXInvalidTokenError` for values that fail validation as a JSON token (see [json.md](../json.md)) or as one of its subtypes, including JSON class tokens that target the wrong class and strings that are not valid JSON. The error code is set to `INVALID_RGX_JSON_TOKEN` on instantiation. Since it extends `RGXInvalidTokenError`, it shares its `expected` and `got` properties and message format.
 

@@ -5,7 +5,7 @@ import { rgxAtomic } from "./group";
 import { RGXGroupToken } from "./group";
 import { RGXRepeatToken } from "./repeat";
 import {
-    assertInRange, RGXListParseFailedError, RGXNotJSONSerializableError, RGXNotSupportedError, RGXPartValidationFailedError,
+    assertInRange, RGXListParseFailedError, RGXNotJSONSerializableError, RGXPartValidationFailedError,
     RGXRegexNotMatchedAtPositionError
 } from "src/errors";
 import { isRGXJSONToken } from "src/typeGuards";
@@ -13,6 +13,7 @@ import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
 import { RGXCapture, RGXPart, rgxPartAlias, RGXWalker, RGXWalkerStep } from "src/walker";
+import { localizableRGXParseFlags, rgxItemParseStep, rgxItemTokens, rgxSilentParseStep } from "src/internal/listItems";
 
 // An item of a list: a part, whose options (such as transform and validate) apply to the item when the list is parsed,
 // or a plain token, whose items are the text it matched. A string is text to match, like everywhere else; refer to a
@@ -78,10 +79,6 @@ function parseListJSONArgs(args: RGXJSONValue[]): [RGXJSONListItem[], RGXJSONTok
     }
 
     return [items as RGXJSONListItem[], separator, options as RGXJSONListTokenOptions | undefined];
-}
-
-function localizableFlags(flags: string): string {
-    return [..."ims"].filter(flag => flags.includes(flag)).join("");
 }
 
 // Matches a list of items with a separator between each one, such as comma-separated values, with between min and max
@@ -182,12 +179,7 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
     // The token each item alternative is matched with. Dynamic parts produce their token from a walker's state, which a
     // pattern doesn't have.
     itemTokens(): RGXToken[] {
-        return this.items.map(item => {
-            if (!RGXPart.check(item)) return item;
-            const part = item.target();
-            if (part.isDynamic()) throw new RGXNotSupportedError("Dynamic parts as list items", "A list item's token has to be known without a walker.");
-            return part.token as RGXToken;
-        });
+        return rgxItemTokens(this.items, "list items");
     }
 
     toRgx(): RGXToken {
@@ -230,32 +222,13 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
 
     // The walker steps the items are parsed with. With flags, each token is put in a group that sets them.
     private parseSteps(flags: string): [RGXWalkerStep<null>, RGXPart<null>, RGXPart<null>, RGXPart<null>] {
-        const wrap = (token: RGXToken) => flags === "" ? token : new RGXGroupToken({ capturing: false, flags }, [token]);
-        const tokens = this.itemTokens();
-
-        const alternatives = this.items.map((item, i): RGXWalkerStep<null> => {
-            if (!RGXPart.check(item)) return wrap(tokens[i]);
-            if (flags === "") return item as RGXPart<null>;
-
-            const part = item.target() as RGXPart<null, unknown, unknown>;
-            return new RGXPart<null, unknown, unknown>(wrap(tokens[i]), {
-                id: part.id ?? undefined,
-                rawTransform: part.rawTransform,
-                transform: part.transform,
-                validate: (capture, context) => { part.validate(capture, { part, walker: context.walker }); return true; },
-                beforeCapture: part.beforeCapture,
-                afterCapture: part.afterCapture,
-                afterFailure: part.afterFailure,
-                afterValidationFailure: part.afterValidationFailure,
-                afterLoss: part.afterLoss,
-            });
-        });
-
         // Separators are matched without being recorded.
-        const separator = new RGXPart<null>(wrap(this.separatorToken()), { beforeCapture: () => "silent" });
-        const preposition = new RGXPart<null>(wrap(this.prepositionToken() ?? null), { beforeCapture: () => "silent" });
-        const pairJoin = new RGXPart<null>(wrap(this.pairJoinToken() ?? null), { beforeCapture: () => "silent" });
-        return [alternatives.length === 1 ? alternatives[0]! : alternatives, separator, preposition, pairJoin];
+        return [
+            rgxItemParseStep(this.items, flags, "list items"),
+            rgxSilentParseStep(this.separatorToken(), flags),
+            rgxSilentParseStep(this.prepositionToken() ?? null, flags),
+            rgxSilentParseStep(this.pairJoinToken() ?? null, flags)
+        ];
     }
 
     // Walks text the list matched, returning a capture for each item: its raw text and value (from the item's part, if
@@ -268,7 +241,7 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
             return [];
         }
 
-        const walker = new RGXWalker<null>(text, this.parseSteps(localizableFlags(flags)));
+        const walker = new RGXWalker<null>(text, this.parseSteps(localizableRGXParseFlags(flags)));
         const stepAt = (tokenPosition: number) => {
             walker.tokenPosition = tokenPosition;
             walker.step();

@@ -36,3 +36,4 @@ export * from './invalidPatternTransformerKey';
 export * from './partAliasConflict';
 export * from './invalidPartAlias';
 export * from './listParseFailed';
+export * from './permutationParseFailed';
