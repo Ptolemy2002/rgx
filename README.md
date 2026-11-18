@@ -38,6 +38,7 @@ Because there is so much to document, it has been broken up into multiple files.
     - [subpattern](./docs/class/token/subpattern.md) - The `RGXSubpatternToken` class, which re-matching the content of a previous capturing group.
     - [exact](./docs/class/token/exact.md) - The `RGXExactToken` class, which matches text exactly, whatever flags are around it.
     - [list](./docs/class/token/list.md) - The `RGXListToken` class, which matches a list of items with a separator between them, and parses the items out of the text it matched.
+    - [parsable](./docs/class/token/parsable.md) - The `RGXParsableToken` interface for class tokens with a parse pass of their own, such as `RGXListToken` and `RGXPermutationToken`, and its type guards.
     - [permutation](./docs/class/token/permutation.md) - The `RGXPermutationToken` class, which matches a set of items in any order, each within its own bounds on how many times it appears, and checks those bounds when it parses the text it matched.
     - [wrapper](./docs/class/token/wrapper.md) - The `RGXClassWrapperToken` class, which represents a class token that can wrap any arbitrary token (even non-class), giving you the benefit of the class API for any token.
     - [constant](./docs/class/token/constant.md) - The `RGXConstantToken` class, which refers to a constant by name, so the link to the constant survives JSON serialization.

@@ -2,7 +2,8 @@ import {
     rgxa, rgxClassInit, RGXPermutationToken, rgxPermutation, rgxInterpolation, rgxTokenFromJSON, rgxPart, rgxPartAlias,
     registerRGXPartAlias, unregisterRGXPartAlias, listRGXPartAliases, rgxwa, RGXPermutationParseFailedError, RGXNotSupportedError,
     RGXNotJSONSerializableError, RGXOutOfBoundsError, RGXPartValidationFailedError, RGXRegexNotMatchedAtPositionError,
-    RGXJSONClassArgsValidationFailedError, RGXInvalidTokenError, isRGXPermutationItemConfig, RGXError
+    RGXJSONClassArgsValidationFailedError, RGXInvalidTokenError, isRGXPermutationItemConfig, RGXError,
+    rgxList, rgxGroup, RGXClassToken, isRGXParsableToken, assertRGXParsableToken
 } from "src/index";
 import { ConstructFunction } from "src/internal";
 import { expectError } from "../utils";
@@ -304,5 +305,36 @@ describe("RGXPermutationToken", () => {
             expect(reject([["a"], { separator: { nope: 1 } }])).toThrow(/separator/);
             expect(reject([["a"], { atomic: 1 }])).toThrow(/atomic/);
         });
+    });
+});
+
+describe("RGXParsableToken", () => {
+    it("is implemented by list and permutation tokens", () => {
+        for (const token of [rgxPermutation(["a"]), rgxList("a", ",")]) {
+            expect(isRGXParsableToken(token)).toBe(true);
+            expect(() => assertRGXParsableToken(token)).not.toThrow();
+        }
+    });
+
+    it("rejects other values", () => {
+        class Custom extends RGXClassToken {
+            toRgx() { return "a"; }
+            parse() { return []; }
+            clone() { return this; }
+        }
+        for (const value of ["a", null, { parse: () => [], matchesWhole: () => true }, rgxGroup({}, ["a"]), new Custom()]) {
+            expect(isRGXParsableToken(value)).toBe(false);
+            expect(() => assertRGXParsableToken(value)).toThrow(RGXInvalidTokenError);
+        }
+    });
+
+    it("checks whole text against a list's pattern, without changing what parse() accepts", () => {
+        const list = rgxList(/\d+/, ",", { max: 2 });
+        expect(list.matchesWhole("1,2")).toBe(true);
+        expect(list.matchesWhole("1,2,3")).toBe(false);
+        expect(list.matchesWhole("1,\n2", "m")).toBe(false);
+        list.max = 3;
+        expect(list.matchesWhole("1,2,3")).toBe(true);
+        expect(() => list.parse("1;2", { matched: false })).toThrow(RGXRegexNotMatchedAtPositionError);
     });
 });

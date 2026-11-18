@@ -58,16 +58,17 @@ type RGXPermutationTokenOptions = {
     separator?: RGXToken;
     atomic?: boolean;
 };
-type RGXPermutationParseOptions = {
+type RGXTokenParseOptions = {
     flags?: string;
     matched?: boolean;
 };
+type RGXPermutationParseOptions = RGXTokenParseOptions;
 type RGXJSONPermutationItem = RGXJSONListItem | { item: RGXJSONListItem; min?: number; max?: number | null };
 type RGXJSONPermutationTokenOptions = Omit<RGXPermutationTokenOptions, "separator"> & { separator?: RGXJSONToken };
 ```
 
 # RGXPermutationToken\<T = unknown\>
-A class representing a set of items that can come in any order, such as modifiers on a declaration. By default, every item appears exactly once, so `["a", "b", "c"]` matches `abc`, `cab` and every other order. Each item can have its own bounds on how many times it appears, and the token has bounds on the number of items in total, so it can also match any subset of the items, or let some of them repeat.
+A class, implementing `RGXParsableToken` (see [parsable.md](./parsable.md)), representing a set of items that can come in any order, such as modifiers on a declaration. By default, every item appears exactly once, so `["a", "b", "c"]` matches `abc`, `cab` and every other order. Each item can have its own bounds on how many times it appears, and the token has bounds on the number of items in total, so it can also match any subset of the items, or let some of them repeat.
 
 A pattern listing every order would grow factorially with the number of items, so the pattern only matches a run of items (with a separator between each one, if there is one) within the total bounds, such as `(?:a|b|c){3}`. It doesn't check how many times each item appears, so it also matches `aab`. The counts are checked by `parse()`, which walks the text the permutation matched with the same items, and throws as soon as any condition isn't met. A part that matches the permutation can call it from its `validate` or `transform`:
 

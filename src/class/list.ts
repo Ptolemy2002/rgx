@@ -1,6 +1,7 @@
 import { RGXJSONClassToken, RGXJSONObject, RGXJSONToken, RGXJSONValue, RGXToken } from "src/types";
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
 import { RGXClassToken } from "./base";
+import { RGXParsableToken, RGXTokenParseOptions } from "./parsable";
 import { rgxAtomic } from "./group";
 import { RGXGroupToken } from "./group";
 import { RGXRepeatToken } from "./repeat";
@@ -13,7 +14,7 @@ import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
 import { RGXCapture, RGXPart, rgxPartAlias, RGXWalker, RGXWalkerStep } from "src/walker";
-import { localizableRGXParseFlags, rgxItemParseStep, rgxItemTokens, rgxSilentParseStep } from "src/internal/listItems";
+import { localizableRGXParseFlags, rgxItemParseStep, rgxItemTokens, rgxSilentParseStep, RGXWholeTextRegexCache } from "src/internal/listItems";
 
 // An item of a list: a part, whose options (such as transform and validate) apply to the item when the list is parsed,
 // or a plain token, whose items are the text it matched. A string is text to match, like everywhere else; refer to a
@@ -43,10 +44,9 @@ export type RGXJSONListTokenOptions = Omit<RGXListTokenOptions, "preposition"> &
 
 const optionalWhitespace = /\s*/;
 
-export type RGXListParseOptions = {
-    // The flags the list is matched with. Only the localizable flags (i, m and s) change what the walker matches.
-    flags?: string;
-};
+// See RGXTokenParseOptions. Until the list checks its text against its pattern (see PENDING_BREAKING_CHANGES.md), matched
+// has no effect.
+export type RGXListParseOptions = RGXTokenParseOptions;
 
 // An item alternative in JSON: a JSON token, or the alias of a registered part.
 export type RGXJSONListItem = RGXJSONToken | { alias: string };
@@ -84,7 +84,7 @@ function parseListJSONArgs(args: RGXJSONValue[]): [RGXJSONListItem[], RGXJSONTok
 // Matches a list of items with a separator between each one, such as comma-separated values, with between min and max
 // items. Only the items and separators are matched, without capturing anything, so the token can be used anywhere.
 // To get the items themselves, parse the text the list matched with parse(), which walks it with the same items.
-export class RGXListToken<T = unknown> extends RGXClassToken {
+export class RGXListToken<T = unknown> extends RGXClassToken implements RGXParsableToken<T> {
     items: RGXListItem<T>[];
     separator: RGXToken;
     _min: number;
@@ -98,6 +98,8 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
     padSeparator: boolean;
     pairSeparator: boolean;
     optionalPreposition: boolean;
+    // The regexes matchesWhole() checks text with, one per set of flags.
+    private wholeTextRegexes = new RGXWholeTextRegexCache();
 
     static check = createRGXClassGuardFunction(RGXListToken);
     static assert = createAssertRGXClassGuardFunction(RGXListToken);
@@ -306,6 +308,18 @@ export class RGXListToken<T = unknown> extends RGXClassToken {
         }
         walker.restore("preposition");
         return false;
+    }
+
+    // Whether the list's pattern, with flags, matches all of text. The regex is built once for each set of flags, and
+    // again when the list's options change. parse() doesn't call this yet (see PENDING_BREAKING_CHANGES.md).
+    matchesWhole(text: string, flags: string = ""): boolean {
+        const key = [
+            this.min, this.max, this.separator, this.trailing, this.atomicItems, this.preposition, this.padSeparator,
+            this.pairSeparator, this.optionalPreposition, ...this.itemTokens()
+        ];
+        const regex = this.wholeTextRegexes.get(this, localizableRGXParseFlags(flags), key);
+        regex.lastIndex = 0;
+        return regex.test(text);
     }
 
     clone(depth: CloneDepth = "max") {

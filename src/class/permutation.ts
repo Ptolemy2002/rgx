@@ -1,6 +1,7 @@
 import { RGXJSONClassToken, RGXJSONObject, RGXJSONToken, RGXJSONValue, RGXToken } from "src/types";
 import { createRGXJSONClassToken, rgxJSONClassArgs, rgxTokenFromJSON, rgxTokenToJSON } from "src/json";
 import { RGXClassToken } from "./base";
+import { RGXParsableToken, RGXTokenParseOptions } from "./parsable";
 import { rgxAtomic, RGXGroupToken } from "./group";
 import { RGXRepeatToken } from "./repeat";
 import { RGXListItem, RGXJSONListItem } from "./list";
@@ -38,13 +39,8 @@ export type RGXPermutationTokenOptions = {
     atomic?: boolean;
 };
 
-export type RGXPermutationParseOptions = {
-    // The flags the permutation is matched with. Only the localizable flags (i, m and s) change what the walker matches.
-    flags?: string;
-    // Whether text is already known to be a match of the permutation (such as the raw text of a part whose token is the
-    // permutation), which skips checking it against the permutation's pattern.
-    matched?: boolean;
-};
+// See RGXTokenParseOptions. matched skips checking the text against the permutation's pattern.
+export type RGXPermutationParseOptions = RGXTokenParseOptions;
 
 // An item in JSON: an item, or an object with the item and its bounds.
 export type RGXJSONPermutationItem = RGXJSONListItem | { item: RGXJSONListItem; min?: number; max?: number | null };
@@ -106,7 +102,7 @@ function normalizeItem<T>(value: RGXPermutationItem<T>): RGXPermutationItemBound
 // and max items in total (by default, every item). The pattern only matches a run of items (with separators between
 // them), without checking how many times each one appears, so it doesn't grow with every order the items can come in.
 // parse() checks the counts, walking the text with the same items.
-export class RGXPermutationToken<T = unknown> extends RGXClassToken {
+export class RGXPermutationToken<T = unknown> extends RGXClassToken implements RGXParsableToken<T> {
     items: RGXPermutationItemBounds<T>[];
     _min: number | null = null;
     _max: number | null = null;
