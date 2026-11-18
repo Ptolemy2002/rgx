@@ -60,6 +60,7 @@ type RGXPermutationTokenOptions = {
 };
 type RGXPermutationParseOptions = {
     flags?: string;
+    matched?: boolean;
 };
 type RGXJSONPermutationItem = RGXJSONListItem | { item: RGXJSONListItem; min?: number; max?: number | null };
 type RGXJSONPermutationTokenOptions = Omit<RGXPermutationTokenOptions, "separator"> & { separator?: RGXJSONToken };
@@ -72,7 +73,8 @@ A pattern listing every order would grow factorially with the number of items, s
 
 ```typescript
 const modifiers = rgxPermutation(["public", "static", "final"], { separator: " ", min: 1 });
-const part = rgxPart(modifiers, { id: "modifiers", transform: raw => modifiers.parse(raw).map(item => item.raw) });
+// The part's raw text is a match of the permutation, so the pattern check can be skipped.
+const part = rgxPart(modifiers, { id: "modifiers", transform: raw => modifiers.parse(raw, { matched: true }).map(item => item.raw) });
 
 const walker = rgxwa("static final", [part]);
 walker.walk();
@@ -81,7 +83,9 @@ walker.lastCapture("modifiers").value; // ["static", "final"]
 rgxwa("static static", [part]).walk(); // throws RGXPermutationParseFailedError: item 1 appears more than once
 ```
 
-Since the check runs after the match, it doesn't make the pattern backtrack: when the pattern matched more items than the counts allow, the match fails as a whole rather than falling back to fewer items.
+`parse()` can be given any text, so it first checks that the permutation's pattern matches all of it (see `matchesWhole()`), and throws one `RGXPermutationParseFailedError` if it doesn't, rather than an error from partway through the walk. When the text is already known to be a match, such as the raw text of a part whose token is the permutation, `matched: true` skips that check.
+
+Since the count check runs after the match, it doesn't make the pattern backtrack: when the pattern matched more items than the counts allow, the match fails as a whole rather than falling back to fewer items.
 
 A function `rgxPermutation` is provided with the same parameters as this class' constructor (and the same type parameter), for easier instantiation without needing to use the `new` keyword.
 
@@ -123,7 +127,8 @@ constructor(items: RGXPermutationItem<T>[], options?: RGXPermutationTokenOptions
 - `maxLength() => number | null`: The most items in total: `max`, or when it is `null`, the sum of the items' maximums, or `null` (no limit) when an item has no maximum.
 - `itemTokens() => RGXToken[]`: The token each item is matched with: the token of a part (the registered part's, for an alias part), or the plain token itself. Throws `RGXNotSupportedError` for a dynamic part, whose token can only be produced by a walker, and `RGXInvalidPartAliasError` for an alias that isn't registered.
 - `toRgx() => RGXToken`: Returns the tokens that match the permutation: the union of the items, repeated between `minLength()` and `maxLength()` times. With a separator, it is instead the first item, then a separator and an item repeated between `minLength() - 1` (at least `0`) and `maxLength() - 1` times, all optional when `minLength()` is `0`. Returns `null` (a no-op) when there are no items or `maxLength()` is `0`. With the `atomic` option, the union of items and the separator are each wrapped in a non-capturing atomic group, so the permutation can't be placed inside a lookbehind.
-- `parse(text: string, options?: RGXPermutationParseOptions) => RGXCapture<T>[]`: Walks `text`, which should be the whole text the permutation matched, and returns a capture for each item, the same way as `RGXListToken.parse()`: its `raw` text and `value` (from its part, if it is one), its `start` and `end` in `text`, its part's `ownerId`, the index of the item in `items` as its `branch` (when there is more than one item), and its `groups`. Separators aren't returned. It throws an `RGXPermutationParseFailedError` as soon as an item appears more times than its `max` (before the item's later neighbors are matched or validated) or there would be more than `maxLength()` items, and after the walk if the items don't cover all of `text`, there are fewer than `minLength()`, or an item appears fewer times than its `min`. The walker's errors are thrown when an item or separator doesn't match where one is expected, or an item fails validation. An item that a hook keeps from being recorded isn't counted. `options.flags` (`string`, optional) is the flags the permutation is matched with, since a walker matches without flags; only its localizable flags (`i`, `m` and `s`) are used. With flags, each item part is matched through a copy with the same options, so hooks receive the copy as their `part`.
+- `matchesWhole(text: string, flags?: string) => boolean`: Whether the permutation's pattern matches all of `text`, with the localizable flags (`i`, `m` and `s`) of `flags` (defaults to `""`). It doesn't check how many times each item appears. The regex is built once for each set of flags and cached on the token, and rebuilt when the bounds, separator, `atomic` option or item tokens change.
+- `parse(text: string, options?: RGXPermutationParseOptions) => RGXCapture<T>[]`: Checks that the permutation's pattern matches all of `text` (`matchesWhole()`), throwing an `RGXPermutationParseFailedError` at position `0` if it doesn't, then walks `text` and returns a capture for each item, the same way as `RGXListToken.parse()`: its `raw` text and `value` (from its part, if it is one), its `start` and `end` in `text`, its part's `ownerId`, the index of the item in `items` as its `branch` (when there is more than one item), and its `groups`. Separators aren't returned. It throws an `RGXPermutationParseFailedError` as soon as an item appears more times than its `max` (before the item's later neighbors are matched or validated) or there would be more than `maxLength()` items, and after the walk if the items don't cover all of `text`, there are fewer than `minLength()`, or an item appears fewer times than its `min`. The walker's errors are thrown when an item or separator doesn't match where one is expected, or an item fails validation. An item that a hook keeps from being recorded isn't counted. `options.flags` (`string`, optional) is the flags the permutation is matched with, both by the check and by the walker, since a walker matches without flags; pass the flags in effect where the permutation is placed (the pattern's own and those of enclosing groups). Only its localizable flags (`i`, `m` and `s`) are used. With flags, each item part is matched through a copy with the same options, so hooks receive the copy as their `part`. `options.matched` (`boolean`, optional) skips the pattern check, for text already known to be a match. Defaults to `false`.
 - `clone(depth: CloneDepth = "max") => RGXPermutationToken<T>`: Creates a clone of this token. When `depth` is `0`, returns `this`; otherwise, returns a new `RGXPermutationToken` with its items (parts with `clone()`) and separator cloned to one level less, and the same bounds and options.
 - `toJSON() => RGXJSONClassToken`: Returns a JSON class token with `class` set to `"RGXPermutationToken"` and `args` set to `[items, { min, max, atomic, separator }]` (with `separator` converted with `rgxTokenToJSON`, and left out when there is none). Each item is converted with `rgxTokenToJSON`, or stored as `{ alias }` for an alias part, and items whose bounds aren't the defaults (`min` of `0` and `max` of `1`) are stored as `{ item, min, max }`. Throws `RGXNotJSONSerializableError` for a part that isn't an alias part. The result is accepted by `fromJSON` and by `rgxTokenFromJSON` (see [../../json.md](../../json.md)).
 

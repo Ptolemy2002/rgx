@@ -388,7 +388,7 @@ constructor(message: string, got: string, position: number)
 - `position` (`number`): The position in the text where parsing stopped.
 
 ## RGXPermutationParseFailedError
-A specific error class thrown by `RGXPermutationToken.parse()` when an item appears more or fewer times than its bounds allow, the permutation has more or fewer items than its total bounds, or it doesn't cover all of the text (see [permutation.md](./token/permutation.md)). The error code is set to `PERMUTATION_PARSE_FAILED` on instantiation.
+A specific error class thrown by `RGXPermutationToken.parse()` when the text doesn't match the permutation's pattern, an item appears more or fewer times than its bounds allow, the permutation has more or fewer items than its total bounds, or it doesn't cover all of the text (see [permutation.md](./token/permutation.md)). The error code is set to `PERMUTATION_PARSE_FAILED` on instantiation.
 
 ### Constructor
 ```typescript

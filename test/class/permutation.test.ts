@@ -148,7 +148,7 @@ describe("RGXPermutationToken", () => {
         it("fails as soon as an item appears too many times", () => {
             const validate = jest.fn(() => true as const);
             const permutation = rgxPermutation(["a", rgxPart("b", { validate })]);
-            expectError(() => permutation.parse("aab"), RGXPermutationParseFailedError, e => {
+            expectError(() => permutation.parse("aab", { matched: true }), RGXPermutationParseFailedError, e => {
                 expect(e.message).toMatch(/Item 0 appears more than its maximum of 1/);
                 expect(e.position).toBe(1);
             });
@@ -157,7 +157,7 @@ describe("RGXPermutationToken", () => {
 
         it("fails as soon as there are too many items", () => {
             const permutation = rgxPermutation([{ item: "a", max: null }], { max: 2, separator: "," });
-            expectError(() => permutation.parse("a,a,a"), RGXPermutationParseFailedError, e => {
+            expectError(() => permutation.parse("a,a,a", { matched: true }), RGXPermutationParseFailedError, e => {
                 expect(e.message).toMatch(/more than the maximum of 2/);
                 expect(e.position).toBe(4);
             });
@@ -166,7 +166,7 @@ describe("RGXPermutationToken", () => {
         it("checks the total and each item's minimum at the end", () => {
             const permutation = rgxPermutation([{ item: "a", min: 1 }, "b", "c"], { min: 2 });
             expect(permutation.parse("ba").map(c => c.raw)).toEqual(["b", "a"]);
-            expectError(() => permutation.parse("b"), RGXPermutationParseFailedError, e => expect(e.message).toMatch(/1 items, fewer than the minimum of 2/));
+            expectError(() => permutation.parse("b", { matched: true }), RGXPermutationParseFailedError, e => expect(e.message).toMatch(/1 items, fewer than the minimum of 2/));
             expectError(() => permutation.parse("bc"), RGXPermutationParseFailedError, e => {
                 expect(e.message).toMatch(/Item 0 appears 0 times, fewer than its minimum of 1/);
                 expect(e.code).toBe("PERMUTATION_PARSE_FAILED");
@@ -176,19 +176,50 @@ describe("RGXPermutationToken", () => {
         it("handles empty text and empty permutations", () => {
             expect(rgxPermutation(["a"], { min: 0 }).parse("")).toEqual([]);
             expect(rgxPermutation([]).parse("")).toEqual([]);
-            expect(() => rgxPermutation(["a"]).parse("")).toThrow(/0 items, fewer than the minimum of 1/);
+            expect(() => rgxPermutation(["a"]).parse("", { matched: true })).toThrow(/0 items, fewer than the minimum of 1/);
             expect(() => rgxPermutation([{ item: "a", min: 1 }], { min: 0 }).parse("")).toThrow(/Item 0/);
-            expect(() => rgxPermutation([]).parse("a")).toThrow(RGXPermutationParseFailedError);
-            expect(() => rgxPermutation(["a"], { max: 0, min: 0 }).parse("a")).toThrow(RGXPermutationParseFailedError);
+            expect(() => rgxPermutation([]).parse("a", { matched: true })).toThrow(RGXPermutationParseFailedError);
+            expect(() => rgxPermutation(["a"], { max: 0, min: 0 }).parse("a", { matched: true })).toThrow(RGXPermutationParseFailedError);
+        });
+
+        it("checks the text against its pattern first, with the given flags", () => {
+            const permutation = rgxPermutation(["a", "b"], { separator: "," });
+            for (const text of ["ax", "a;b", "a,b,a", "", "a,b\nb,a"]) {
+                expectError(() => permutation.parse(text), RGXPermutationParseFailedError, e => {
+                    expect(e.message).toMatch(/doesn't match the permutation's pattern/);
+                    expect(e.position).toBe(0);
+                });
+            }
+            expect(() => permutation.parse("a,b\nb,a", { flags: "m" })).toThrow(/pattern/);
+            expect(() => permutation.parse("B,A")).toThrow(/pattern/);
+            expect(permutation.parse("B,A", { flags: "i" }).map(c => c.raw)).toEqual(["B", "A"]);
+            expect(permutation.matchesWhole("b,a")).toBe(true);
+            expect(permutation.matchesWhole("a,a")).toBe(true);
+            expect(permutation.matchesWhole("B,A")).toBe(false);
+            expect(permutation.matchesWhole("B,A", "i")).toBe(true);
+        });
+
+        it("rebuilds the pattern it checks with when its options change", () => {
+            const permutation = rgxPermutation(["a", "b"]);
+            expect(permutation.matchesWhole("ab")).toBe(true);
+            permutation.max = 1;
+            permutation.min = 1;
+            expect(permutation.matchesWhole("ab")).toBe(false);
+            expect(permutation.matchesWhole("b")).toBe(true);
+            permutation.separator = ",";
+            permutation.max = 2;
+            expect(permutation.matchesWhole("b,a")).toBe(true);
+            permutation.items[0]!.item = "c";
+            expect(permutation.matchesWhole("b,c")).toBe(true);
         });
 
         it("throws the walker's errors for text that isn't an item or separator", () => {
-            expect(() => rgxPermutation(["a", "b"]).parse("ax")).toThrow(RGXRegexNotMatchedAtPositionError);
-            expect(() => rgxPermutation(["a", "b"], { separator: "," }).parse("a;b")).toThrow(RGXRegexNotMatchedAtPositionError);
+            expect(() => rgxPermutation(["a", "b"]).parse("ax", { matched: true })).toThrow(RGXRegexNotMatchedAtPositionError);
+            expect(() => rgxPermutation(["a", "b"], { separator: "," }).parse("a;b", { matched: true })).toThrow(RGXRegexNotMatchedAtPositionError);
         });
 
         it("stops when items and separators match the empty string, or a hook stops the walker", () => {
-            expect(() => rgxPermutation([/x*/], { separator: /,?/, min: 0 }).parse("y")).toThrow(RGXError);
+            expect(() => rgxPermutation([/x*/], { separator: /,?/, min: 0 }).parse("y", { matched: true })).toThrow(RGXError);
             const stopping = rgxPermutation([rgxPart("a", { afterCapture: (_, { walker }) => { walker.stop(); } }), "b"]);
             expect(() => stopping.parse("ab")).toThrow(/doesn't match all of the text/);
         });
@@ -200,11 +231,11 @@ describe("RGXPermutationToken", () => {
 
         it("validates items with their parts, and matches with the given flags", () => {
             const permutation = rgxPermutation([{ item: rgxPart(/[a-z]/, { validate: c => c.raw !== "x" || "no x" }), max: 2 }]);
-            expect(() => permutation.parse("ax")).toThrow(RGXPartValidationFailedError);
-            expect(() => rgxPermutation(["a", "b"]).parse("BA")).toThrow(RGXRegexNotMatchedAtPositionError);
+            expect(() => permutation.parse("ax", { matched: true })).toThrow(RGXPartValidationFailedError);
+            expect(() => rgxPermutation(["a", "b"]).parse("BA", { matched: true })).toThrow(RGXRegexNotMatchedAtPositionError);
             expect(rgxPermutation(["a", "b"]).parse("BA", { flags: "ig" }).map(c => c.raw)).toEqual(["B", "A"]);
             // In a union, an item that fails validation is dropped so the others get a chance, the way the walker does.
-            expect(() => rgxPermutation([rgxPart(/[a-z]/, { validate: c => c.raw !== "x" || "no x" }), "1"]).parse("x1")).toThrow(RGXRegexNotMatchedAtPositionError);
+            expect(() => rgxPermutation([rgxPart(/[a-z]/, { validate: c => c.raw !== "x" || "no x" }), "1"]).parse("x1", { matched: true })).toThrow(RGXRegexNotMatchedAtPositionError);
         });
 
         it("enforces the counts from a part's transform", () => {

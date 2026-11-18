@@ -2,6 +2,10 @@ import { RGXToken } from "src/types";
 import { RGXNotSupportedError } from "src/errors";
 import { RGXGroupToken } from "src/class/group";
 import { RGXPart, RGXWalkerStep } from "src/walker";
+import { ExtRegExp } from "src/ExtRegExp";
+import { createRegex } from "src/utils/createRegex";
+import { resolveRGXToken } from "src/resolve";
+import { resolveFinishedRGXSource } from "src/internal/exactMarkers";
 
 // An item alternative of a token that parses its own text, such as RGXListToken: a part, whose options apply to the
 // item when the text is parsed, or a plain token, whose items are the text it matched.
@@ -58,4 +62,24 @@ export function rgxItemParseStep(items: readonly RGXItemAlternative[], flags: st
 // A part matching a token without being recorded, such as a separator.
 export function rgxSilentParseStep(token: RGXToken, flags: string): RGXPart<null> {
     return new RGXPart<null>(rgxTokenWithParseFlags(token, flags), { beforeCapture: () => "silent" });
+}
+
+// A regex that matches only text that a token matches as a whole, with the given flags, for checking the text a token's
+// parse pass is given. Lookarounds anchor it, since ^ and $ match at line breaks with the m flag.
+export function rgxWholeTextRegex(token: RGXToken, flags: string): ExtRegExp {
+    const source = resolveFinishedRGXSource(() => resolveRGXToken(token));
+    return createRegex(`(?<![\\s\\S])(?:${source})(?![\\s\\S])`, flags, true);
+}
+
+// Caches the whole-text regex of a token for each set of flags, rebuilding it when the values it was built from change.
+export class RGXWholeTextRegexCache {
+    private entries = new Map<string, { key: readonly unknown[]; regex: ExtRegExp }>();
+
+    get(token: RGXToken, flags: string, key: readonly unknown[]): ExtRegExp {
+        const entry = this.entries.get(flags);
+        if (entry !== undefined && entry.key.length === key.length && entry.key.every((value, i) => value === key[i])) return entry.regex;
+        const regex = rgxWholeTextRegex(token, flags);
+        this.entries.set(flags, { key: [...key], regex });
+        return regex;
+    }
 }

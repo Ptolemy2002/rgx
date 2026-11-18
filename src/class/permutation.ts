@@ -10,7 +10,7 @@ import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
 import { RGXCapture, RGXPart, rgxPartAlias, RGXWalker, RGXWalkerStep } from "src/walker";
-import { localizableRGXParseFlags, rgxItemParseStep, rgxItemTokens, rgxSilentParseStep } from "src/internal/listItems";
+import { localizableRGXParseFlags, rgxItemParseStep, rgxItemTokens, rgxSilentParseStep, RGXWholeTextRegexCache } from "src/internal/listItems";
 
 // An item of a permutation, with bounds on how many times it can appear.
 export type RGXPermutationItemConfig<T = unknown> = {
@@ -41,6 +41,9 @@ export type RGXPermutationTokenOptions = {
 export type RGXPermutationParseOptions = {
     // The flags the permutation is matched with. Only the localizable flags (i, m and s) change what the walker matches.
     flags?: string;
+    // Whether text is already known to be a match of the permutation (such as the raw text of a part whose token is the
+    // permutation), which skips checking it against the permutation's pattern.
+    matched?: boolean;
 };
 
 // An item in JSON: an item, or an object with the item and its bounds.
@@ -112,6 +115,8 @@ export class RGXPermutationToken<T = unknown> extends RGXClassToken {
     // Whether the items and separators are matched atomically (the atomic option). Named differently from the atomic()
     // method every class token has.
     atomicItems: boolean;
+    // The regexes parse() checks its text with, one per set of flags.
+    private wholeTextRegexes = new RGXWholeTextRegexCache();
 
     static check = createRGXClassGuardFunction(RGXPermutationToken);
     static assert = createAssertRGXClassGuardFunction(RGXPermutationToken);
@@ -203,7 +208,7 @@ export class RGXPermutationToken<T = unknown> extends RGXClassToken {
     // Throws RGXPermutationParseFailedError as soon as an item appears more than its own max or there are more than
     // maxLength() items, and at the end if the items don't cover all of text, there are fewer than minLength(), or an
     // item appears fewer than its own min. The walker's errors are thrown when an item or separator doesn't match.
-    parse(text: string, { flags = "" }: RGXPermutationParseOptions = {}): RGXCapture<T>[] {
+    parse(text: string, { flags = "", matched = false }: RGXPermutationParseOptions = {}): RGXCapture<T>[] {
         const min = this.minLength();
         const max = this.maxLength();
         const counts = this.items.map(() => 0);
@@ -211,9 +216,12 @@ export class RGXPermutationToken<T = unknown> extends RGXClassToken {
         const fail = (message: string, position: number): never => {
             throw new RGXPermutationParseFailedError(message, text, position);
         };
+        const localFlags = localizableRGXParseFlags(flags);
+
+        if (!matched && !this.matchesWhole(text, localFlags)) fail("The text doesn't match the permutation's pattern", 0);
 
         if (text !== "" && max !== 0 && this.items.length > 0) {
-            const walker = new RGXWalker<null>(text, this.parseSteps(localizableRGXParseFlags(flags)));
+            const walker = new RGXWalker<null>(text, this.parseSteps(localFlags));
             const stepAt = (tokenPosition: number) => {
                 walker.tokenPosition = tokenPosition;
                 walker.step();
@@ -258,6 +266,18 @@ export class RGXPermutationToken<T = unknown> extends RGXClassToken {
         });
 
         return captures;
+    }
+
+    // Whether the permutation's pattern, with flags, matches all of text. It doesn't check how many times each item
+    // appears. The regex is built once for each set of flags, and again when the permutation's options change.
+    matchesWhole(text: string, flags: string = ""): boolean {
+        const key = [
+            this.min, this.max, this.separator, this.atomicItems,
+            ...this.items.flatMap(({ min, max }) => [min, max]), ...this.itemTokens()
+        ];
+        const regex = this.wholeTextRegexes.get(this, localizableRGXParseFlags(flags), key);
+        regex.lastIndex = 0;
+        return regex.test(text);
     }
 
     clone(depth: CloneDepth = "max") {
