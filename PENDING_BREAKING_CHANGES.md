@@ -122,3 +122,21 @@ The constructor, `rgxRepeat`, `repeat()` and `optional()` already take an `RGXRe
 ### Reverting the workaround
 
 Drop the boolean `possessive` parameter and the boolean form of the `lazy` parameter from the `RGXRepeatToken` constructor, `repeat()` and `optional()` (in `src/class/repeat.ts`, `src/class/base.ts` and `src/class/init.ts`), simplify `normalizeRGXRepeatOptions` in `src/internal/repeatOptions.ts` to only fill in defaults for a missing options object, update the JSON parsing above, `docs/class/token/repeat.md`, `docs/class/token/base.md` and `docs/json.md`, and add the migration to `MIGRATION.md`.
+
+## Check the text given to `RGXListToken.parse()` against the list's pattern
+
+### Problem
+
+`RGXListToken.parse()` assumes its text is a match of the list, but it can be given any text. Text of the wrong shape fails partway through the walk with whichever error comes up first, such as `RGXRegexNotMatchedAtPositionError` from an item or separator, or an `RGXListParseFailedError` about a missing preposition, instead of one clear error saying the text isn't a list.
+
+### Breaking change
+
+Before walking, check that the list's pattern matches all of the text, with the localizable flags of the `flags` option, and throw `RGXListParseFailedError` at position `0` if it doesn't, the way `RGXPermutationToken.parse()` does. Make the `matched: true` option (already accepted, but ignored) skip the check for text already known to match, and call `matchesWhole(text, flags)` (already on the token) for the check. Text that currently throws a walker error (`RGXRegexNotMatchedAtPositionError` or `RGXPartValidationFailedError` from a separator that isn't there) would throw `RGXListParseFailedError` instead, so code catching the old errors would stop catching them. Text that the pattern rejects but the walk currently accepts would start throwing.
+
+### Current workaround
+
+`RGXListToken.parse()` (`src/class/list.ts`) still walks any text it is given. `RGXListToken.matchesWhole()` exists, so callers can check text themselves, and `RGXListParseOptions` (an alias of `RGXTokenParseOptions` in `src/class/parsable.ts`) accepts `matched` so the list implements `RGXParsableToken`, but `parse()` ignores it.
+
+### Reverting the workaround
+
+Add the check to `RGXListToken.parse()`, skipped when `matched` is `true`, update the tests in `test/class/list.test.ts` that expect walker errors for malformed text (passing `matched: true` where they test the walk itself), and update `docs/class/token/list.md` and `docs/class/token/parsable.md`, which say `matched` is ignored for lists.

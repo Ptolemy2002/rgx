@@ -8,6 +8,14 @@ Changes to the exact regex source the library outputs aren't considered breaking
 
 ---
 
+## Unreleased
+
+### Added
+
+- `RGXPermutationToken` (and `rgxPermutation`) matches a set of items in any order, each at most once by default, so `rgxPermutation(["a", "b", "c"])` matches `abc`, `cab` and every other order. An item can be given as `{ item, min, max }` to set how many times it can appear (`isRGXPermutationItemConfig` tells these apart from tokens), and `min` and `max` options bound the number of items in total (by default, every item), so it can also match any subset of the items. A `separator` option matches a token between items, and items and separators are matched atomically by default. The pattern only matches a run of items within the total bounds (like `(?:a|b|c){3}`) rather than listing every order, so `parse(text, { flags })` checks the counts, walking the text with the same items and returning an `RGXCapture` for each one, with the item's index as its `branch`. It first checks that the pattern matches all of the text (also available as `matchesWhole(text, flags)`, with the regex cached per set of flags), so text of the wrong shape throws one clear error, and `matched: true` skips that check for text already known to match. It throws the new `RGXPermutationParseFailedError` for a mismatch, as soon as an item appears too many times or there are too many items, and at the end if there are too few, or an item appears fewer times than its minimum. Items can be parts (alias parts are serialized to JSON by their alias) or plain tokens, the same as `RGXListToken` items. See [permutation.md](./docs/class/token/permutation.md).
+- The `RGXParsableToken` interface describes class tokens with a parse pass of their own (`parse(text, options)` and `matchesWhole(text, flags)`), with `isRGXParsableToken` and `assertRGXParsableToken` to check for one. `RGXListToken` and `RGXPermutationToken` implement it, and their parse options are now both the new `RGXTokenParseOptions` type (`RGXListParseOptions` and `RGXPermutationParseOptions` are kept as aliases). See [parsable.md](./docs/class/token/parsable.md).
+- `RGXListToken` has a `matchesWhole(text, flags)` method, which checks whether the list's pattern matches all of the text, with the regex cached per set of flags. `parse()` accepts a `matched` option, which has no effect yet.
+
 ## 15.2.0 - 2026-11-11
 
 ### Added
