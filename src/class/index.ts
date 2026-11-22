@@ -13,3 +13,5 @@ export * from "./exclusion";
 export * from "./constant";export * from "./exact";
 export * from "./atomic";
 export * from "./list";
+export * from "./permutation";
+export * from "./parsable";
