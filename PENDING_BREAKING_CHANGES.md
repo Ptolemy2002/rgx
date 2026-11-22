@@ -140,3 +140,21 @@ Before walking, check that the list's pattern matches all of the text, with the 
 ### Reverting the workaround
 
 Add the check to `RGXListToken.parse()`, skipped when `matched` is `true`, update the tests in `test/class/list.test.ts` that expect walker errors for malformed text (passing `matched: true` where they test the walk itself), and update `docs/class/token/list.md` and `docs/class/token/parsable.md`, which say `matched` is ignored for lists.
+
+## Throw `RGXDuplicateGroupNameError` for named groups in `RGXListToken` items
+
+### Problem
+
+Each item token of an `RGXListToken` appears more than once in its pattern, so an item with a named group (in a literal token, a part, or anywhere else) gives a pattern with a repeated name. The regex engine rejects it when the list is resolved, which surfaces as an `RGXInvalidRegexStringError` whose message only shows the whole generated pattern, not which item or name is at fault.
+
+### Breaking change
+
+Check the item tokens before building the pattern, the way `RGXPermutationToken.toRgx()` does when it has a separator, and throw `RGXDuplicateGroupNameError` naming the group. Code that catches `RGXInvalidRegexStringError` for this case would stop catching it.
+
+### Current workaround
+
+None: `RGXListToken.toRgx()` (`src/class/list.ts`) builds the pattern without checking, and the engine's error is thrown. The check already exists as `assertRGXTokensWithoutNamedGroups` in `src/internal/listItems.ts`.
+
+### Reverting the workaround
+
+Call `assertRGXTokensWithoutNamedGroups` on `itemTokens()` in `RGXListToken.toRgx()`, add a test to `test/class/list.test.ts`, and update the sentence about named groups in `docs/class/token/list.md`.

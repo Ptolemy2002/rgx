@@ -3,7 +3,7 @@ import {
     registerRGXPartAlias, unregisterRGXPartAlias, listRGXPartAliases, rgxwa, RGXPermutationParseFailedError, RGXNotSupportedError,
     RGXNotJSONSerializableError, RGXOutOfBoundsError, RGXPartValidationFailedError, RGXRegexNotMatchedAtPositionError,
     RGXJSONClassArgsValidationFailedError, RGXInvalidTokenError, isRGXPermutationItemConfig, RGXError,
-    rgxList, rgxGroup, RGXClassToken, isRGXParsableToken, assertRGXParsableToken
+    rgxList, rgxGroup, RGXClassToken, RGXDuplicateGroupNameError, isRGXParsableToken, assertRGXParsableToken
 } from "src/index";
 import { ConstructFunction } from "src/internal";
 import { expectError } from "../utils";
@@ -126,6 +126,20 @@ describe("RGXPermutationToken", () => {
         it("allows named groups in items without a separator", () => {
             const permutation = rgxPermutation([/(?<x>a)/, "b"]);
             expect(whole(permutation).exec("ba")!.groups!.x).toBe("a");
+        });
+
+        it("rejects named groups in items with a separator, with a clear error", () => {
+            const permutation = rgxPermutation([/b/, rgxPart(rgxGroup({ name: "x" }, ["a"]))], { separator: "," });
+            expectError(() => permutation.resolve(), RGXDuplicateGroupNameError, e => {
+                expect(e.groupName).toBe("x");
+                expect(e.message).toMatch(/separator/);
+            });
+            expect(() => permutation.parse("b,a")).toThrow(RGXDuplicateGroupNameError);
+            expect(() => rgxa([permutation])).toThrow(RGXDuplicateGroupNameError);
+            // Unnamed groups, and the library's own atomic groups, are fine.
+            expect(whole(rgxPermutation([/(a)/, rgxGroup({ capturing: false, atomic: true }, ["b"])], { separator: "," })).test("b,a")).toBe(true);
+            // Sources the analysis can't read are left to the engine.
+            expect(() => rgxPermutation([rgxInterpolation("(?<x>a"), rgxInterpolation(")")], { separator: "," }).resolve()).toThrow(RGXError);
         });
 
         it("rejects dynamic parts", () => {

@@ -11,7 +11,7 @@ import { createAssertRGXClassGuardFunction, createRGXClassGuardFunction } from "
 import { CloneDepth, depthDecrement } from "@ptolemy2002/immutability-utils";
 import { cloneRGXToken } from "src/clone";
 import { RGXCapture, RGXPart, rgxPartAlias, RGXWalker, RGXWalkerStep } from "src/walker";
-import { localizableRGXParseFlags, rgxItemParseStep, rgxItemTokens, rgxSilentParseStep, RGXWholeTextRegexCache } from "src/internal/listItems";
+import { assertRGXTokensWithoutNamedGroups, localizableRGXParseFlags, rgxItemParseStep, rgxItemTokens, rgxSilentParseStep, RGXWholeTextRegexCache } from "src/internal/listItems";
 
 // An item of a permutation, with bounds on how many times it can appear.
 export type RGXPermutationItemConfig<T = unknown> = {
@@ -186,6 +186,9 @@ export class RGXPermutationToken<T = unknown> extends RGXClassToken implements R
         const itemToken: RGXToken = alternatives.length === 1 ? alternatives[0]! : alternatives;
         const item = this.atomicItems ? rgxAtomic([itemToken]) : itemToken;
         if (!this.hasSeparator()) return new RGXRepeatToken(item, min, max);
+
+        // The items appear twice: once for the first item, and once in the repeated part.
+        assertRGXTokensWithoutNamedGroups(alternatives, "Permutation items can't contain named groups when there is a separator, since each item appears twice in the pattern");
 
         const separator = this.atomicItems ? rgxAtomic([this.separator]) : this.separator;
         const pair = new RGXGroupToken({ capturing: false }, [separator, item]);

@@ -1,11 +1,15 @@
 import { RGXToken } from "src/types";
-import { RGXNotSupportedError } from "src/errors";
 import { RGXGroupToken } from "src/class/group";
 import { RGXPart, RGXWalkerStep } from "src/walker";
 import { ExtRegExp } from "src/ExtRegExp";
 import { createRegex } from "src/utils/createRegex";
 import { resolveRGXToken } from "src/resolve";
 import { resolveFinishedRGXSource } from "src/internal/exactMarkers";
+import { withoutRGXInsertionChecks } from "src/internal/insertionContext";
+import { parseRegexSource } from "src/internal/analyzeRegexSource";
+import { isRGXAtomicGroupName } from "src/internal/atomicGroups";
+import { visitRegExpAST } from "@eslint-community/regexpp";
+import { RGXDuplicateGroupNameError, RGXNotSupportedError } from "src/errors";
 
 // An item alternative of a token that parses its own text, such as RGXListToken: a part, whose options apply to the
 // item when the text is parsed, or a plain token, whose items are the text it matched.
@@ -81,5 +85,25 @@ export class RGXWholeTextRegexCache {
         const regex = rgxWholeTextRegex(token, flags);
         this.entries.set(flags, { key: [...key], regex });
         return regex;
+    }
+}
+
+// Throws RGXDuplicateGroupNameError with message if any of tokens has a named group, for tokens placed in a pattern more
+// than once, where the engine would otherwise reject the repeated name with a less helpful error. Each token is resolved
+// on its own, without insertion checks. Sources the analysis can't read are left for the engine to report.
+export function assertRGXTokensWithoutNamedGroups(tokens: readonly RGXToken[], message: string) {
+    for (const token of tokens) {
+        const source = withoutRGXInsertionChecks(() => resolveFinishedRGXSource(() => resolveRGXToken(token)));
+        const ast = parseRegexSource(source);
+        if (ast === null) continue;
+
+        let name: string | null = null;
+        visitRegExpAST(ast, {
+            onCapturingGroupEnter: group => {
+                // Atomic groups are named by the library, and given unique names when the pattern is compiled.
+                if (name === null && group.name !== null && !isRGXAtomicGroupName(group.name)) name = group.name;
+            }
+        });
+        if (name !== null) throw new RGXDuplicateGroupNameError(message, name, source);
     }
 }
